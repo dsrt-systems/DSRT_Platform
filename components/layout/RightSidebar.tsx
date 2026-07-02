@@ -85,7 +85,6 @@ export function RightSidebar({ user }: RightSidebarProps) {
 
     fetchData()
 
-    // Real-time subscription for notifications
     const notifChannel = supabase
       .channel('notifs')
       .on(
@@ -102,7 +101,6 @@ export function RightSidebar({ user }: RightSidebarProps) {
       )
       .subscribe()
 
-    // Real-time subscription for new editorial posts
     const editorialChannel = supabase
       .channel('editorial')
       .on(
@@ -118,9 +116,8 @@ export function RightSidebar({ user }: RightSidebarProps) {
       )
       .subscribe()
 
-    // Real-time subscription for new posts (trending builds refresh)
     const postsChannel = supabase
-      .channel('posts')
+      .channel('startups-changes')
       .on(
         'postgres_changes',
         {
@@ -144,7 +141,6 @@ export function RightSidebar({ user }: RightSidebarProps) {
   return (
     <aside className="hidden lg:flex flex-col fixed right-0 top-14 bottom-0 w-80 overflow-y-auto">
       <div className="p-3 space-y-3">
-        {/* ACTIVITY CARD */}
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-2">
           <p className="px-3 pt-2 pb-2 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
             ACTIVITY
@@ -155,11 +151,11 @@ export function RightSidebar({ user }: RightSidebarProps) {
           >
             <div className="flex items-center gap-3">
               <Bell
-                className={`w-4 h-4 ${
+                className={
                   unreadNotifs > 0
-                    ? 'text-primary animate-pulse'
-                    : 'text-muted-foreground'
-                }`}
+                    ? 'w-4 h-4 text-primary animate-pulse'
+                    : 'w-4 h-4 text-muted-foreground'
+                }
               />
               <span>Notifications</span>
             </div>
@@ -171,7 +167,6 @@ export function RightSidebar({ user }: RightSidebarProps) {
           </Link>
         </div>
 
-        {/* DSRT NEWS CARD */}
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <h3 className="font-semibold text-sm">DSRT News</h3>
@@ -197,8 +192,8 @@ export function RightSidebar({ user }: RightSidebarProps) {
                   <p className="text-xs text-muted-foreground mt-1">
                     {formatDistanceToNow(new Date(item.published_at), {
                       addSuffix: true,
-                    })}{' '}
-                    •{' '}
+                    })}
+                    {' · '}
                     {item.view_count ||
                       Math.floor(Math.random() * 5000) + 100}{' '}
                     readers
@@ -215,14 +210,15 @@ export function RightSidebar({ user }: RightSidebarProps) {
           >
             {showAllNews ? 'Show less' : 'Show all news'}
             <ChevronDown
-              className={`w-4 h-4 transition-transform ${
-                showAllNews ? 'rotate-180' : ''
-              }`}
+              className={
+                showAllNews
+                  ? 'w-4 h-4 rotate-180 transition-transform'
+                  : 'w-4 h-4 transition-transform'
+              }
             />
           </button>
         </div>
 
-        {/* TRENDING BUILDS */}
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
@@ -261,7 +257,6 @@ export function RightSidebar({ user }: RightSidebarProps) {
           )}
         </div>
 
-        {/* SUGGESTED BUILDERS */}
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <Users className="w-3.5 h-3.5 text-muted-foreground" />
@@ -294,7 +289,7 @@ export function RightSidebar({ user }: RightSidebarProps) {
                         {s.user.tagline}
                       </p>
                     )}
-                    {s.reasons.length > 0 && (
+                    {s.reasons && s.reasons.length > 0 && (
                       <p className="text-[10px] text-primary mt-0.5">
                         {s.reasons[0]}
                       </p>
@@ -312,5 +307,49 @@ export function RightSidebar({ user }: RightSidebarProps) {
           )}
         </div>
 
-        {/* TAKE A BREAK */}
-        <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-purple-500/10 
+        <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 backdrop-blur-sm p-4">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <h3 className="font-semibold text-sm">Take a break</h3>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Quick games between builds
+          </p>
+          <div className="space-y-1.5">
+            <Link
+              href="/games/pingpong"
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-background/40 transition-colors"
+            >
+              <span className="text-base">🏓</span>
+              <span className="text-xs font-medium">Emoji PingPong</span>
+            </Link>
+            <Link
+              href="/games/blockcube"
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-background/40 transition-colors"
+            >
+              <span className="text-base">🎲</span>
+              <span className="text-xs font-medium">Block Cube</span>
+            </Link>
+          </div>
+        </div>
+
+        <div className="pt-2 pb-4 px-2 space-y-2">
+          <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+            <a href="#" className="hover:text-foreground">
+              About
+            </a>
+            <span>·</span>
+            <a href="#" className="hover:text-foreground">
+              Privacy
+            </a>
+            <span>·</span>
+            <a href="#" className="hover:text-foreground">
+              Terms
+            </a>
+          </div>
+          <p className="text-[10px] text-muted-foreground/60">DSRT © 2025</p>
+        </div>
+      </div>
+    </aside>
+  )
+}
