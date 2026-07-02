@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')
 
   if (code) {
-    const supabase = await createClient()
+    const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
@@ -24,7 +24,6 @@ export async function GET(request: Request) {
         if (!profile?.onboarding_complete) {
           return NextResponse.redirect(`${origin}/onboarding`)
         }
-
         return NextResponse.redirect(`${origin}/feed`)
       }
     }

@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { LandingPage } from '@/components/landing/LandingPage'
 
 export default async function HomePage() {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const {
     data: { user },
@@ -22,5 +23,5 @@ export default async function HomePage() {
     }
   }
 
-  redirect('/login')
+  return <LandingPage />
 }

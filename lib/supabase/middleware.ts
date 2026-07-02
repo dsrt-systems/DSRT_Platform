@@ -33,14 +33,15 @@ export async function updateSession(request: NextRequest) {
 
   const protectedRoutes = [
     '/feed',
+    '/explore',
     '/community',
     '/pulse',
-    '/profile',
-    '/startup',
+    '/projects',
+    '/ventures',
     '/messages',
     '/notifications',
-    '/explore',
-    '/watchlist',
+    '/profile',
+    '/settings',
   ]
 
   const authRoutes = ['/login', '/signup']

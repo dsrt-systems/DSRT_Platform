@@ -31,7 +31,10 @@ export default function LoginPage() {
               'Find co-founders who complement your skills',
               'Track your journey from idea to launch',
             ].map((item) => (
-              <div key={item} className="flex items-center gap-3">
+              <div
+                key={item}
+                className="flex items-center gap-3"
+              >
                 <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                   <span className="text-primary-foreground text-xs">✓</span>
                 </div>
@@ -41,7 +44,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div>
           <div className="text-xs text-muted-foreground">
             © 2025 DSRT. Building the future, together.
           </div>
@@ -53,10 +56,10 @@ export default function LoginPage() {
         <LoginForm />
       </div>
 
-      {/* Dedication — small, subtle, at very bottom */}
+      {/* Personal dedication — subtle at bottom */}
       <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none">
         <p className="text-[10px] text-muted-foreground/40 font-light tracking-wide italic">
-          dedicated to my beautiful hajra
+          dedicated to my beautiful wife hajra
         </p>
       </div>
     </div>
