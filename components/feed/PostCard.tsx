@@ -101,10 +101,60 @@ export function PostCard({ post, currentUser }: PostCardProps) {
         </div>
       </div>
 
-      {/* Content */}
+            {/* Content */}
       <p className="text-sm whitespace-pre-wrap leading-relaxed">
         {post.content}
       </p>
+
+            {/* Media - images and audio */}
+      {post.media_urls && post.media_urls.length > 0 && (
+        <div className="space-y-2 mt-2">
+          {/* Audio files */}
+          {post.media_urls
+            .filter((url: string) => /\.(webm|mp3|wav|ogg|m4a)/i.test(url))
+            .map((url: string, i: number) => (
+              <div
+                key={`audio-${i}`}
+                className="p-3 rounded-lg bg-muted/30 border border-border/40"
+              >
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                  🎤 Voice note
+                </p>
+                <audio src={url} controls className="w-full h-8" />
+              </div>
+            ))}
+
+          {/* Images */}
+          {(() => {
+            const images = post.media_urls.filter(
+              (url: string) => !/\.(webm|mp3|wav|ogg|m4a)/i.test(url)
+            )
+            if (images.length === 0) return null
+            return (
+              <div
+                className={cn(
+                  'grid gap-2',
+                  images.length === 1 && 'grid-cols-1',
+                  images.length === 2 && 'grid-cols-2',
+                  images.length >= 3 && 'grid-cols-2'
+                )}
+              >
+                {images.map((url: string, i: number) => (
+                  <img
+                    key={`img-${i}`}
+                    src={url}
+                    alt=""
+                    className={cn(
+                      'w-full object-cover rounded-lg border border-border/40',
+                      images.length === 1 ? 'max-h-96' : 'h-40'
+                    )}
+                  />
+                ))}
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {/* Tags */}
       {post.tags && post.tags.length > 0 && (

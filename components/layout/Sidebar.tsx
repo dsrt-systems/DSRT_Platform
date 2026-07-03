@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   Menu,
   X as CloseIcon,
+  Sparkles,
+  GraduationCap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -32,11 +34,18 @@ const sections = [
       { name: 'Builder Pulse', href: '/pulse', icon: Zap },
     ],
   },
-  {
+    {
     label: 'BUILD',
     items: [
       { name: 'Projects', href: '/projects', icon: FolderGit2 },
       { name: 'Ventures', href: '/ventures', icon: Rocket },
+      { name: 'Startup School', href: '/school', icon: GraduationCap },
+    ],
+  },
+  {
+    label: 'AI',
+    items: [
+      { name: 'DSRT Mentor', href: '/mentor', icon: Sparkles },
     ],
   },
   {
@@ -60,7 +69,6 @@ export function Sidebar({ user }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile Toggle Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -74,7 +82,6 @@ export function Sidebar({ user }: SidebarProps) {
         )}
       </button>
 
-      {/* Mobile Backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
@@ -82,7 +89,6 @@ export function Sidebar({ user }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           'fixed left-0 top-14 bottom-0 w-72 border-r border-border/40 bg-background overflow-y-auto transition-transform duration-200 z-40 md:flex md:flex-col',
@@ -92,14 +98,12 @@ export function Sidebar({ user }: SidebarProps) {
         )}
       >
         <div className="p-3 space-y-3">
-          {/* PROFILE CARD */}
           <Link
             href={profileHref}
             onClick={handleLinkClick}
             className="block group"
           >
             <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden hover:border-border transition-all">
-              {/* Cover */}
               <div className="relative h-20 bg-gradient-to-br from-primary/20 via-primary/10 to-background">
                 {user.cover_url && (
                   <img
@@ -110,7 +114,6 @@ export function Sidebar({ user }: SidebarProps) {
                 )}
               </div>
 
-              {/* Body */}
               <div className="px-4 pb-4 -mt-8">
                 <div className="w-14 h-14 rounded-full border-4 border-background bg-muted overflow-hidden flex items-center justify-center">
                   {user.avatar_url ? (
@@ -156,22 +159,26 @@ export function Sidebar({ user }: SidebarProps) {
                 <div className="mt-4 pt-3 border-t border-border/40 grid grid-cols-3 gap-2">
                   <div>
                     <p className="text-sm font-semibold">
+                      {user.follower_count || 0}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      Followers
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {user.following_count || 0}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground leading-tight">
+                      Following
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">
                       {user.products_shipped || 0}
                     </p>
                     <p className="text-[10px] text-muted-foreground leading-tight">
-                      Ventures
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">0</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">
-                      Projects
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">0</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">
-                      Communities
+                      Shipped
                     </p>
                   </div>
                 </div>
@@ -185,7 +192,6 @@ export function Sidebar({ user }: SidebarProps) {
             </div>
           </Link>
 
-          {/* NAVIGATION SECTIONS */}
           {sections.map((section) => (
             <div
               key={section.label}
@@ -216,16 +222,20 @@ export function Sidebar({ user }: SidebarProps) {
                           : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                       )}
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon
+                        className={cn(
+                          'w-4 h-4',
+                          item.name === 'DSRT Mentor' && 'text-purple-500'
+                        )}
+                      />
                       {item.name}
                     </Link>
                   )
                 })}
               </nav>
             </div>
-            
           ))}
-                    {/* Investor mode (conditional) */}
+
           {user.is_investor && (
             <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent backdrop-blur-sm p-2">
               <Link
@@ -238,7 +248,7 @@ export function Sidebar({ user }: SidebarProps) {
               </Link>
             </div>
           )}
-          {/* Dedication */}
+
           <div className="pt-2 pb-4">
             <p className="text-[10px] text-muted-foreground/30 font-light tracking-wide italic text-center">
               dedicated to my beautiful wife hajra

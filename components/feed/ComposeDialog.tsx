@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useDropzone } from 'react-dropzone'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ import {
   Image as ImageIcon,
   Hash,
   X,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -55,6 +57,34 @@ export function ComposeDialog({
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [images, setImages] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'image/*': [] },
+    maxFiles: 4,
+    maxSize: 10 * 1024 * 1024,
+    disabled: uploading || images.length >= 4,
+    onDrop: async (files) => {
+      setUploading(true)
+      const newUrls: string[] = []
+      for (const file of files.slice(0, 4 - images.length)) {
+        const ext = file.name.split('.').pop()
+        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+        const { error } = await supabase.storage
+          .from('post-media')
+          .upload(path, file, { cacheControl: '3600' })
+        if (!error) {
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from('post-media').getPublicUrl(path)
+          newUrls.push(publicUrl)
+        }
+      }
+      setImages([...images, ...newUrls])
+      setUploading(false)
+    },
+  })
 
   const handleAddTag = () => {
     const t = tagInput.trim().replace(/^#/, '')
@@ -64,8 +94,12 @@ export function ComposeDialog({
     }
   }
 
+  const removeImage = (url: string) => {
+    setImages(images.filter((u) => u !== url))
+  }
+
   const handlePost = async () => {
-    if (!content.trim()) return
+    if (!content.trim() && images.length === 0) return
     setLoading(true)
 
     const { error } = await supabase.from('posts').insert({
@@ -73,6 +107,7 @@ export function ComposeDialog({
       type,
       content: content.trim(),
       tags,
+      media_urls: images,
       visibility: 'global',
     })
 
@@ -81,24 +116,23 @@ export function ComposeDialog({
     if (!error) {
       setContent('')
       setTags([])
+      setImages([])
       setType('update')
       onOpenChange(false)
       router.refresh()
     } else {
-      console.error('Post error:', error)
       alert('Failed to post: ' + error.message)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create a post</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* User info */}
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
               <AvatarImage src={user.avatar_url} />
@@ -114,7 +148,6 @@ export function ComposeDialog({
             </div>
           </div>
 
-          {/* Type selector */}
           <div className="flex flex-wrap gap-1.5">
             {postTypes.map((t) => {
               const Icon = t.icon
@@ -138,20 +171,41 @@ export function ComposeDialog({
             })}
           </div>
 
-          {/* Content */}
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder={getPlaceholder(type)}
-            rows={6}
+            rows={5}
             maxLength={2000}
             className="w-full p-3 text-sm rounded-lg bg-muted/40 border-0 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
           />
+
+          {/* Image previews */}
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {images.map((url) => (
+                <div key={url} className="relative">
+                  <img
+                    src={url}
+                    alt=""
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(url)}
+                    className="absolute top-1 right-1 bg-background/80 backdrop-blur-sm p-1 rounded-full"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground text-right">
             {content.length}/2000
           </p>
 
-          {/* Tags */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Hash className="w-3.5 h-3.5 text-muted-foreground" />
@@ -179,7 +233,9 @@ export function ComposeDialog({
                     #{t}
                     <button
                       type="button"
-                      onClick={() => setTags(tags.filter((x) => x !== t))}
+                      onClick={() =>
+                        setTags(tags.filter((x) => x !== t))
+                      }
                       className="hover:text-foreground"
                     >
                       <X className="w-3 h-3" />
@@ -190,21 +246,28 @@ export function ComposeDialog({
             )}
           </div>
 
-          {/* Footer actions */}
           <div className="flex items-center justify-between pt-3 border-t border-border">
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                className="p-2 rounded-lg hover:bg-muted/40 text-muted-foreground hover:text-foreground"
-                title="Add image (coming soon)"
+              <div
+                {...getRootProps()}
+                className="p-2 rounded-lg hover:bg-muted/40 text-muted-foreground hover:text-foreground cursor-pointer"
+                title="Add image"
               >
-                <ImageIcon className="w-4 h-4" />
-              </button>
+                <input {...getInputProps()} />
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ImageIcon className="w-4 h-4" />
+                )}
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {images.length}/4 images
+              </span>
             </div>
 
             <Button
               onClick={handlePost}
-              disabled={!content.trim() || loading}
+              disabled={(!content.trim() && images.length === 0) || loading}
               size="sm"
             >
               {loading ? 'Posting...' : 'Post'}

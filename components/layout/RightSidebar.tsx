@@ -8,6 +8,7 @@ import {
   Users,
   ChevronDown,
   Info,
+  Hash,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -24,6 +25,8 @@ export function RightSidebar({ user }: RightSidebarProps) {
   const [showAllNews, setShowAllNews] = useState(false)
   const [suggestedBuilders, setSuggestedBuilders] = useState<any[]>([])
   const [trendingBuilds, setTrendingBuilds] = useState<any[]>([])
+  const [trendingTags, setTrendingTags] = useState<any[]>([])
+  const [bellFlash, setBellFlash] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -47,44 +50,45 @@ export function RightSidebar({ user }: RightSidebarProps) {
 
       setUnreadNotifs(notifs || 0)
 
-      const [{ data: ventures }, { data: projects }] = await Promise.all([
-        supabase
-          .from('startups')
-          .select('id, name, slug, tagline, stage, follower_count')
-          .order('created_at', { ascending: false })
-          .limit(3),
-        supabase
-          .from('projects')
-          .select('id, title, slug, tagline, stage, follower_count')
-          .order('created_at', { ascending: false })
-          .limit(3),
-      ])
+      // Trending builds
+      try {
+        const trendRes = await fetch('/api/trending')
+        const trendData = await trendRes.json()
+        const combined = [
+          ...(trendData.ventures || []).map((v: any) => ({
+            ...v,
+            type: 'venture',
+            name: v.name,
+            href: `/ventures/${v.slug}`,
+          })),
+          ...(trendData.projects || []).map((p: any) => ({
+            ...p,
+            type: 'project',
+            name: p.title,
+            href: `/projects/${p.slug}`,
+          })),
+        ]
+        setTrendingBuilds(combined.slice(0, 4))
+      } catch {}
 
-      const combined = [
-        ...(ventures || []).map((v) => ({
-          ...v,
-          type: 'venture',
-          name: v.name,
-          href: `/ventures/${v.slug}`,
-        })),
-        ...(projects || []).map((p) => ({
-          ...p,
-          type: 'project',
-          name: p.title,
-          href: `/projects/${p.slug}`,
-        })),
-      ]
-      setTrendingBuilds(combined.slice(0, 4))
-
+      // Suggested builders
       try {
         const res = await fetch('/api/matching/suggest?type=builders')
         const data = await res.json()
         setSuggestedBuilders((data.items || []).slice(0, 3))
       } catch {}
+
+      // Trending tags
+      try {
+        const tagsRes = await fetch('/api/trending/tags')
+        const tagsData = await tagsRes.json()
+        setTrendingTags(tagsData.tags || [])
+      } catch {}
     }
 
     fetchData()
 
+    // Notifications realtime with bell flash + sound
     const notifChannel = supabase
       .channel('notifs')
       .on(
@@ -97,6 +101,18 @@ export function RightSidebar({ user }: RightSidebarProps) {
         },
         () => {
           setUnreadNotifs((n) => n + 1)
+          setBellFlash(true)
+          setTimeout(() => setBellFlash(false), 2500)
+
+          if (typeof window !== 'undefined' && 'Audio' in window) {
+            try {
+              const audio = new Audio(
+                'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
+              )
+              audio.volume = 0.3
+              audio.play().catch(() => {})
+            } catch {}
+          }
         }
       )
       .subscribe()
@@ -116,7 +132,7 @@ export function RightSidebar({ user }: RightSidebarProps) {
       )
       .subscribe()
 
-    const postsChannel = supabase
+    const startupsChannel = supabase
       .channel('startups-changes')
       .on(
         'postgres_changes',
@@ -134,25 +150,30 @@ export function RightSidebar({ user }: RightSidebarProps) {
     return () => {
       notifChannel.unsubscribe()
       editorialChannel.unsubscribe()
-      postsChannel.unsubscribe()
+      startupsChannel.unsubscribe()
     }
   }, [user.id, showAllNews])
 
   return (
     <aside className="hidden lg:flex flex-col fixed right-0 top-14 bottom-0 w-80 overflow-y-auto">
       <div className="p-3 space-y-3">
+        {/* ACTIVITY */}
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-2">
           <p className="px-3 pt-2 pb-2 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
             ACTIVITY
           </p>
           <Link
             href="/notifications"
-            className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors"
+            className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors ${
+              bellFlash ? 'bg-primary/10' : ''
+            }`}
           >
             <div className="flex items-center gap-3">
               <Bell
                 className={
-                  unreadNotifs > 0
+                  bellFlash
+                    ? 'w-4 h-4 text-primary animate-bounce'
+                    : unreadNotifs > 0
                     ? 'w-4 h-4 text-primary animate-pulse'
                     : 'w-4 h-4 text-muted-foreground'
                 }
@@ -160,13 +181,18 @@ export function RightSidebar({ user }: RightSidebarProps) {
               <span>Notifications</span>
             </div>
             {unreadNotifs > 0 && (
-              <span className="text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5 font-semibold">
+              <span
+                className={`text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5 font-semibold ${
+                  bellFlash ? 'animate-pulse' : ''
+                }`}
+              >
                 {unreadNotifs}
               </span>
             )}
           </Link>
         </div>
 
+        {/* DSRT NEWS */}
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <h3 className="font-semibold text-sm">DSRT News</h3>
@@ -219,6 +245,7 @@ export function RightSidebar({ user }: RightSidebarProps) {
           </button>
         </div>
 
+        {/* TRENDING BUILDS */}
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
@@ -257,6 +284,31 @@ export function RightSidebar({ user }: RightSidebarProps) {
           )}
         </div>
 
+        {/* TRENDING TAGS */}
+        {trendingTags.length > 0 && (
+          <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
+            <div className="flex items-center gap-1.5 mb-3">
+              <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+              <h3 className="font-semibold text-sm">Trending Tags</h3>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {trendingTags.slice(0, 10).map((t: any) => (
+                <Link
+                  key={t.tag}
+                  href={`/explore?tag=${t.tag}`}
+                  className="text-xs px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+                >
+                  #{t.tag}
+                  <span className="text-muted-foreground ml-1">
+                    {t.post_count}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SUGGESTED BUILDERS */}
         <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
           <div className="flex items-center gap-1.5 mb-3">
             <Users className="w-3.5 h-3.5 text-muted-foreground" />
@@ -307,6 +359,7 @@ export function RightSidebar({ user }: RightSidebarProps) {
           )}
         </div>
 
+        {/* TAKE A BREAK */}
         <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 backdrop-blur-sm p-4">
           <div className="flex items-center gap-1.5 mb-2">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -333,6 +386,7 @@ export function RightSidebar({ user }: RightSidebarProps) {
           </div>
         </div>
 
+        {/* Footer */}
         <div className="pt-2 pb-4 px-2 space-y-2">
           <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
             <a href="#" className="hover:text-foreground">

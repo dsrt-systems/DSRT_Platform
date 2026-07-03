@@ -18,10 +18,13 @@ import {
   Eye,
   User,
   Video,
+  TrendingUp,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { PitchVideoUpload } from './PitchVideoUpload'
+import { VentureAnalytics } from './VentureAnalytics'
+import { IntroRequestButton } from './IntroRequestButton'
 
 interface VentureViewProps {
   venture: any
@@ -47,7 +50,13 @@ export function VentureView({
   const router = useRouter()
   const supabase = createClient()
   const [tab, setTab] = useState<
-    'overview' | 'founder' | 'team' | 'milestones' | 'roles' | 'pitch'
+    | 'overview'
+    | 'founder'
+    | 'team'
+    | 'milestones'
+    | 'roles'
+    | 'pitch'
+    | 'analytics'
   >('overview')
   const [uploadVideo, setUploadVideo] = useState(false)
   const [following, setFollowing] = useState(false)
@@ -92,6 +101,26 @@ export function VentureView({
   }
 
   const { vision, about } = parseDescription(venture.description)
+
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: FileText },
+    { id: 'founder', label: 'Founder', icon: User },
+    { id: 'pitch', label: 'Pitch', icon: Video },
+    { id: 'team', label: `Team (${members.length})`, icon: Users },
+    {
+      id: 'milestones',
+      label: `Milestones (${milestones.length})`,
+      icon: Target,
+    },
+    {
+      id: 'roles',
+      label: `Open Roles (${openRoles.length})`,
+      icon: Briefcase,
+    },
+    ...(isFounder
+      ? [{ id: 'analytics', label: 'Analytics', icon: TrendingUp }]
+      : []),
+  ]
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
@@ -177,12 +206,19 @@ export function VentureView({
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {!isMember && !isFounder && (
-                <Button onClick={handleFollow} variant="outline">
-                  <Eye className="w-4 h-4 mr-2" />
-                  {following ? 'Following' : 'Follow Journey'}
-                </Button>
+                <>
+                  <Button onClick={handleFollow} variant="outline">
+                    <Eye className="w-4 h-4 mr-2" />
+                    {following ? 'Following' : 'Follow Journey'}
+                  </Button>
+                  <IntroRequestButton
+                    founderId={venture.founder_id}
+                    ventureId={venture.id}
+                    ventureName={venture.name}
+                  />
+                </>
               )}
               {isFounder && <Button variant="outline">Edit</Button>}
             </div>
@@ -235,22 +271,7 @@ export function VentureView({
       {/* Tabs */}
       <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-1.5">
         <div className="flex items-center gap-1 overflow-x-auto">
-          {[
-            { id: 'overview', label: 'Overview', icon: FileText },
-            { id: 'founder', label: 'Founder', icon: User },
-            { id: 'pitch', label: 'Pitch', icon: Video },
-            { id: 'team', label: `Team (${members.length})`, icon: Users },
-            {
-              id: 'milestones',
-              label: `Milestones (${milestones.length})`,
-              icon: Target,
-            },
-            {
-              id: 'roles',
-              label: `Open Roles (${openRoles.length})`,
-              icon: Briefcase,
-            },
-          ].map((t) => {
+          {tabs.map((t) => {
             const Icon = t.icon
             return (
               <button
@@ -302,7 +323,6 @@ export function VentureView({
           profile={founderProfile}
           founder={venture.users}
           isFounder={isFounder}
-          ventureId={venture.id}
           ventureSlug={venture.slug}
         />
       )}
@@ -432,11 +452,14 @@ export function VentureView({
           )}
         </div>
       )}
+
+      {tab === 'analytics' && isFounder && (
+        <VentureAnalytics ventureId={venture.id} />
+      )}
     </div>
   )
 }
 
-// Founder Profile Sub-component
 function FounderProfileView({
   profile,
   founder,
@@ -450,7 +473,7 @@ function FounderProfileView({
         <h3 className="font-semibold">No founder profile yet</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
           {isFounder
-            ? 'Share your story, vision, and unique insight. Visitors can read this to understand who you are.'
+            ? 'Share your story, vision, and unique insight.'
             : 'The founder has not filled out their profile yet.'}
         </p>
         {isFounder && (

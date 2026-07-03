@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { InvestorSettings } from '@/components/settings/InvestorSettings'
+import { NotificationSettings } from '@/components/settings/NotificationSettings'
 
 export default async function SettingsPage() {
   const supabase = createClient()
@@ -18,10 +19,11 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Manage your account and role preferences
+          Manage your account preferences
         </p>
       </div>
 
+      <NotificationSettings profile={profile} />
       <InvestorSettings profile={profile} />
     </div>
   )

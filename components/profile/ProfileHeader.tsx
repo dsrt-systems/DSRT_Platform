@@ -11,11 +11,11 @@ import {
   Linkedin,
   Camera,
   Edit3,
-  MessageCircle,
-  UserPlus,
 } from 'lucide-react'
 import { EditProfileModal } from './EditProfileModal'
 import { UploadImageModal } from './UploadImageModal'
+import { MessageButton } from './MessageButton'
+import { FollowButton } from './FollowButton'
 
 interface ProfileHeaderProps {
   profile: any
@@ -30,6 +30,7 @@ export function ProfileHeader({ profile, isOwnProfile }: ProfileHeaderProps) {
   return (
     <>
       <div className="relative">
+        {/* Cover */}
         <div className="relative h-48 md:h-64 bg-gradient-to-br from-primary/20 via-primary/10 to-background overflow-hidden group">
           {profile.cover_url && (
             <img
@@ -51,6 +52,7 @@ export function ProfileHeader({ profile, isOwnProfile }: ProfileHeaderProps) {
         <div className="max-w-5xl mx-auto px-4">
           <div className="relative -mt-16 md:-mt-20 pb-4">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              {/* Avatar */}
               <div className="relative inline-block">
                 <Avatar className="w-32 h-32 md:w-40 md:h-40 border-4 border-background bg-background">
                   <AvatarImage src={profile.avatar_url} />
@@ -68,6 +70,7 @@ export function ProfileHeader({ profile, isOwnProfile }: ProfileHeaderProps) {
                 )}
               </div>
 
+              {/* Actions */}
               <div className="flex gap-2 md:mb-4">
                 {isOwnProfile ? (
                   <Button onClick={() => setEditOpen(true)} variant="outline">
@@ -76,19 +79,14 @@ export function ProfileHeader({ profile, isOwnProfile }: ProfileHeaderProps) {
                   </Button>
                 ) : (
                   <>
-                    <Button variant="outline">
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      Message
-                    </Button>
-                    <Button>
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Follow
-                    </Button>
+                    <MessageButton otherUserId={profile.id} />
+                    <FollowButton profileId={profile.id} />
                   </>
                 )}
               </div>
             </div>
 
+            {/* Name and details */}
             <div className="mt-4 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
@@ -105,6 +103,7 @@ export function ProfileHeader({ profile, isOwnProfile }: ProfileHeaderProps) {
                 <p className="text-base md:text-lg mt-2">{profile.tagline}</p>
               )}
 
+              {/* Brings tags */}
               {profile.brings && profile.brings.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-3">
                   {profile.brings.map((b: string) => (
@@ -118,6 +117,7 @@ export function ProfileHeader({ profile, isOwnProfile }: ProfileHeaderProps) {
                 </div>
               )}
 
+              {/* Meta info */}
               <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap mt-3">
                 {profile.location && (
                   <span className="flex items-center gap-1">
@@ -171,22 +171,31 @@ export function ProfileHeader({ profile, isOwnProfile }: ProfileHeaderProps) {
                 )}
               </div>
 
-              <div className="flex items-center gap-6 mt-4 pt-4 border-t text-sm">
+              {/* Stats bar with followers */}
+              <div className="flex items-center gap-6 mt-4 pt-4 border-t text-sm flex-wrap">
                 <div>
-                  <span className="font-bold">{profile.execution_score || 0}</span>
-                  <span className="text-muted-foreground ml-1">Execution</span>
+                  <span className="font-bold">
+                    {profile.follower_count || 0}
+                  </span>
+                  <span className="text-muted-foreground ml-1">Followers</span>
                 </div>
                 <div>
-                  <span className="font-bold">{profile.products_shipped || 0}</span>
+                  <span className="font-bold">
+                    {profile.following_count || 0}
+                  </span>
+                  <span className="text-muted-foreground ml-1">Following</span>
+                </div>
+                <div>
+                  <span className="font-bold">
+                    {profile.products_shipped || 0}
+                  </span>
                   <span className="text-muted-foreground ml-1">Shipped</span>
                 </div>
                 <div>
-                  <span className="font-bold">{profile.contribution_hours || 0}</span>
+                  <span className="font-bold">
+                    {profile.contribution_hours || 0}
+                  </span>
                   <span className="text-muted-foreground ml-1">Hours</span>
-                </div>
-                <div>
-                  <span className="font-bold">{profile.streak_days || 0}</span>
-                  <span className="text-muted-foreground ml-1">Day Streak</span>
                 </div>
               </div>
             </div>
