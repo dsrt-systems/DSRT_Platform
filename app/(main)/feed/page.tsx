@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { FeedTabs } from '@/components/feed/FeedTabs'
-import { DailyBriefing } from '@/components/feed/DailyBriefing'
 import { ComposeCard } from '@/components/feed/ComposeCard'
 import { FeedList } from '@/components/feed/FeedList'
+import { DailyBriefing } from '@/components/feed/DailyBriefing'
+import { AutoRefresh } from '@/components/feed/AutoRefresh'
 
-export const revalidate = 30
+export const revalidate = 0
 export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 interface PageProps {
   searchParams: { tab?: string }
@@ -34,7 +36,6 @@ export default async function FeedPage({ searchParams }: PageProps) {
   let userPosts: any[] = []
 
   if (tab === 'following') {
-    // Get IDs of people the user follows
     const { data: follows } = await supabase
       .from('follows')
       .select('following_id')
@@ -55,7 +56,6 @@ export default async function FeedPage({ searchParams }: PageProps) {
       userPosts = data || []
     }
   } else if (tab === 'community') {
-    // Get user's institution IDs
     const { data: education } = await supabase
       .from('user_education')
       .select('institution_id')
@@ -66,7 +66,6 @@ export default async function FeedPage({ searchParams }: PageProps) {
       .filter(Boolean)
 
     if (instIds.length > 0) {
-      // Find users from same institutions
       const { data: peers } = await supabase
         .from('user_education')
         .select('user_id')
@@ -89,7 +88,6 @@ export default async function FeedPage({ searchParams }: PageProps) {
       }
     }
   } else {
-    // Global
     const { data } = await supabase
       .from('posts')
       .select(
@@ -105,6 +103,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      <AutoRefresh />
       <DailyBriefing />
       <ComposeCard user={profile} />
       <FeedTabs />

@@ -44,14 +44,14 @@ export function EditorialCard({ post }: EditorialCardProps) {
     <article className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden hover:border-border/60 transition-all">
       {/* Header */}
       <div className="p-4 pb-3 flex items-center gap-3">
-        {/* DSRT Logo Avatar with X-style verified badge */}
+                {/* DSRT Logo Avatar with GOLD background + verified badge */}
         <div className="relative flex-shrink-0">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center border border-border/40">
-            <span className="text-primary-foreground font-bold text-sm tracking-tight">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 flex items-center justify-center border-2 border-amber-300/50 shadow-lg shadow-amber-500/20">
+            <span className="text-white font-bold text-sm tracking-tight drop-shadow">
               D
             </span>
           </div>
-          {/* X-style verified checkmark with DSRT logo inside */}
+          {/* X-style verified checkmark */}
           <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center border-2 border-background">
             <svg
               viewBox="0 0 24 24"
@@ -67,9 +67,10 @@ export function EditorialCard({ post }: EditorialCardProps) {
           <div className="flex items-center gap-1">
             <p className="font-semibold text-sm">DSRT Editorial</p>
             {/* Small DSRT wordmark like X's checkmark tooltip */}
-            <span className="text-[9px] font-bold text-primary bg-primary/10 px-1 py-0.5 rounded">
+            <span className="text-[9px] font-bold text-amber-600 bg-gradient-to-r from-yellow-400/20 to-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
               DSRT
             </span>
+
           </div>
           <p className="text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(post.published_at), {

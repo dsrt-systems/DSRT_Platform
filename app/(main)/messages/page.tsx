@@ -3,7 +3,11 @@ import { MessagesView } from '@/components/messages/MessagesView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MessagesPage() {
+interface PageProps {
+  searchParams: { mentor?: string }
+}
+
+export default async function MessagesPage({ searchParams }: PageProps) {
   const supabase = createClient()
   const {
     data: { user },
@@ -17,7 +21,7 @@ export default async function MessagesPage() {
 
   const { data: participations } = await supabase
     .from('conversation_participants')
-    .select('conversation_id, is_archived')
+    .select('conversation_id')
     .eq('user_id', user!.id)
 
   const conversationIds = participations?.map((p) => p.conversation_id) || []
@@ -43,7 +47,6 @@ export default async function MessagesPage() {
     )
     .order('created_at', { ascending: false })
 
-  // Get mentor conversations
   const { data: mentorConversations } = await supabase
     .from('mentor_conversations')
     .select('*')
@@ -56,6 +59,7 @@ export default async function MessagesPage() {
       conversations={conversations || []}
       mentorConversations={mentorConversations || []}
       currentUser={profile}
+      initialOpenMentor={searchParams.mentor === '1'}
     />
   )
 }

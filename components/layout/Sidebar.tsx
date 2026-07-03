@@ -17,6 +17,7 @@ import {
   X as CloseIcon,
   Sparkles,
   GraduationCap,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,13 +26,14 @@ interface SidebarProps {
 }
 
 const sections = [
-  {
+    {
     label: 'HOME',
     items: [
       { name: 'Feed', href: '/feed', icon: Home },
       { name: 'Explore', href: '/explore', icon: Compass },
       { name: 'Communities', href: '/community', icon: Building2 },
       { name: 'Builder Pulse', href: '/pulse', icon: Zap },
+      { name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
     ],
   },
     {

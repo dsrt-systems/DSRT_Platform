@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
+import { RefreshBriefingButton } from '@/components/pulse/RefreshBriefingButton'
+import { AutoRefresh } from '@/components/feed/AutoRefresh'
 
-export const revalidate = 60 // Cache for 1 minute
+export const revalidate = 0
+export const dynamic = 'force-dynamic'
 
 export default async function PulsePage() {
   const supabase = createClient()
@@ -21,24 +24,28 @@ export default async function PulsePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-      {/* Header */}
+      <AutoRefresh />
+
       <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-primary/5 to-transparent backdrop-blur-sm p-6">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-            DSRT Editorial — Live
-          </p>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                DSRT Editorial · Live
+              </p>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              Builder Pulse
+            </h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Startup funding, company news, and product launches. Auto-updates every 30 minutes.
+            </p>
+          </div>
+          <RefreshBriefingButton />
         </div>
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-          Market Pulse
-        </h1>
-        <p className="text-sm text-muted-foreground mt-2">
-          Real-time updates from startups, research labs, and industries across
-          the world. Every story explains why it matters for builders.
-        </p>
       </div>
 
-      {/* Category pills */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         <button className="px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium whitespace-nowrap">
           All
@@ -53,18 +60,13 @@ export default async function PulsePage() {
         ))}
       </div>
 
-      {/* Posts list */}
       <div className="space-y-3">
         {!posts || posts.length === 0 ? (
           <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-12 text-center space-y-3">
             <div className="text-4xl">📡</div>
-            <h3 className="font-semibold">No editorial posts yet</h3>
+            <h3 className="font-semibold">Loading news...</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              DSRT Editorial is generating fresh content. Visit{' '}
-              <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                /api/editorial/seed
-              </code>{' '}
-              to seed initial posts.
+              First batch is being generated. Check back in 30 seconds.
             </p>
           </div>
         ) : (
