@@ -15,7 +15,13 @@ const nextConfig = {
       { protocol: 'https', hostname: 'source.unsplash.com' },
       { protocol: 'https', hostname: '*.unsplash.com' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'picsum.photos' },
+      { protocol: 'https', hostname: '*.techcrunch.com' },
+      { protocol: 'https', hostname: '*.wp.com' },
+      { protocol: 'https', hostname: 'techcrunch.com' },
+      { protocol: 'https', hostname: '**' },
     ],
+    unoptimized: true, // Skip Next.js image optimization
   },
 }
 

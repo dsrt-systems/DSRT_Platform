@@ -4,7 +4,6 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { CheckCircle2, Sparkles, ArrowLeft } from 'lucide-react'
 import { EditorialEngagement } from '@/components/editorial/EditorialEngagement'
 import Link from 'next/link'
-import { PulseCoverImage } from '@/components/editorial/PulseCoverImage'
 import { Markdown } from '@/components/shared/Markdown'
 
 interface PageProps {
@@ -12,6 +11,18 @@ interface PageProps {
 }
 
 export const dynamic = 'force-dynamic'
+
+const CATEGORY_ICONS: Record<string, string> = {
+  startups: '🚀',
+  technology: '💻',
+  'ai-robotics': '🤖',
+  finance: '💰',
+  biotech: '🧬',
+  climate: '🌱',
+  space: '🌌',
+  aviation: '✈️',
+  default: '📰',
+}
 
 export default async function PulsePostPage({ params }: PageProps) {
   const supabase = createClient()
@@ -24,11 +35,8 @@ export default async function PulsePostPage({ params }: PageProps) {
 
   if (!post) notFound()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Increment view count (fire and forget)
   await supabase
     .from('editorial_posts')
     .update({ view_count: (post.view_count || 0) + 1 })
@@ -51,9 +59,11 @@ export default async function PulsePostPage({ params }: PageProps) {
     .eq('editorial_post_id', params.id)
     .order('created_at', { ascending: true })
 
+  const slug = post.editorial_categories?.slug || 'default'
+  const icon = CATEGORY_ICONS[slug] || CATEGORY_ICONS.default
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-      {/* Back link */}
       <Link
         href="/pulse"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -63,41 +73,32 @@ export default async function PulsePostPage({ params }: PageProps) {
       </Link>
 
       <article className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden">
-        {/* Cover — image OR beautiful gradient */}
-        <PulseCoverImage
-          imageUrl={post.cover_image_url}
-          categorySlug={post.editorial_categories?.slug}
-          categoryName={post.editorial_categories?.name}
-        />
-
-        <div className="p-6 md:p-8 space-y-6">
-          {/* Category + Date */}
+        <div className="p-6 md:p-10 space-y-6">
+          {/* Category header */}
           <div className="flex items-center gap-3 text-sm flex-wrap">
-            <span
-              className="px-2.5 py-1 rounded-full font-medium text-xs"
-              style={{
-                backgroundColor: `${post.editorial_categories?.color}20`,
-                color: post.editorial_categories?.color,
-              }}
-            >
-              {post.editorial_categories?.icon}{' '}
-              {post.editorial_categories?.name}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-3xl">{icon}</span>
+              <span
+                className="px-2.5 py-1 rounded-full font-medium text-xs"
+                style={{
+                  backgroundColor: `${post.editorial_categories?.color}20`,
+                  color: post.editorial_categories?.color,
+                }}
+              >
+                {post.editorial_categories?.name}
+              </span>
+            </div>
             <span className="text-muted-foreground text-xs">
               {format(new Date(post.published_at), 'MMM d, yyyy')} ·{' '}
-              {formatDistanceToNow(new Date(post.published_at), {
-                addSuffix: true,
-              })}
+              {formatDistanceToNow(new Date(post.published_at), { addSuffix: true })}
             </span>
           </div>
 
-          {/* DSRT Editorial byline with gold logo */}
+          {/* DSRT Editorial byline */}
           <div className="flex items-center gap-3 pb-4 border-b border-border/40">
             <div className="relative flex-shrink-0">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 flex items-center justify-center border-2 border-amber-300/50 shadow-lg shadow-amber-500/20">
-                <span className="text-white font-bold text-sm drop-shadow">
-                  D
-                </span>
+                <span className="text-white font-bold text-sm drop-shadow">D</span>
               </div>
               <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center border-2 border-background">
                 <CheckCircle2 className="w-3 h-3 text-primary-foreground" />
@@ -117,24 +118,20 @@ export default async function PulsePostPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Headline */}
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">
             {post.headline}
           </h1>
 
-          {/* Summary */}
           <p className="text-lg text-muted-foreground leading-relaxed">
             {post.summary}
           </p>
 
-          {/* Body with proper markdown rendering */}
           {post.body && (
             <div className="prose prose-sm dark:prose-invert max-w-none">
               <Markdown content={post.body} />
             </div>
           )}
 
-          {/* Why it matters */}
           {post.why_it_matters && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 space-y-2">
               <div className="flex items-center gap-2">
@@ -147,7 +144,6 @@ export default async function PulsePostPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Related projects */}
           {post.related_topics && post.related_topics.length > 0 && (
             <div className="space-y-3 pt-2">
               <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
@@ -167,7 +163,6 @@ export default async function PulsePostPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Tags */}
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-4 border-t border-border/40">
               {post.tags.map((tag: string) => (
@@ -181,7 +176,6 @@ export default async function PulsePostPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Source link */}
           {post.source_url && (
             <div className="pt-4 border-t border-border/40">
               <a
@@ -195,7 +189,6 @@ export default async function PulsePostPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Engagement */}
           <EditorialEngagement
             postId={post.id}
             initialLikes={post.like_count || 0}

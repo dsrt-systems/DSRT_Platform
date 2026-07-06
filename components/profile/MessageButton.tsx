@@ -19,7 +19,6 @@ export function MessageButton({ otherUserId }: MessageButtonProps) {
     setLoading(true)
 
     try {
-      // Try to use the RPC function
       const { data, error } = await supabase.rpc(
         'get_or_create_dm_conversation',
         {
@@ -28,57 +27,17 @@ export function MessageButton({ otherUserId }: MessageButtonProps) {
       )
 
       if (error) {
-        // Fallback: create conversation manually
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) return
-
-        // Check if conversation already exists
-        const { data: existing } = await supabase
-          .from('conversation_participants')
-          .select('conversation_id')
-          .eq('user_id', user.id)
-
-        const { data: otherExisting } = await supabase
-          .from('conversation_participants')
-          .select('conversation_id')
-          .eq('user_id', otherUserId)
-
-        const myConvIds = new Set(
-          (existing || []).map((e) => e.conversation_id)
-        )
-        const match = (otherExisting || []).find((e) =>
-          myConvIds.has(e.conversation_id)
-        )
-
-        if (match) {
-          router.push('/messages')
-          return
-        }
-
-        // Create new conversation
-        const { data: conv } = await supabase
-          .from('conversations')
-          .insert({
-            type: 'direct',
-            created_by: user.id,
-          })
-          .select()
-          .single()
-
-        if (conv) {
-          await supabase.from('conversation_participants').insert([
-            { conversation_id: conv.id, user_id: user.id },
-            { conversation_id: conv.id, user_id: otherUserId },
-          ])
-        }
+        console.error('RPC error:', error)
+        alert('Could not start conversation: ' + error.message)
+        setLoading(false)
+        return
       }
 
+      // Success — redirect to messages
       router.push('/messages')
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      router.push('/messages')
+      alert('Error: ' + (err.message || 'Unknown error'))
     }
 
     setLoading(false)

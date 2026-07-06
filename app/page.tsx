@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { LandingPage } from '@/components/landing/LandingPage'
 
+export const revalidate = 3600 // Cache 1 hour for SEO
+
 export default async function HomePage() {
   const supabase = createClient()
 

@@ -254,32 +254,9 @@ Be factual. Do not invent facts.`,
 }
 
 function extractImage(item: any): string | null {
-  // Try to get image from various RSS formats
-  const candidates: (string | undefined)[] = [
-    item.enclosure?.url,
-    item['media:content']?.['$']?.url,
-    item['media:thumbnail']?.['$']?.url,
-  ]
-
-  // Try to extract from HTML content
-  const content = item['content:encoded'] || item.content || ''
-  const imgMatch = content.match(/<img[^>]+src="([^">]+)"/i)
-  if (imgMatch) candidates.push(imgMatch[1])
-
-  // Return first valid-looking URL (not too small, not a tracking pixel)
-  for (const url of candidates) {
-    if (!url) continue
-    if (url.includes('1x1')) continue
-    if (url.includes('pixel')) continue
-    if (url.includes('tracker')) continue
-    if (url.length < 20) continue
-    return url
-  }
-
   return null
 }
 
 function getFallback(category: string): string {
-  // Return empty string — cards will show beautiful gradient instead
   return ''
 }

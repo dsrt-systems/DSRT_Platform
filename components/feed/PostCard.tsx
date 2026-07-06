@@ -39,6 +39,34 @@ export function PostCard({ post, currentUser }: PostCardProps) {
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(post.like_count || 0)
   const [showComments, setShowComments] = useState(false)
+    const [shared, setShared] = useState(false)
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/feed?post=${post.id}`
+    const text = post.content?.slice(0, 100) + (post.content?.length > 100 ? '...' : '')
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Post by ${post.users?.full_name} on DSRT`,
+          text,
+          url,
+        })
+        return
+      } catch {
+        // User cancelled or share not available, fall through to copy
+      }
+    }
+
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(url)
+      setShared(true)
+      setTimeout(() => setShared(false), 2000)
+    } catch {
+      alert('Link: ' + url)
+    }
+  }
 
   const config = typeConfig[post.type] || typeConfig.update
   const Icon = config.icon
@@ -203,11 +231,18 @@ export function PostCard({ post, currentUser }: PostCardProps) {
           </button>
         )}
 
-        <button
+                <button
           type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            handleShare()
+          }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs hover:bg-muted/40 transition-colors"
+          title="Share"
         >
           <Share2 className="w-4 h-4" />
+          {shared && <span className="text-emerald-500">Copied</span>}
         </button>
 
         <button

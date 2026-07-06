@@ -3,10 +3,21 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { RefreshBriefingButton } from '@/components/pulse/RefreshBriefingButton'
 import { AutoRefresh } from '@/components/feed/AutoRefresh'
-import { PulseCoverImage } from '@/components/editorial/PulseCoverImage'
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
+
+const CATEGORY_ICONS: Record<string, string> = {
+  startups: '🚀',
+  technology: '💻',
+  'ai-robotics': '🤖',
+  finance: '💰',
+  biotech: '🧬',
+  climate: '🌱',
+  space: '🌌',
+  aviation: '✈️',
+  default: '📰',
+}
 
 export default async function PulsePage() {
   const supabase = createClient()
@@ -40,8 +51,7 @@ export default async function PulsePage() {
               Builder Pulse
             </h1>
             <p className="text-sm text-muted-foreground mt-2">
-              Startup funding, company news, and product launches. Auto-updates
-              every 30 minutes.
+              Startup funding, company news, and product launches. Auto-updates every 30 minutes.
             </p>
           </div>
           <RefreshBriefingButton />
@@ -67,62 +77,56 @@ export default async function PulsePage() {
           <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-12 text-center space-y-3">
             <div className="text-4xl">📡</div>
             <h3 className="font-semibold">Loading news...</h3>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              First batch is being generated. Check back in 30 seconds.
-            </p>
           </div>
         ) : (
-          posts.map((post) => (
-            <Link
-              key={post.id}
-              href={`/pulse/${post.id}`}
-              className="block rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden hover:border-border transition-all group"
-            >
-              <div className="grid md:grid-cols-[240px_1fr] gap-0">
-                <div className="md:h-auto">
-                  <PulseCoverImage
-                    imageUrl={post.cover_image_url}
-                    categorySlug={post.editorial_categories?.slug}
-                    categoryName={post.editorial_categories?.name}
-                  />
-                </div>
+          posts.map((post) => {
+            const slug = post.editorial_categories?.slug || 'default'
+            const icon = CATEGORY_ICONS[slug] || CATEGORY_ICONS.default
 
-                <div className="p-5 space-y-2">
-                  <div className="flex items-center gap-2 text-xs">
-                    <span
-                      className="px-2 py-0.5 rounded-full font-medium"
-                      style={{
-                        backgroundColor: `${post.editorial_categories?.color}20`,
-                        color: post.editorial_categories?.color,
-                      }}
-                    >
-                      {post.editorial_categories?.icon}{' '}
-                      {post.editorial_categories?.name}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {formatDistanceToNow(new Date(post.published_at), {
-                        addSuffix: true,
-                      })}
-                    </span>
+            return (
+              <Link
+                key={post.id}
+                href={`/pulse/${post.id}`}
+                className="block rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-5 hover:border-border transition-all group"
+              >
+                <div className="flex gap-4">
+                  <div className="text-4xl opacity-50 flex-shrink-0 hidden sm:block">
+                    {icon}
                   </div>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center gap-2 text-xs flex-wrap">
+                      <span
+                        className="px-2 py-0.5 rounded-full font-medium"
+                        style={{
+                          backgroundColor: `${post.editorial_categories?.color}20`,
+                          color: post.editorial_categories?.color,
+                        }}
+                      >
+                        {post.editorial_categories?.icon} {post.editorial_categories?.name}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {formatDistanceToNow(new Date(post.published_at), { addSuffix: true })}
+                      </span>
+                    </div>
 
-                  <h2 className="font-bold text-lg leading-tight group-hover:text-foreground">
-                    {post.headline}
-                  </h2>
+                    <h2 className="font-bold text-lg leading-tight group-hover:text-foreground">
+                      {post.headline}
+                    </h2>
 
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {post.summary}
-                  </p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {post.summary}
+                    </p>
 
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2">
-                    <span>👁 {post.view_count || 0}</span>
-                    <span>❤ {post.like_count || 0}</span>
-                    <span>💬 {post.comment_count || 0}</span>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+                      <span>👁 {post.view_count || 0}</span>
+                      <span>❤ {post.like_count || 0}</span>
+                      <span>💬 {post.comment_count || 0}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))
+              </Link>
+            )
+          })
         )}
       </div>
     </div>
