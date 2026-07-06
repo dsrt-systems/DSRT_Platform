@@ -102,7 +102,7 @@ export default async function FeedPage({ searchParams }: PageProps) {
   const mixed = mixFeed(userPosts, tab === 'global' ? shuffled : [])
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+    <div className="max-w-2xl mx-auto px-3 md:px-4 py-4 md:py-6 space-y-3 md:space-y-4">
       <AutoRefresh />
       <DailyBriefing />
       <ComposeCard user={profile} />

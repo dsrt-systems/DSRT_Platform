@@ -16,7 +16,7 @@ const BOT_PERSONAS = [
     brings: ['builder', 'maker'],
     interest_topics: ['saas', 'devtools', 'productivity'],
     style: 'student, enthusiastic, technical, casual, writes short posts',
-    photo_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=kunal&backgroundColor=b6e3f4',
     education: { institution: 'CGEC', degree: 'B.Tech', field: 'Computer Science', start_year: 2022, end_year: 2026, is_current: true },
     skills: ['React', 'Next.js', 'PostgreSQL', 'TypeScript', 'Node.js'],
   },
@@ -30,7 +30,7 @@ const BOT_PERSONAS = [
     brings: ['builder', 'launcher'],
     interest_topics: ['creator', 'productivity', 'social'],
     style: 'professional, design-focused, thoughtful, mid-length posts',
-    photo_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=sanya&backgroundColor=ffd5dc',
     education: { institution: 'NID Ahmedabad', degree: 'M.Des', field: 'Product Design', start_year: 2016, end_year: 2018, is_current: false },
     skills: ['UI Design', 'UX Design', 'Figma', 'Product Management', 'User Research'],
   },
@@ -44,7 +44,7 @@ const BOT_PERSONAS = [
     brings: ['visionary', 'launcher'],
     interest_topics: ['fintech', 'saas'],
     style: 'confident, visionary, business-oriented, occasional hot takes',
-    photo_url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=rishi&backgroundColor=c0aede',
     education: { institution: 'IIT Bombay', degree: 'B.Tech', field: 'Mechanical Engineering', start_year: 2011, end_year: 2015, is_current: false },
     skills: ['Fundraising', 'Business Development', 'Strategy', 'Financial Modeling', 'Sales'],
   },
@@ -58,7 +58,7 @@ const BOT_PERSONAS = [
     brings: ['builder', 'professional'],
     interest_topics: ['ai', 'devtools'],
     style: 'academic, serious, technical, deep insights',
-    photo_url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=ishani&backgroundColor=d1f4d1',
     education: { institution: 'NIT Durgapur', degree: 'PhD', field: 'Computer Science', start_year: 2022, end_year: 2027, is_current: true },
     skills: ['Machine Learning', 'Deep Learning', 'NLP', 'Python', 'PyTorch'],
   },
@@ -72,7 +72,7 @@ const BOT_PERSONAS = [
     brings: ['builder', 'maker'],
     interest_topics: ['robotics', 'iot', 'aerospace'],
     style: 'maker, hands-on, casual, describes hardware in detail',
-    photo_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=deepak&backgroundColor=ffdfba',
     education: { institution: 'DTU', degree: 'B.Tech', field: 'Electronics', start_year: 2019, end_year: 2023, is_current: false },
     skills: ['Embedded Systems', 'C++', 'PCB Design', 'ROS', 'Arduino'],
   },
@@ -86,7 +86,7 @@ const BOT_PERSONAS = [
     brings: ['visionary', 'professional'],
     interest_topics: ['climate', 'cleantech'],
     style: 'mission-driven, hopeful, science-backed',
-    photo_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=nisha&backgroundColor=baffc9',
     education: { institution: 'IIT Madras', degree: 'PhD', field: 'Chemical Engineering', start_year: 2018, end_year: 2023, is_current: false },
     skills: ['Chemistry', 'Process Engineering', 'R&D', 'Grant Writing', 'Team Leadership'],
   },
@@ -100,7 +100,7 @@ const BOT_PERSONAS = [
     brings: ['builder'],
     interest_topics: ['saas', 'productivity', 'creator'],
     style: 'indie hacker, casual, revenue-transparent, shares numbers',
-    photo_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=aryan&backgroundColor=bae1ff',
     education: { institution: 'BITS Pilani', degree: 'B.E.', field: 'Computer Science', start_year: 2016, end_year: 2020, is_current: false },
     skills: ['iOS Development', 'Swift', 'SwiftUI', 'App Store Optimization', 'Product Design'],
   },
@@ -114,7 +114,7 @@ const BOT_PERSONAS = [
     brings: ['professional', 'mentor'],
     interest_topics: ['ai', 'edtech'],
     style: 'senior, mentor-tone, encouraging, occasionally reflective',
-    photo_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=priyav&backgroundColor=e8d5f5',
     education: { institution: 'IIT Madras', degree: 'M.Tech', field: 'Data Science', start_year: 2014, end_year: 2016, is_current: false },
     skills: ['Machine Learning', 'Python', 'TensorFlow', 'Recommendation Systems', 'Mentoring'],
   },
@@ -128,7 +128,7 @@ const BOT_PERSONAS = [
     brings: ['visionary', 'launcher'],
     interest_topics: ['edtech', 'social'],
     style: 'passionate, story-driven, education-obsessed',
-    photo_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=karthik&backgroundColor=ffe4c4',
     education: { institution: 'Anna University', degree: 'M.Sc', field: 'Physics', start_year: 2009, end_year: 2011, is_current: false },
     skills: ['Curriculum Design', 'Product Management', 'B2B Sales', 'Content Creation', 'Physics'],
   },
@@ -142,7 +142,7 @@ const BOT_PERSONAS = [
     brings: ['launcher'],
     interest_topics: ['saas', 'creator', 'social'],
     style: 'growth-focused, sharp, data-driven, share tactical insights',
-    photo_url: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=rhea&backgroundColor=ffc6c6',
     education: { institution: 'Christ University', degree: 'MBA', field: 'Marketing', start_year: 2016, end_year: 2018, is_current: false },
     skills: ['SEO', 'Content Marketing', 'Growth Hacking', 'Community Building', 'Analytics'],
   },
@@ -156,7 +156,7 @@ const BOT_PERSONAS = [
     brings: ['builder', 'professional'],
     interest_topics: ['fintech', 'devtools'],
     style: 'engineering-first, thoughtful, direct, technical deep-dives',
-    photo_url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=sameer&backgroundColor=c4e7ff',
     education: { institution: 'IIIT Hyderabad', degree: 'B.Tech', field: 'CSE', start_year: 2015, end_year: 2019, is_current: false },
     skills: ['Rust', 'Go', 'PostgreSQL', 'Distributed Systems', 'Open Source'],
   },
@@ -170,7 +170,7 @@ const BOT_PERSONAS = [
     brings: ['builder', 'professional'],
     interest_topics: ['biotech', 'ai'],
     style: 'academic, curious, deep-thinking, connects biology with tech',
-    photo_url: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=200&h=200&fit=crop&crop=face',
+    photo_url: 'https://api.dicebear.com/9.x/shapes/svg?seed=ananya&backgroundColor=d4edda',
     education: { institution: 'IISc Bangalore', degree: 'PhD', field: 'Genomics', start_year: 2019, end_year: 2024, is_current: false },
     skills: ['Genomics', 'Bioinformatics', 'Python', 'Machine Learning', 'R'],
   },
@@ -241,7 +241,7 @@ export async function GET(request: Request) {
     errors: [] as string[],
   }
 
-  // Ensure bots + full profiles
+  // Ensure bots exist + update their avatars (in case they were changed)
   for (const p of BOT_PERSONAS) {
     try {
       const { data: existing } = await supabase
@@ -254,8 +254,8 @@ export async function GET(request: Request) {
 
       if (existing) {
         userId = existing.id
-        // Update avatar if it's still the old cartoon
-        if (!existing.avatar_url?.includes('unsplash')) {
+        // Update avatar if it's not the new DiceBear shapes style
+        if (!existing.avatar_url?.includes('dicebear.com/9.x/shapes')) {
           await supabase
             .from('users')
             .update({
@@ -310,7 +310,7 @@ export async function GET(request: Request) {
           is_current: p.education.is_current,
         })
 
-        // Add skills — find matching skills
+        // Add skills
         for (const skillName of p.skills) {
           const { data: skill } = await supabase
             .from('skills')

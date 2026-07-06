@@ -30,6 +30,7 @@ export function Navbar({ user }: NavbarProps) {
   const [results, setResults] = useState<any>(null)
   const [searching, setSearching] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [showMobileSearch, setShowMobileSearch] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -73,17 +74,19 @@ export function Navbar({ user }: NavbarProps) {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/70 backdrop-blur-xl">
-      <div className="flex h-14 items-center px-4 gap-4">
-        <Link href="/feed" className="flex items-center gap-2">
+      <div className="flex h-14 items-center px-3 md:px-4 gap-2 md:gap-4">
+        {/* Logo */}
+        <Link href="/feed" className="flex items-center gap-2 flex-shrink-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-sm">D</span>
           </div>
-          <span className="font-bold text-lg tracking-tight hidden md:block">
+          <span className="font-bold text-lg tracking-tight hidden sm:block">
             DSRT
           </span>
         </Link>
 
-        <div className="flex-1 max-w-2xl mx-auto relative" ref={searchRef}>
+        {/* Desktop search */}
+        <div className="flex-1 max-w-2xl mx-auto hidden md:block relative" ref={searchRef}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -93,7 +96,7 @@ export function Navbar({ user }: NavbarProps) {
                 setShowResults(true)
               }}
               onFocus={() => setShowResults(true)}
-              placeholder="Search builders, projects, ventures, communities..."
+              placeholder="Search builders, projects, ventures..."
               className="pl-9 h-9 bg-muted/40 border-border/40 focus-visible:ring-1"
             />
             {searching && (
@@ -127,32 +130,8 @@ export function Navbar({ user }: NavbarProps) {
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
                           @{u.username}
-                          {u.tagline && ` · ${u.tagline}`}
                         </p>
                       </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-
-              {results.projects?.length > 0 && (
-                <div>
-                  <p className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-                    Projects
-                  </p>
-                  {results.projects.map((p: any) => (
-                    <Link
-                      key={p.id}
-                      href={`/projects/${p.slug}`}
-                      onClick={() => setShowResults(false)}
-                      className="block px-3 py-2 hover:bg-muted/50"
-                    >
-                      <p className="text-sm font-medium">{p.title}</p>
-                      {p.tagline && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {p.tagline}
-                        </p>
-                      )}
                     </Link>
                   ))}
                 </div>
@@ -181,37 +160,40 @@ export function Navbar({ user }: NavbarProps) {
                 </div>
               )}
 
-              {results.communities?.length > 0 && (
+              {results.projects?.length > 0 && (
                 <div>
                   <p className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-                    Communities
+                    Projects
                   </p>
-                  {results.communities.map((c: any) => (
+                  {results.projects.map((p: any) => (
                     <Link
-                      key={c.id}
-                      href={`/community/${c.slug}`}
+                      key={p.id}
+                      href={`/projects/${p.slug}`}
                       onClick={() => setShowResults(false)}
                       className="block px-3 py-2 hover:bg-muted/50"
                     >
-                      <p className="text-sm font-medium">{c.name}</p>
+                      <p className="text-sm font-medium">{p.title}</p>
                     </Link>
                   ))}
                 </div>
               )}
             </div>
           )}
-
-          {showResults && query.length >= 2 && results && totalResults === 0 && !searching && (
-            <div className="absolute top-full mt-2 left-0 right-0 rounded-xl border border-border bg-popover shadow-lg p-4 text-center text-sm text-muted-foreground z-50">
-              No results for &quot;{query}&quot;
-            </div>
-          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Mobile search icon */}
+        <button
+          type="button"
+          onClick={() => setShowMobileSearch(!showMobileSearch)}
+          className="md:hidden w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+
+        <div className="flex items-center gap-1 md:gap-2 ml-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" className="gap-1.5">
+              <Button size="sm" className="gap-1.5 h-9 px-2 md:px-3">
                 <Plus className="w-4 h-4" />
                 <span className="hidden md:inline">Build</span>
               </Button>
@@ -220,22 +202,13 @@ export function Navbar({ user }: NavbarProps) {
               <DropdownMenuLabel>What are you starting?</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/projects/new">
-                  <span className="mr-2">⚡</span>
-                  New Project
-                </Link>
+                <Link href="/projects/new">⚡ New Project</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/ventures/new">
-                  <span className="mr-2">🚀</span>
-                  New Venture
-                </Link>
+                <Link href="/ventures/new">🚀 New Venture</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/feed?compose=true">
-                  <span className="mr-2">📝</span>
-                  Share Build Log
-                </Link>
+                <Link href="/feed?compose=true">📝 Share Build Log</Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -289,6 +262,22 @@ export function Navbar({ user }: NavbarProps) {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Mobile search overlay */}
+      {showMobileSearch && (
+        <div className="md:hidden px-3 pb-3 border-t border-border/40">
+          <div className="relative pt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 mt-1 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search..."
+              className="pl-9 h-9 bg-muted/40 border-border/40"
+              autoFocus
+            />
+          </div>
+        </div>
+      )}
     </header>
   )
 }

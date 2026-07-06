@@ -34,7 +34,7 @@ export default async function MainLayout({
       <Navbar user={profile} />
       <div className="flex">
         <Sidebar user={profile} />
-        <main className="flex-1 min-h-[calc(100vh-3.5rem)] md:ml-72 lg:mr-80">
+        <main className="flex-1 min-h-[calc(100vh-3.5rem)] w-full md:ml-72 lg:mr-80 overflow-x-hidden">
           {children}
         </main>
         <RightSidebar user={profile} />

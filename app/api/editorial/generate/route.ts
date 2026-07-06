@@ -101,11 +101,15 @@ export async function GET(request: Request) {
           continue
         }
 
-        const enriched = await enrichNewsItem(item, source, groq)
+                // Check for duplicate headline (case-insensitive)
+        const { data: existingHeadline } = await supabase
+          .from('editorial_posts')
+          .select('id')
+          .ilike('headline', enriched.headline)
+          .maybeSingle()
 
-        if (!enriched) {
-          stats.items_skipped_filter++
-          // Still mark as processed so we don't retry
+        if (existingHeadline) {
+          stats.items_skipped_duplicate++
           await supabase.from('processed_news').insert({
             source_url: item.link,
             source_name: source.name,
@@ -113,6 +117,7 @@ export async function GET(request: Request) {
           })
           continue
         }
+
 
         const { data: category } = await supabase
           .from('editorial_categories')
@@ -249,34 +254,32 @@ Be factual. Do not invent facts.`,
 }
 
 function extractImage(item: any): string | null {
-  if (item.enclosure?.url) return item.enclosure.url
-  if (item['media:content']?.['$']?.url) return item['media:content']['$'].url
-  if (item['media:thumbnail']?.['$']?.url) return item['media:thumbnail']['$'].url
+  // Try to get image from various RSS formats
+  const candidates: (string | undefined)[] = [
+    item.enclosure?.url,
+    item['media:content']?.['$']?.url,
+    item['media:thumbnail']?.['$']?.url,
+  ]
+
+  // Try to extract from HTML content
   const content = item['content:encoded'] || item.content || ''
-  const match = content.match(/<img[^>]+src="([^">]+)"/i)
-  if (match) return match[1]
+  const imgMatch = content.match(/<img[^>]+src="([^">]+)"/i)
+  if (imgMatch) candidates.push(imgMatch[1])
+
+  // Return first valid-looking URL (not too small, not a tracking pixel)
+  for (const url of candidates) {
+    if (!url) continue
+    if (url.includes('1x1')) continue
+    if (url.includes('pixel')) continue
+    if (url.includes('tracker')) continue
+    if (url.length < 20) continue
+    return url
+  }
+
   return null
 }
 
 function getFallback(category: string): string {
-  const queries: Record<string, string> = {
-    technology: 'technology,office',
-    'ai-robotics': 'ai,neural-network',
-    startups: 'startup,team',
-    biotech: 'laboratory',
-    aerospace: 'aircraft',
-    climate: 'wind-turbine',
-    finance: 'finance,chart',
-    manufacturing: 'factory',
-    agriculture: 'farm',
-    semiconductor: 'chip',
-    ev: 'electric-car',
-    retail: 'retail',
-    maritime: 'ship',
-    aviation: 'airplane',
-    education: 'university',
-    space: 'space',
-    research: 'science',
-  }
-  return `https://source.unsplash.com/1200x630/?${queries[category] || 'business'}`
+  // Return empty string — cards will show beautiful gradient instead
+  return ''
 }

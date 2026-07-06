@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { RefreshBriefingButton } from '@/components/pulse/RefreshBriefingButton'
 import { AutoRefresh } from '@/components/feed/AutoRefresh'
+import { PulseCoverImage } from '@/components/editorial/PulseCoverImage'
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
@@ -39,7 +40,8 @@ export default async function PulsePage() {
               Builder Pulse
             </h1>
             <p className="text-sm text-muted-foreground mt-2">
-              Startup funding, company news, and product launches. Auto-updates every 30 minutes.
+              Startup funding, company news, and product launches. Auto-updates
+              every 30 minutes.
             </p>
           </div>
           <RefreshBriefingButton />
@@ -76,16 +78,14 @@ export default async function PulsePage() {
               href={`/pulse/${post.id}`}
               className="block rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden hover:border-border transition-all group"
             >
-              <div className="grid md:grid-cols-[200px_1fr] gap-0">
-                {post.cover_image_url && (
-                  <div className="h-40 md:h-full bg-muted overflow-hidden">
-                    <img
-                      src={post.cover_image_url}
-                      alt=""
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                )}
+              <div className="grid md:grid-cols-[240px_1fr] gap-0">
+                <div className="md:h-auto">
+                  <PulseCoverImage
+                    imageUrl={post.cover_image_url}
+                    categorySlug={post.editorial_categories?.slug}
+                    categoryName={post.editorial_categories?.name}
+                  />
+                </div>
 
                 <div className="p-5 space-y-2">
                   <div className="flex items-center gap-2 text-xs">

@@ -18,6 +18,7 @@ import {
   Sparkles,
   GraduationCap,
   Trophy,
+  Gift,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -44,10 +45,16 @@ const sections = [
       { name: 'Startup School', href: '/school', icon: GraduationCap },
     ],
   },
-  {
+    {
     label: 'AI',
     items: [
       { name: 'DSRT Mentor', href: '/mentor', icon: Sparkles },
+    ],
+  },
+  {
+    label: 'GROW',
+    items: [
+      { name: 'Invite Builders', href: '/referrals', icon: Gift },
     ],
   },
   {

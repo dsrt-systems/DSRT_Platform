@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useDropzone } from 'react-dropzone'
@@ -23,6 +23,9 @@ import {
   Hash,
   X,
   Loader2,
+  Mic,
+  Square,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -57,34 +60,92 @@ export function ComposeDialog({
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [images, setImages] = useState<string[]>([])
+  const [media, setMedia] = useState<{ url: string; type: 'image' | 'audio' }[]>([])
   const [uploading, setUploading] = useState(false)
+  const [aiHelping, setAiHelping] = useState(false)
+
+  // Voice recording state
+  const [recording, setRecording] = useState(false)
+  const [recordDuration, setRecordDuration] = useState(0)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': [] },
     maxFiles: 4,
     maxSize: 10 * 1024 * 1024,
-    disabled: uploading || images.length >= 4,
+    disabled: uploading || media.filter(m => m.type === 'image').length >= 4,
     onDrop: async (files) => {
       setUploading(true)
-      const newUrls: string[] = []
-      for (const file of files.slice(0, 4 - images.length)) {
+      const newItems: { url: string; type: 'image' | 'audio' }[] = []
+      for (const file of files) {
         const ext = file.name.split('.').pop()
         const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
         const { error } = await supabase.storage
           .from('post-media')
           .upload(path, file, { cacheControl: '3600' })
         if (!error) {
-          const {
-            data: { publicUrl },
-          } = supabase.storage.from('post-media').getPublicUrl(path)
-          newUrls.push(publicUrl)
+          const { data: { publicUrl } } = supabase.storage.from('post-media').getPublicUrl(path)
+          newItems.push({ url: publicUrl, type: 'image' })
         }
       }
-      setImages([...images, ...newUrls])
+      setMedia([...media, ...newItems])
       setUploading(false)
     },
   })
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = recorder
+      chunksRef.current = []
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        stream.getTracks().forEach((t) => t.stop())
+
+        // Upload
+        setUploading(true)
+        const path = `${user.id}/voice-${Date.now()}.webm`
+        const { error } = await supabase.storage
+          .from('post-media')
+          .upload(path, blob, { contentType: 'audio/webm' })
+
+        if (!error) {
+          const { data: { publicUrl } } = supabase.storage.from('post-media').getPublicUrl(path)
+          setMedia((m) => [...m, { url: publicUrl, type: 'audio' }])
+        }
+        setUploading(false)
+      }
+
+      recorder.start()
+      setRecording(true)
+      setRecordDuration(0)
+      timerRef.current = setInterval(() => {
+        setRecordDuration((d) => {
+          if (d >= 30) {
+            stopRecording()
+            return 30
+          }
+          return d + 1
+        })
+      }, 1000)
+    } catch (err) {
+      alert('Could not access microphone. Please allow microphone access.')
+    }
+  }
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop()
+    setRecording(false)
+    if (timerRef.current) clearInterval(timerRef.current)
+  }
 
   const handleAddTag = () => {
     const t = tagInput.trim().replace(/^#/, '')
@@ -94,20 +155,48 @@ export function ComposeDialog({
     }
   }
 
-  const removeImage = (url: string) => {
-    setImages(images.filter((u) => u !== url))
+  const removeMedia = (url: string) => {
+    setMedia(media.filter((m) => m.url !== url))
+  }
+
+  const improveWithAI = async () => {
+    if (!content.trim()) {
+      alert('Write something first, then I can improve it.')
+      return
+    }
+    setAiHelping(true)
+
+    try {
+      const res = await fetch('/api/writing-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: content,
+          type,
+          action: 'improve',
+        }),
+      })
+      const data = await res.json()
+      if (data.improved) {
+        setContent(data.improved)
+      }
+    } catch {}
+
+    setAiHelping(false)
   }
 
   const handlePost = async () => {
-    if (!content.trim() && images.length === 0) return
+    if (!content.trim() && media.length === 0) return
     setLoading(true)
+
+    const mediaUrls = media.map((m) => m.url)
 
     const { error } = await supabase.from('posts').insert({
       user_id: user.id,
       type,
       content: content.trim(),
       tags,
-      media_urls: images,
+      media_urls: mediaUrls,
       visibility: 'global',
     })
 
@@ -116,7 +205,7 @@ export function ComposeDialog({
     if (!error) {
       setContent('')
       setTags([])
-      setImages([])
+      setMedia([])
       setType('update')
       onOpenChange(false)
       router.refresh()
@@ -124,6 +213,9 @@ export function ComposeDialog({
       alert('Failed to post: ' + error.message)
     }
   }
+
+  const imageCount = media.filter((m) => m.type === 'image').length
+  const hasAudio = media.some((m) => m.type === 'audio')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -180,25 +272,72 @@ export function ComposeDialog({
             className="w-full p-3 text-sm rounded-lg bg-muted/40 border-0 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
           />
 
-          {/* Image previews */}
-          {images.length > 0 && (
-            <div className="grid grid-cols-2 gap-2">
-              {images.map((url) => (
-                <div key={url} className="relative">
-                  <img
-                    src={url}
-                    alt=""
-                    className="w-full h-32 object-cover rounded-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(url)}
-                    className="absolute top-1 right-1 bg-background/80 backdrop-blur-sm p-1 rounded-full"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+          {/* Media previews */}
+          {media.length > 0 && (
+            <div className="space-y-2">
+              {/* Images grid */}
+              {imageCount > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {media
+                    .filter((m) => m.type === 'image')
+                    .map((m) => (
+                      <div key={m.url} className="relative">
+                        <img
+                          src={m.url}
+                          alt=""
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeMedia(m.url)}
+                          className="absolute top-1 right-1 bg-background/80 backdrop-blur-sm p-1 rounded-full"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
                 </div>
-              ))}
+              )}
+
+              {/* Audio */}
+              {media
+                .filter((m) => m.type === 'audio')
+                .map((m) => (
+                  <div
+                    key={m.url}
+                    className="p-3 rounded-lg bg-muted/30 border border-border/40 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium flex items-center gap-1">
+                        🎤 Voice note
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => removeMedia(m.url)}
+                        className="p-1 hover:bg-background rounded"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <audio src={m.url} controls className="w-full h-8" />
+                  </div>
+                ))}
+            </div>
+          )}
+
+          {/* Recording UI */}
+          {recording && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <p className="text-sm font-medium">
+                  Recording... {recordDuration}s / 30s
+                </p>
+              </div>
+              <Button size="sm" variant="destructive" onClick={stopRecording}>
+                <Square className="w-3 h-3 mr-1" />
+                Stop
+              </Button>
             </div>
           )}
 
@@ -248,9 +387,13 @@ export function ComposeDialog({
 
           <div className="flex items-center justify-between pt-3 border-t border-border">
             <div className="flex items-center gap-1">
+              {/* Image upload */}
               <div
                 {...getRootProps()}
-                className="p-2 rounded-lg hover:bg-muted/40 text-muted-foreground hover:text-foreground cursor-pointer"
+                className={cn(
+                  'p-2 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer',
+                  imageCount >= 4 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-muted/40'
+                )}
                 title="Add image"
               >
                 <input {...getInputProps()} />
@@ -260,14 +403,45 @@ export function ComposeDialog({
                   <ImageIcon className="w-4 h-4" />
                 )}
               </div>
-              <span className="text-[10px] text-muted-foreground">
-                {images.length}/4 images
+
+              {/* Voice recording */}
+              <button
+                type="button"
+                onClick={recording ? stopRecording : startRecording}
+                disabled={hasAudio || uploading}
+                className={cn(
+                  'p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40',
+                  recording && 'text-red-500 animate-pulse',
+                  hasAudio && 'opacity-40 cursor-not-allowed'
+                )}
+                title={hasAudio ? 'Already have a voice note' : 'Record voice note'}
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+
+              {/* AI Writing Assistant */}
+              <button
+                type="button"
+                onClick={improveWithAI}
+                disabled={aiHelping || !content.trim()}
+                className="p-2 rounded-lg text-purple-500 hover:bg-purple-500/10 disabled:opacity-40"
+                title="Improve with AI"
+              >
+                {aiHelping ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+              </button>
+
+              <span className="text-[10px] text-muted-foreground ml-2">
+                {imageCount}/4 images {hasAudio && '· 🎤'}
               </span>
             </div>
 
             <Button
               onClick={handlePost}
-              disabled={(!content.trim() && images.length === 0) || loading}
+              disabled={(!content.trim() && media.length === 0) || loading}
               size="sm"
             >
               {loading ? 'Posting...' : 'Post'}

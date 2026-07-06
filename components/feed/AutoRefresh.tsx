@@ -7,16 +7,18 @@ import { createClient } from '@/lib/supabase/client'
 export function AutoRefresh() {
   const router = useRouter()
   const supabase = createClient()
-  const lastCheckRef = useRef<number>(Date.now())
   const isTriggeringRef = useRef(false)
+  const lastTriggerRef = useRef(0)
 
   useEffect(() => {
-    // Function to check if news is stale and trigger fresh fetch
     const checkAndRefreshNews = async () => {
       if (isTriggeringRef.current) return
 
+      // Don't trigger more than once every 15 minutes
+      const timeSinceLastTrigger = Date.now() - lastTriggerRef.current
+      if (timeSinceLastTrigger < 15 * 60 * 1000 && lastTriggerRef.current > 0) return
+
       try {
-        // Check timestamp of latest news
         const { data: latest } = await supabase
           .from('editorial_posts')
           .select('published_at')
@@ -25,17 +27,16 @@ export function AutoRefresh() {
           .maybeSingle()
 
         if (!latest) {
-          triggerFetch()
+          await triggerFetch()
           return
         }
 
         const latestTime = new Date(latest.published_at).getTime()
-        const now = Date.now()
-        const minutesSinceLatest = (now - latestTime) / (1000 * 60)
+        const minutesSinceLatest = (Date.now() - latestTime) / (1000 * 60)
 
-        // If latest news is older than 30 min, trigger new fetch
-        if (minutesSinceLatest > 30) {
-          triggerFetch()
+        // Only trigger if latest news is > 45 min old
+        if (minutesSinceLatest > 45) {
+          await triggerFetch()
         }
       } catch (err) {
         console.error('Check news error:', err)
@@ -45,19 +46,19 @@ export function AutoRefresh() {
     const triggerFetch = async () => {
       if (isTriggeringRef.current) return
       isTriggeringRef.current = true
+      lastTriggerRef.current = Date.now()
 
       try {
         await fetch('/api/editorial/generate?manual=true')
-        // Refresh page to show new posts
         router.refresh()
       } catch {}
 
       setTimeout(() => {
         isTriggeringRef.current = false
-      }, 60000) // Don't retrigger for 1 minute
+      }, 5 * 60 * 1000) // Don't retrigger for 5 min
     }
 
-    // Subscribe to new editorial posts — auto-refresh when they arrive
+    // Subscribe to new editorial posts
     const channel = supabase
       .channel('editorial-live')
       .on(
@@ -73,31 +74,18 @@ export function AutoRefresh() {
       )
       .subscribe()
 
-    // Initial check
-    checkAndRefreshNews()
+    // Initial check after 5 seconds (give page time to load first)
+    const initialTimeout = setTimeout(checkAndRefreshNews, 5000)
 
-    // Check every 5 minutes
-    const interval = setInterval(checkAndRefreshNews, 5 * 60 * 1000)
-
-    // Also check when tab becomes visible
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        const timeSinceLastCheck = Date.now() - lastCheckRef.current
-        if (timeSinceLastCheck > 2 * 60 * 1000) {
-          checkAndRefreshNews()
-          lastCheckRef.current = Date.now()
-        }
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibility)
+    // Check every 15 minutes
+    const interval = setInterval(checkAndRefreshNews, 15 * 60 * 1000)
 
     return () => {
       channel.unsubscribe()
+      clearTimeout(initialTimeout)
       clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [router])
 
-  return null // Renders nothing, just runs in background
+  return null
 }
