@@ -7,28 +7,20 @@ export const maxDuration = 60
 export const dynamic = 'force-dynamic'
 
 const NEWS_SOURCES = [
-  // Pure startup/VC/funding
-  { url: 'https://techcrunch.com/category/startups/feed/', category: 'startups', name: 'TechCrunch Startups' },
-  { url: 'https://techcrunch.com/category/venture/feed/', category: 'startups', name: 'TechCrunch Venture' },
-  { url: 'https://news.crunchbase.com/feed/', category: 'startups', name: 'Crunchbase News' },
-  { url: 'https://venturebeat.com/category/entrepreneur/feed/', category: 'startups', name: 'VentureBeat' },
-  { url: 'https://www.entrepreneur.com/latest.rss', category: 'startups', name: 'Entrepreneur' },
-  { url: 'https://feeds.feedburner.com/pitchbook-news-latest-headlines', category: 'startups', name: 'PitchBook' },
+  // DSRT RESEARCH — research updates that affect startups
+  { url: 'https://techcrunch.com/category/artificial-intelligence/feed/', category: 'dsrt-research', name: 'TechCrunch AI', channel: 'research' },
+  { url: 'https://venturebeat.com/category/ai/feed/', category: 'dsrt-research', name: 'VB AI', channel: 'research' },
+  { url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed', category: 'dsrt-research', name: 'MIT Tech Review', channel: 'research' },
 
-  // Tech companies + business
-  { url: 'https://techcrunch.com/feed/', category: 'technology', name: 'TechCrunch' },
-  { url: 'https://www.forbes.com/innovation/feed/', category: 'technology', name: 'Forbes Innovation' },
-  { url: 'https://www.theverge.com/rss/index.xml', category: 'technology', name: 'The Verge' },
-
-  // AI companies
-  { url: 'https://techcrunch.com/category/artificial-intelligence/feed/', category: 'ai-robotics', name: 'TechCrunch AI' },
-  { url: 'https://venturebeat.com/category/ai/feed/', category: 'ai-robotics', name: 'VB AI' },
-
-  // Fintech companies
-  { url: 'https://techcrunch.com/category/fintech/feed/', category: 'finance', name: 'TechCrunch Fintech' },
-
-  // Product launches
-  { url: 'https://www.producthunt.com/feed', category: 'technology', name: 'Product Hunt' },
+  // DSRT BUILDER UPDATES — startup/company/product news
+  { url: 'https://techcrunch.com/category/startups/feed/', category: 'dsrt-builders', name: 'TechCrunch Startups', channel: 'builders' },
+  { url: 'https://techcrunch.com/category/venture/feed/', category: 'dsrt-builders', name: 'TechCrunch Venture', channel: 'builders' },
+  { url: 'https://news.crunchbase.com/feed/', category: 'dsrt-builders', name: 'Crunchbase News', channel: 'builders' },
+  { url: 'https://venturebeat.com/category/entrepreneur/feed/', category: 'dsrt-builders', name: 'VentureBeat', channel: 'builders' },
+  { url: 'https://www.entrepreneur.com/latest.rss', category: 'dsrt-builders', name: 'Entrepreneur', channel: 'builders' },
+  { url: 'https://www.forbes.com/innovation/feed/', category: 'dsrt-builders', name: 'Forbes Innovation', channel: 'builders' },
+  { url: 'https://www.theverge.com/rss/index.xml', category: 'dsrt-builders', name: 'The Verge', channel: 'builders' },
+  { url: 'https://techcrunch.com/category/fintech/feed/', category: 'dsrt-builders', name: 'TechCrunch Fintech', channel: 'builders' },
 ]
 
 export async function GET(request: Request) {
@@ -38,8 +30,8 @@ export async function GET(request: Request) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' }, { status: 500 })
   }
-  if (!process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: 'Missing GROQ_API_KEY or OPENAI_API_KEY' }, { status: 500 })
+  if (!process.env.GROQ_API_KEY) {
+    return NextResponse.json({ error: 'Missing GROQ_API_KEY' }, { status: 500 })
   }
 
   const authHeader = request.headers.get('authorization')
@@ -59,7 +51,7 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
   const parser = new Parser({
     timeout: 10000,
@@ -90,6 +82,7 @@ export async function GET(request: Request) {
       for (const item of items) {
         if (!item.link || !item.title) continue
 
+        // Check URL duplicate
         const { data: existing } = await supabase
           .from('processed_news')
           .select('id')
@@ -101,7 +94,20 @@ export async function GET(request: Request) {
           continue
         }
 
-                // Check for duplicate headline (case-insensitive)
+        // Enrich with AI
+        const enriched = await enrichNewsItem(item, source, groq)
+
+        if (!enriched) {
+          stats.items_skipped_filter++
+          await supabase.from('processed_news').insert({
+            source_url: item.link,
+            source_name: source.name,
+            editorial_post_id: null,
+          })
+          continue
+        }
+
+        // Check headline duplicate (case-insensitive)
         const { data: existingHeadline } = await supabase
           .from('editorial_posts')
           .select('id')
@@ -118,7 +124,7 @@ export async function GET(request: Request) {
           continue
         }
 
-
+        // Get category
         const { data: category } = await supabase
           .from('editorial_categories')
           .select('id')
@@ -130,10 +136,12 @@ export async function GET(request: Request) {
           continue
         }
 
+        // Insert post with channel
         const { data: post, error: insertError } = await supabase
           .from('editorial_posts')
           .insert({
             category_id: category.id,
+            channel: source.channel || 'builders',
             headline: enriched.headline,
             summary: enriched.summary,
             body: enriched.body,
@@ -196,6 +204,7 @@ IMPORTANT FILTER: This article MUST be about one of:
 - Product launch or business milestone
 - Business strategy or corporate development
 - Company financials, IPOs, or M&A
+- Research breakthroughs that affect startups (for research channel)
 
 If the article is about general economics, politics, sports, celebrity gossip, weather, or non-business news, return EXACTLY:
 {"skip": true}
@@ -227,7 +236,6 @@ Be factual. Do not invent facts.`,
 
     const parsed = JSON.parse(content)
 
-    // Skip non-startup/business news
     if (parsed.skip === true) {
       return null
     }
@@ -236,8 +244,6 @@ Be factual. Do not invent facts.`,
       return null
     }
 
-    const coverImage = extractImage(item) || getFallback(source.category)
-
     return {
       headline: parsed.headline,
       summary: parsed.summary,
@@ -245,18 +251,10 @@ Be factual. Do not invent facts.`,
       why_it_matters: parsed.why_it_matters || '',
       tags: parsed.tags || [],
       related_topics: parsed.related_topics || [],
-      cover_image_url: coverImage,
+      cover_image_url: null, // No images — cards use icon fallback
     }
   } catch (err) {
     console.error('Enrichment error:', err)
     return null
   }
-}
-
-function extractImage(item: any): string | null {
-  return null
-}
-
-function getFallback(category: string): string {
-  return ''
 }

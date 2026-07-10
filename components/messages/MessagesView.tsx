@@ -1,7 +1,6 @@
 'use client'
 
-import { NewMessageDialog } from './NewMessageDialog'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -23,6 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Markdown } from '@/components/shared/Markdown'
+import { NewMessageDialog } from './NewMessageDialog'
 
 interface MessagesViewProps {
   conversations: any[]
@@ -35,12 +35,13 @@ type ChatType = 'mentor' | 'user'
 type SelectedChat = { type: ChatType; id: string | null; data?: any } | null
 
 export function MessagesView({
-  conversations,
+  conversations: initialConversations,
   mentorConversations: initialMentorConvs,
   currentUser,
   initialOpenMentor = false,
 }: MessagesViewProps) {
   const supabase = createClient()
+  const [conversations, setConversations] = useState(initialConversations)
   const [selected, setSelected] = useState<SelectedChat>(
     initialOpenMentor ? { type: 'mentor', id: null } : null
   )
@@ -52,6 +53,12 @@ export function MessagesView({
   const [hoveredDot, setHoveredDot] = useState<string | null>(null)
   const [newMessageOpen, setNewMessageOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const selectedRef = useRef<SelectedChat>(selected)
+
+  // Keep ref in sync
+  useEffect(() => {
+    selectedRef.current = selected
+  }, [selected])
 
   const activeConvs = conversations.filter((c) => {
     const myPart = c.conversation_participants?.find(
@@ -66,47 +73,62 @@ export function MessagesView({
     return myPart?.is_archived
   })
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, sending])
 
-  // Realtime for user messages
+  // GLOBAL realtime subscription for ALL user messages
   useEffect(() => {
-    if (!selected || selected.type !== 'user' || !selected.id) return
-
     const channel = supabase
-      .channel(`chat:${selected.id}`)
+      .channel(`user-messages:${currentUser.id}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${selected.id}`,
         },
         async (payload) => {
           const newMsg = payload.new as any
-          const { data: sender } = await supabase
-            .from('users')
-            .select('id, full_name, avatar_url')
-            .eq('id', newMsg.sender_id)
-            .single()
 
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev
-            return [...prev, { ...newMsg, users: sender }]
-          })
+          // Check if this message is in a conversation we're part of
+          const conv = conversations.find((c) => c.id === newMsg.conversation_id)
+          if (!conv) return
 
-          if (newMsg.sender_id !== currentUser.id) {
-            await supabase
-              .from('messages')
-              .update({ read_at: new Date().toISOString() })
-              .eq('id', newMsg.id)
+          // If this conversation is currently open, add to messages
+          const currentSelected = selectedRef.current
+          if (
+            currentSelected?.type === 'user' &&
+            currentSelected.id === newMsg.conversation_id
+          ) {
+            const { data: sender } = await supabase
+              .from('users')
+              .select('id, full_name, avatar_url')
+              .eq('id', newMsg.sender_id)
+              .single()
+
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev
+              return [...prev, { ...newMsg, users: sender }]
+            })
+
+            // Mark as read
+            if (newMsg.sender_id !== currentUser.id) {
+              await supabase
+                .from('messages')
+                .update({ read_at: new Date().toISOString() })
+                .eq('id', newMsg.id)
+            }
           }
+
+          // Update the conversation list with new last message
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === newMsg.conversation_id
+                ? { ...c, messages: [...(c.messages || []), newMsg] }
+                : c
+            )
+          )
         }
       )
       .on(
@@ -115,7 +137,6 @@ export function MessagesView({
           event: 'UPDATE',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${selected.id}`,
         },
         (payload) => {
           const updated = payload.new as any
@@ -132,12 +153,14 @@ export function MessagesView({
           )
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status)
+      })
 
     return () => {
       channel.unsubscribe()
     }
-  }, [selected, currentUser.id])
+  }, [currentUser.id, conversations.length])
 
   const openUserConversation = async (conv: any) => {
     setSelected({ type: 'user', id: conv.id, data: conv })
@@ -148,6 +171,7 @@ export function MessagesView({
       .order('created_at', { ascending: true })
     setMessages(data || [])
 
+    // Mark as read
     await supabase
       .from('messages')
       .update({ read_at: new Date().toISOString() })
@@ -185,13 +209,44 @@ export function MessagesView({
     setNewMessage('')
 
     if (selected.type === 'user') {
-      await supabase.from('messages').insert({
+      // Optimistic add
+      const tempMsg = {
+        id: `temp-${Date.now()}`,
         conversation_id: selected.id,
         sender_id: currentUser.id,
         content,
         type: 'text',
-      })
+        created_at: new Date().toISOString(),
+        users: {
+          id: currentUser.id,
+          full_name: currentUser.full_name,
+          avatar_url: currentUser.avatar_url,
+        },
+      }
+      setMessages((prev) => [...prev, tempMsg])
+
+      const { data: inserted, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: selected.id,
+          sender_id: currentUser.id,
+          content,
+          type: 'text',
+        })
+        .select('*, users:sender_id(id, full_name, avatar_url)')
+        .single()
+
+      if (!error && inserted) {
+        // Replace temp with real
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempMsg.id ? inserted : m))
+        )
+      } else if (error) {
+        alert('Failed to send: ' + error.message)
+        setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id))
+      }
     } else {
+      // Mentor chat
       const userMsg = {
         id: `temp-${Date.now()}`,
         role: 'user',
@@ -357,12 +412,14 @@ export function MessagesView({
           {activeConvs.length === 0 ? (
             <div className="text-center p-6 space-y-2">
               <MessageCircle className="w-8 h-8 text-muted-foreground/40 mx-auto" />
-              <p className="text-xs text-muted-foreground">
-                No conversations yet
-              </p>
-              <p className="text-[10px] text-muted-foreground/60">
-                Visit a profile and click Message
-              </p>
+              <p className="text-xs text-muted-foreground">No conversations yet</p>
+              <button
+                type="button"
+                onClick={() => setNewMessageOpen(true)}
+                className="text-xs text-primary hover:underline"
+              >
+                Start a conversation
+              </button>
             </div>
           ) : (
             <>
@@ -473,7 +530,6 @@ export function MessagesView({
 
       {/* Chat area */}
       <div className="flex-1 flex">
-        {/* Main chat window */}
         <div className="flex-1 flex flex-col">
           {!selected ? (
             <div className="flex-1 flex items-center justify-center">
@@ -496,11 +552,7 @@ export function MessagesView({
                     <Sparkles className="w-5 h-5 text-white" />
                   </div>
                   <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-background flex items-center justify-center">
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="w-2.5 h-2.5 text-white"
-                      fill="currentColor"
-                    >
+                    <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 text-white" fill="currentColor">
                       <path d="M9.5 16.5L4 11l1.4-1.4L9.5 13.7l9.1-9.1L20 6l-10.5 10.5z" />
                     </svg>
                   </div>
@@ -528,8 +580,7 @@ export function MessagesView({
                           Hi {currentUser.full_name?.split(' ')[0]}
                         </h3>
                         <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-                          I&apos;m your DSRT Mentor. I know your profile and your
-                          ventures. What&apos;s on your mind?
+                          I&apos;m your DSRT Mentor. What&apos;s on your mind?
                         </p>
                       </div>
                       <div className="grid grid-cols-1 gap-2 max-w-md mx-auto pt-4">
@@ -566,22 +617,9 @@ export function MessagesView({
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <p className="text-xs font-semibold">
-                              {m.role === 'user'
-                                ? currentUser.full_name
-                                : 'DSRT Mentor'}
-                            </p>
-                            {m.role === 'assistant' && (
-                              <svg
-                                viewBox="0 0 24 24"
-                                className="w-3 h-3 text-emerald-500"
-                                fill="currentColor"
-                              >
-                                <path d="M9.5 16.5L4 11l1.4-1.4L9.5 13.7l9.1-9.1L20 6l-10.5 10.5z" />
-                              </svg>
-                            )}
-                          </div>
+                          <p className="text-xs font-semibold mb-1">
+                            {m.role === 'user' ? currentUser.full_name : 'DSRT Mentor'}
+                          </p>
                           {m.role === 'assistant' ? (
                             <Markdown content={m.content} />
                           ) : (
@@ -598,12 +636,7 @@ export function MessagesView({
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
                         <Sparkles className="w-4 h-4 text-white" />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold mb-1">
-                          DSRT Mentor
-                        </p>
-                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      </div>
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mt-2" />
                     </div>
                   )}
                   <div ref={messagesEndRef} />
@@ -623,10 +656,7 @@ export function MessagesView({
                   placeholder="Ask DSRT Mentor anything..."
                   disabled={sending}
                 />
-                <Button
-                  onClick={handleSend}
-                  disabled={!newMessage.trim() || sending}
-                >
+                <Button onClick={handleSend} disabled={!newMessage.trim() || sending}>
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
@@ -635,22 +665,16 @@ export function MessagesView({
             <>
               <div className="px-4 py-3 border-b border-border/40 flex items-center gap-3">
                 <Avatar className="w-8 h-8">
-                  <AvatarImage
-                    src={getOtherParticipant(selected.data)?.avatar_url}
-                  />
+                  <AvatarImage src={getOtherParticipant(selected.data)?.avatar_url} />
                   <AvatarFallback>
-                    {getOtherParticipant(
-                      selected.data
-                    )?.full_name?.[0]?.toUpperCase()}
+                    {getOtherParticipant(selected.data)?.full_name?.[0]?.toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <p className="font-semibold text-sm">
                     {getOtherParticipant(selected.data)?.full_name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    @{getOtherParticipant(selected.data)?.username}
-                  </p>
+                  <p className="text-xs text-emerald-500">● Active</p>
                 </div>
               </div>
 
@@ -665,15 +689,11 @@ export function MessagesView({
                     return (
                       <div
                         key={m.id}
-                        className={`flex ${
-                          isMine ? 'justify-end' : 'justify-start'
-                        }`}
+                        className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
                           className={`max-w-xs md:max-w-md px-3 py-2 rounded-2xl text-sm ${
-                            isMine
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted'
+                            isMine ? 'bg-primary text-primary-foreground' : 'bg-muted'
                           }`}
                         >
                           <p className="whitespace-pre-wrap">{m.content}</p>
@@ -711,10 +731,7 @@ export function MessagesView({
                   }}
                   placeholder="Type a message..."
                 />
-                <Button
-                  onClick={handleSend}
-                  disabled={!newMessage.trim() || sending}
-                >
+                <Button onClick={handleSend} disabled={!newMessage.trim() || sending}>
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
@@ -722,12 +739,9 @@ export function MessagesView({
           )}
         </div>
 
-        {/* Dot sidebar for Mentor history (only when mentor is selected) */}
+        {/* Mentor history dot sidebar */}
         {isMentorSelected && mentorConvs.length > 0 && (
           <div className="hidden md:flex w-14 border-l border-border/40 flex-col items-center py-4 gap-2 bg-muted/10">
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 rotate-180" style={{ writingMode: 'vertical-rl' }}>
-              History
-            </p>
             <button
               type="button"
               onClick={() => openMentor()}
@@ -764,13 +778,9 @@ export function MessagesView({
                   {isHovered && (
                     <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 z-50 whitespace-nowrap">
                       <div className="bg-popover border border-border shadow-lg rounded-lg px-3 py-2 text-xs max-w-[240px]">
-                        <p className="font-medium truncate">
-                          {mc.title || 'Untitled'}
-                        </p>
+                        <p className="font-medium truncate">{mc.title || 'Untitled'}</p>
                         <p className="text-muted-foreground text-[10px] mt-0.5">
-                          {formatDistanceToNow(new Date(mc.updated_at), {
-                            addSuffix: true,
-                          })}
+                          {formatDistanceToNow(new Date(mc.updated_at), { addSuffix: true })}
                         </p>
                       </div>
                     </div>
@@ -781,7 +791,8 @@ export function MessagesView({
           </div>
         )}
       </div>
-            <NewMessageDialog
+
+      <NewMessageDialog
         open={newMessageOpen}
         onOpenChange={setNewMessageOpen}
         currentUserId={currentUser.id}
