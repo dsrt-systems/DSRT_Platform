@@ -90,7 +90,7 @@ export function PostCard({ post, currentUser }: PostCardProps) {
   }
 
   return (
-    <article className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4 space-y-3">
+    <article className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-3 md:p-4 space-y-3">
       {/* Header */}
       <div className="flex items-start gap-3">
         <Link href={`/profile/${post.users?.username}`}>

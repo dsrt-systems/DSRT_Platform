@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Groq from 'groq-sdk'
 
-export const maxDuration = 60
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 const BOT_PERSONAS = [
   {

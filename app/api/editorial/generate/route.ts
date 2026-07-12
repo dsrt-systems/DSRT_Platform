@@ -3,16 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 import Parser from 'rss-parser'
 import Groq from 'groq-sdk'
 
-export const maxDuration = 60
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 const NEWS_SOURCES = [
-  // DSRT RESEARCH — research updates that affect startups
+  // DSRT RESEARCH
   { url: 'https://techcrunch.com/category/artificial-intelligence/feed/', category: 'dsrt-research', name: 'TechCrunch AI', channel: 'research' },
   { url: 'https://venturebeat.com/category/ai/feed/', category: 'dsrt-research', name: 'VB AI', channel: 'research' },
   { url: 'https://www.technologyreview.com/topic/artificial-intelligence/feed', category: 'dsrt-research', name: 'MIT Tech Review', channel: 'research' },
 
-  // DSRT BUILDER UPDATES — startup/company/product news
+  // DSRT BUILDER UPDATES
   { url: 'https://techcrunch.com/category/startups/feed/', category: 'dsrt-builders', name: 'TechCrunch Startups', channel: 'builders' },
   { url: 'https://techcrunch.com/category/venture/feed/', category: 'dsrt-builders', name: 'TechCrunch Venture', channel: 'builders' },
   { url: 'https://news.crunchbase.com/feed/', category: 'dsrt-builders', name: 'Crunchbase News', channel: 'builders' },
@@ -82,7 +83,6 @@ export async function GET(request: Request) {
       for (const item of items) {
         if (!item.link || !item.title) continue
 
-        // Check URL duplicate
         const { data: existing } = await supabase
           .from('processed_news')
           .select('id')
@@ -94,7 +94,6 @@ export async function GET(request: Request) {
           continue
         }
 
-        // Enrich with AI
         const enriched = await enrichNewsItem(item, source, groq)
 
         if (!enriched) {
@@ -107,7 +106,6 @@ export async function GET(request: Request) {
           continue
         }
 
-        // Check headline duplicate (case-insensitive)
         const { data: existingHeadline } = await supabase
           .from('editorial_posts')
           .select('id')
@@ -124,7 +122,6 @@ export async function GET(request: Request) {
           continue
         }
 
-        // Get category
         const { data: category } = await supabase
           .from('editorial_categories')
           .select('id')
@@ -136,7 +133,6 @@ export async function GET(request: Request) {
           continue
         }
 
-        // Insert post with channel
         const { data: post, error: insertError } = await supabase
           .from('editorial_posts')
           .insert({
@@ -148,7 +144,7 @@ export async function GET(request: Request) {
             why_it_matters: enriched.why_it_matters,
             tags: enriched.tags,
             related_topics: enriched.related_topics,
-            cover_image_url: enriched.cover_image_url,
+            cover_image_url: null,
             source_url: item.link,
             source_name: source.name,
             published_at: item.pubDate
@@ -191,7 +187,7 @@ async function enrichNewsItem(item: any, source: any, groq: Groq) {
         {
           role: 'system',
           content:
-            'You are DSRT Editorial, a professional news desk for a builder ecosystem. Always return valid JSON. No markdown around the JSON.',
+            'You are DSRT Editorial, a professional news desk for a builder ecosystem. Always return valid JSON.',
         },
         {
           role: 'user',
@@ -203,27 +199,24 @@ IMPORTANT FILTER: This article MUST be about one of:
 - Founder or entrepreneur story
 - Product launch or business milestone
 - Business strategy or corporate development
-- Company financials, IPOs, or M&A
-- Research breakthroughs that affect startups (for research channel)
+- Research breakthroughs that affect startups
 
 If the article is about general economics, politics, sports, celebrity gossip, weather, or non-business news, return EXACTLY:
 {"skip": true}
 
-Otherwise return JSON in this exact format (no markdown, no code blocks):
+Otherwise return JSON:
 {
   "headline": "Sharp factual headline under 110 chars",
   "summary": "2-3 sentence summary of key facts",
-  "body": "4-6 paragraph article. Stay factual. Plain text.",
-  "why_it_matters": "2-3 sentences why builders and founders should care",
+  "body": "4-6 paragraph article. Stay factual.",
+  "why_it_matters": "2-3 sentences why builders should care",
   "tags": ["3-5", "lowercase", "tags"],
-  "related_topics": ["4-5 concrete project ideas inspired by this"]
+  "related_topics": ["4-5 concrete project ideas"]
 }
 
 Original headline: ${item.title}
 Source: ${source.name}
-Content: ${rawContent?.slice(0, 1500)}
-
-Be factual. Do not invent facts.`,
+Content: ${rawContent?.slice(0, 1500)}`,
         },
       ],
       response_format: { type: 'json_object' },
@@ -236,13 +229,8 @@ Be factual. Do not invent facts.`,
 
     const parsed = JSON.parse(content)
 
-    if (parsed.skip === true) {
-      return null
-    }
-
-    if (!parsed.headline || !parsed.summary) {
-      return null
-    }
+    if (parsed.skip === true) return null
+    if (!parsed.headline || !parsed.summary) return null
 
     return {
       headline: parsed.headline,
@@ -251,7 +239,6 @@ Be factual. Do not invent facts.`,
       why_it_matters: parsed.why_it_matters || '',
       tags: parsed.tags || [],
       related_topics: parsed.related_topics || [],
-      cover_image_url: null, // No images — cards use icon fallback
     }
   } catch (err) {
     console.error('Enrichment error:', err)

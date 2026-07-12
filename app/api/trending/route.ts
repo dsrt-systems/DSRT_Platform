@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export async function GET() {
   const supabase = createClient()
 
-  // Trending posts = engagement in last 7 days
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const { data: posts } = await supabase
@@ -16,12 +18,11 @@ export async function GET() {
     .order('like_count', { ascending: false })
     .limit(10)
 
-  // Score = likes*3 + comments*2 + views*0.1 + recency bonus
   const scored = (posts || [])
     .map((p) => {
       const hoursSince =
         (Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60)
-      const recencyBonus = Math.max(0, 48 - hoursSince) // Boost for last 48h
+      const recencyBonus = Math.max(0, 48 - hoursSince)
       const score =
         (p.like_count || 0) * 3 +
         (p.comment_count || 0) * 2 +
@@ -31,7 +32,6 @@ export async function GET() {
     })
     .sort((a, b) => b.trending_score - a.trending_score)
 
-  // Trending ventures
   const { data: ventures } = await supabase
     .from('startups')
     .select('id, name, slug, tagline, follower_count, member_count, stage, is_verified, logo_url')
@@ -39,7 +39,6 @@ export async function GET() {
     .order('follower_count', { ascending: false })
     .limit(5)
 
-  // Trending projects
   const { data: projects } = await supabase
     .from('projects')
     .select('id, title, slug, tagline, member_count, stage')
