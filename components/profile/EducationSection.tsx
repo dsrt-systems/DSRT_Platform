@@ -3,16 +3,35 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { GraduationCap, Plus, Edit3, Trash2, Calendar, Award } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
+import { motion, AnimatePresence } from 'framer-motion'
+import { EducationModal } from './EducationModal'
+
+const levelLabels: Record<string, string> = {
+  primary: 'Primary School',
+  secondary: 'Secondary School',
+  higher_secondary: 'Higher Secondary',
+  diploma: 'Diploma',
+  undergraduate: 'Undergraduate',
+  postgraduate: 'Postgraduate',
+  doctorate: 'Doctorate',
+  professional: 'Professional',
+  certification: 'Certification',
+}
+
+const levelColors: Record<string, string> = {
+  primary: 'bg-pink-500/10 text-pink-500',
+  secondary: 'bg-purple-500/10 text-purple-500',
+  higher_secondary: 'bg-indigo-500/10 text-indigo-500',
+  diploma: 'bg-blue-500/10 text-blue-500',
+  undergraduate: 'bg-green-500/10 text-green-500',
+  postgraduate: 'bg-orange-500/10 text-orange-500',
+  doctorate: 'bg-red-500/10 text-red-500',
+  professional: 'bg-yellow-500/10 text-yellow-500',
+  certification: 'bg-cyan-500/10 text-cyan-500',
+}
 
 interface EducationSectionProps {
   education: any[]
@@ -20,261 +39,201 @@ interface EducationSectionProps {
   isOwnProfile: boolean
 }
 
-export function EducationSection({
-  education,
-  userId,
-  isOwnProfile,
-}: EducationSectionProps) {
+export function EducationSection({ education: initialEducation, userId, isOwnProfile }: EducationSectionProps) {
   const router = useRouter()
   const supabase = createClient()
+  const [education, setEducation] = useState(initialEducation)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<any>(null)
 
-  const [institutionName, setInstitutionName] = useState('')
-  const [degree, setDegree] = useState('')
-  const [field, setField] = useState('')
-  const [startYear, setStartYear] = useState('')
-  const [endYear, setEndYear] = useState('')
-  const [isCurrent, setIsCurrent] = useState(false)
-  const [grade, setGrade] = useState('')
-  const [description, setDescription] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  const openAdd = () => {
-    setEditing(null)
-    setInstitutionName('')
-    setDegree('')
-    setField('')
-    setStartYear('')
-    setEndYear('')
-    setIsCurrent(false)
-    setGrade('')
-    setDescription('')
-    setModalOpen(true)
-  }
-
-  const openEdit = (edu: any) => {
-    setEditing(edu)
-    setInstitutionName(edu.institution_name || edu.institutions?.name || '')
-    setDegree(edu.degree || '')
-    setField(edu.field || '')
-    setStartYear(edu.start_year?.toString() || '')
-    setEndYear(edu.end_year?.toString() || '')
-    setIsCurrent(edu.is_current || false)
-    setGrade(edu.grade || '')
-    setDescription(edu.description || '')
-    setModalOpen(true)
-  }
-
-  const handleSave = async () => {
-    if (!institutionName.trim()) return
-    setSaving(true)
-
-    const payload = {
-      user_id: userId,
-      institution_name: institutionName.trim(),
-      degree: degree.trim() || null,
-      field: field.trim() || null,
-      start_year: startYear ? parseInt(startYear) : null,
-      end_year: !isCurrent && endYear ? parseInt(endYear) : null,
-      is_current: isCurrent,
-      grade: grade.trim() || null,
-      description: description.trim() || null,
-    }
-
-    if (editing) {
-      await supabase.from('user_education').update(payload).eq('id', editing.id)
-    } else {
-      await supabase.from('user_education').insert(payload)
-    }
-
-    setSaving(false)
-    setModalOpen(false)
-    router.refresh()
-  }
-
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this education entry?')) return
-    await supabase.from('user_education').delete().eq('id', id)
-    router.refresh()
+    
+    const { error } = await supabase.from('user_education').delete().eq('id', id)
+    
+    if (error) {
+      toast.error('Failed to delete')
+    } else {
+      toast.success('Education removed')
+      setEducation(education.filter(e => e.id !== id))
+      router.refresh()
+    }
   }
 
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 30 }, (_, i) => currentYear - 15 + i)
+  const handleSaved = (edu: any, isEdit: boolean) => {
+    if (isEdit) {
+      setEducation(education.map(e => e.id === edu.id ? edu : e))
+    } else {
+      setEducation([edu, ...education])
+    }
+    setModalOpen(false)
+    setEditing(null)
+    router.refresh()
+  }
 
   if (education.length === 0 && !isOwnProfile) return null
 
   return (
     <>
-      <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-6 space-y-4">
+      <div className="bg-card border rounded-2xl p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Education</h2>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+              <GraduationCap className="w-4 h-4 text-indigo-500" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">Education</h2>
+              <p className="text-xs text-muted-foreground">
+                {education.length > 0 
+                  ? `${education.length} ${education.length === 1 ? 'entry' : 'entries'}`
+                  : 'Educational background'
+                }
+              </p>
+            </div>
+          </div>
+
           {isOwnProfile && (
-            <Button size="sm" variant="ghost" onClick={openAdd}>
-              <Plus className="w-4 h-4" />
+            <Button size="sm" onClick={() => { setEditing(null); setModalOpen(true) }}>
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Add Education
             </Button>
           )}
         </div>
 
         {education.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No education added yet.
-          </p>
+          <div className="text-center py-8 space-y-2">
+            <GraduationCap className="w-10 h-10 mx-auto text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground italic">
+              Add your educational background
+            </p>
+            {isOwnProfile && (
+              <button
+                onClick={() => { setEditing(null); setModalOpen(true) }}
+                className="text-xs text-blue-500 hover:underline font-medium"
+              >
+                Add your first entry →
+              </button>
+            )}
+          </div>
         ) : (
           <div className="space-y-4">
-            {education.map((edu) => (
-              <div key={edu.id} className="flex gap-3 group">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                  🎓
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium">
-                    {edu.institutions?.name || edu.institution_name}
-                  </p>
-                  {edu.degree && (
-                    <p className="text-sm text-muted-foreground">
-                      {edu.degree}
-                      {edu.field && ` in ${edu.field}`}
-                    </p>
-                  )}
-                  {edu.start_year && (
-                    <p className="text-xs text-muted-foreground">
-                      {edu.start_year} —{' '}
-                      {edu.is_current ? 'Present' : edu.end_year}
-                    </p>
-                  )}
-                  {edu.grade && (
-                    <p className="text-xs text-muted-foreground">
-                      Grade: {edu.grade}
-                    </p>
-                  )}
-                </div>
-                {isOwnProfile && (
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => openEdit(edu)}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleDelete(edu.id)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+            <AnimatePresence>
+              {education.map((edu) => (
+                <motion.div
+                  key={edu.id}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  className="flex gap-4 group"
+                >
+                  {/* Institution Logo */}
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center flex-shrink-0">
+                    <GraduationCap className="w-5 h-5 text-indigo-500" />
                   </div>
-                )}
-              </div>
-            ))}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-sm">
+                            {edu.institutions?.name || edu.institution_name || 'Institution'}
+                          </h3>
+                          {edu.education_level && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${levelColors[edu.education_level] || 'bg-muted text-muted-foreground'}`}>
+                              {levelLabels[edu.education_level] || edu.education_level}
+                            </span>
+                          )}
+                          {edu.is_current && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-green-500/10 text-green-500">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                        
+                        {(edu.degree || edu.field) && (
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            {edu.degree}
+                            {edu.degree && edu.field && ' in '}
+                            {edu.field}
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                          {(edu.start_year || edu.end_year) && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {edu.start_year}
+                              {edu.end_year && ` - ${edu.end_year}`}
+                              {edu.is_current && ' - Present'}
+                            </span>
+                          )}
+                          {edu.grade && (
+                            <span className="flex items-center gap-1">
+                              <Award className="w-3 h-3" />
+                              Grade: {edu.grade}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {isOwnProfile && (
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button size="sm" variant="ghost" onClick={() => { setEditing(edu); setModalOpen(true) }}>
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete(edu.id)}>
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {edu.description && (
+                      <p className="text-xs text-muted-foreground mt-2 leading-relaxed whitespace-pre-wrap">
+                        {edu.description}
+                      </p>
+                    )}
+
+                    {edu.activities && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">Activities: </span>
+                        {edu.activities}
+                      </div>
+                    )}
+
+                    {edu.societies && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">Societies: </span>
+                        {edu.societies}
+                      </div>
+                    )}
+
+                    {edu.skills_gained && edu.skills_gained.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-3">
+                        {edu.skills_gained.slice(0, 6).map((skill: string) => (
+                          <span key={skill} className="text-[10px] px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded font-medium">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>
 
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? 'Edit Education' : 'Add Education'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Institution *</Label>
-              <Input
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-                placeholder="CGEC"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Degree</Label>
-                <Input
-                  value={degree}
-                  onChange={(e) => setDegree(e.target.value)}
-                  placeholder="B.Tech"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Field</Label>
-                <Input
-                  value={field}
-                  onChange={(e) => setField(e.target.value)}
-                  placeholder="Electrical Engineering"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Start Year</Label>
-                <select
-                  value={startYear}
-                  onChange={(e) => setStartYear(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md bg-background text-sm"
-                >
-                  <option value="">Select</option>
-                  {years.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>{isCurrent ? 'Expected End' : 'End Year'}</Label>
-                <select
-                  value={endYear}
-                  onChange={(e) => setEndYear(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md bg-background text-sm"
-                >
-                  <option value="">Select</option>
-                  {years.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isCurrent}
-                onChange={(e) => setIsCurrent(e.target.checked)}
-                className="w-4 h-4"
-              />
-              <span className="text-sm">I am currently studying here</span>
-            </label>
-            <div className="space-y-2">
-              <Label>Grade / GPA</Label>
-              <Input
-                value={grade}
-                onChange={(e) => setGrade(e.target.value)}
-                placeholder="8.5 CGPA"
-              />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setModalOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={!institutionName.trim() || saving}
-                className="flex-1"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {modalOpen && (
+        <EducationModal
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          education={editing}
+          userId={userId}
+          onSaved={handleSaved}
+        />
+      )}
     </>
   )
 }
