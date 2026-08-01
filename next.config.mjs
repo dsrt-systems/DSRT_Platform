@@ -1,16 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Skip ESLint during production builds (still runs in dev)
   eslint: {
+    // Warning: This allows production builds to complete even if
+    // your project has ESLint errors. Warnings still block dev, this only affects builds.
     ignoreDuringBuilds: true,
   },
-  
-  // Skip TypeScript errors during build (dev mode still catches them)
-  // Comment this out if you want strict type checking on Vercel
   typescript: {
+    // Allow production builds to succeed even with TS errors
     ignoreBuildErrors: true,
   },
-  
   images: {
     remotePatterns: [
       {
