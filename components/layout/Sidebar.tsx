@@ -2,269 +2,144 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
 import {
   Home,
-  Compass,
-  Building2,
-  Zap,
-  FolderGit2,
+  FolderKanban,
   Rocket,
+  Users,
+  Compass,
+  Trophy,
+  Sparkles,
+  BookOpen,
   User,
   Settings,
-  CheckCircle2,
-  Menu,
-  X as CloseIcon,
-  Sparkles,
-  GraduationCap,
-  Trophy,
-  Gift,
+  UserPlus,
+  Zap,
+  Rss,
+  MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 interface SidebarProps {
   user: any
 }
 
-const sections = [
-    {
-    label: 'HOME',
-    items: [
-      { name: 'Feed', href: '/feed', icon: Home },
-      { name: 'Explore', href: '/explore', icon: Compass },
-      { name: 'Communities', href: '/community', icon: Building2 },
-      { name: 'Builder Pulse', href: '/pulse', icon: Zap },
-      { name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
-    ],
-  },
-    {
-    label: 'BUILD',
-    items: [
-      { name: 'Projects', href: '/projects', icon: FolderGit2 },
-      { name: 'Ventures', href: '/ventures', icon: Rocket },
-      { name: 'Startup School', href: '/school', icon: GraduationCap },
-    ],
-  },
-    {
-    label: 'AI',
-    items: [
-      { name: 'DSRT Mentor', href: '/mentor', icon: Sparkles },
-    ],
-  },
-  {
-    label: 'GROW',
-    items: [
-      { name: 'Invite Builders', href: '/referrals', icon: Gift },
-    ],
-  },
-  {
-    label: 'PROFILE',
-    items: [
-      { name: 'My Profile', href: '/profile/me', icon: User },
-      { name: 'Settings', href: '/settings', icon: Settings },
-    ],
-  },
+const mainNav = [
+  { name: 'Home', href: '/', icon: Home },
+  { name: 'Feed', href: '/feed', icon: Rss },
+  { name: 'Messages', href: '/messages', icon: MessageSquare },
+  { name: 'Projects', href: '/projects', icon: FolderKanban },
+  { name: 'Ventures', href: '/ventures', icon: Rocket },
+  { name: 'Communities', href: '/community', icon: Users },
+  { name: 'Explore', href: '/explore', icon: Compass },
+  { name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
+  { name: 'AI Mentor', href: '/mentor', icon: Sparkles },
+  { name: 'Resources', href: '/resources', icon: BookOpen },
+]
+
+const personalNav = [
+  { name: 'My Profile', href: '/profile/me', icon: User },
+  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Invite Friends', href: '/invite', icon: UserPlus },
 ]
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
-  const [isOpen, setIsOpen] = useState(false)
 
-  const profileHref = `/profile/${user.username}`
-
-  const handleLinkClick = () => {
-    setIsOpen(false)
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/'
+    if (href === '/profile/me') return pathname === `/profile/${user.username}`
+    return pathname === href || pathname.startsWith(href + '/')
   }
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-4 left-4 z-50 md:hidden bg-primary text-primary-foreground p-3 rounded-full shadow-xl hover:scale-105 transition-transform"
-        aria-label="Toggle menu"
-      >
-        {isOpen ? (
-          <CloseIcon className="w-5 h-5" />
-        ) : (
-          <Menu className="w-5 h-5" />
-        )}
-      </button>
-
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
-      <aside
-        className={cn(
-          'fixed left-0 top-14 bottom-0 w-72 border-r border-border/40 bg-background overflow-y-auto transition-transform duration-200 z-40 md:flex md:flex-col',
-          isOpen
-            ? 'translate-x-0 flex flex-col'
-            : '-translate-x-full md:translate-x-0'
-        )}
-      >
-        <div className="p-3 space-y-3">
-          <Link
-            href={profileHref}
-            onClick={handleLinkClick}
-            className="block group"
-          >
-            <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm overflow-hidden hover:border-border transition-all">
-              <div className="relative h-20 bg-gradient-to-br from-primary/20 via-primary/10 to-background">
-                {user.cover_url && (
-                  <img
-                    src={user.cover_url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                )}
-              </div>
-
-              <div className="px-4 pb-4 -mt-8">
-                <div className="w-14 h-14 rounded-full border-4 border-background bg-muted overflow-hidden flex items-center justify-center">
-                  {user.avatar_url ? (
-                    <img
-                      src={user.avatar_url}
-                      alt={user.full_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-sm font-semibold">
-                      {user.full_name?.[0]?.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-3 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-semibold text-sm truncate">
-                      {user.full_name}
-                    </p>
-                    {user.is_verified && (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                    )}
-                  </div>
-
-                  {user.tagline && (
-                    <p className="text-xs text-muted-foreground line-clamp-1">
-                      {user.tagline}
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-2.5 space-y-1">
-                  {user.brings && user.brings.length > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span className="text-foreground/70 capitalize">
-                        {user.brings[0]}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-border/40 grid grid-cols-3 gap-2">
-                  <div>
-                    <p className="text-sm font-semibold">
-                      {user.follower_count || 0}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">
-                      Followers
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">
-                      {user.following_count || 0}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">
-                      Following
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">
-                      {user.products_shipped || 0}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">
-                      Shipped
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-2 border-t border-border/40">
-                  <p className="text-xs text-primary text-center font-medium group-hover:underline">
-                    View Profile →
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Link>
-
-          {sections.map((section) => (
-            <div
-              key={section.label}
-              className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-2"
-            >
-              <p className="px-3 pt-1 pb-2 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-                {section.label}
-              </p>
-              <nav className="space-y-0.5">
-                {section.items.map((item) => {
-                  const Icon = item.icon
-                  const href =
-                    item.href === '/profile/me' ? profileHref : item.href
-                  const isActive =
-                    pathname === href ||
-                    (item.href !== '/profile/me' &&
-                      pathname.startsWith(item.href + '/'))
-
-                  return (
-                    <Link
-                      key={item.name}
-                      href={href}
-                      onClick={handleLinkClick}
-                      className={cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                        isActive
-                          ? 'bg-primary/10 text-foreground'
-                          : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          'w-4 h-4',
-                          item.name === 'DSRT Mentor' && 'text-purple-500'
-                        )}
-                      />
-                      {item.name}
-                    </Link>
-                  )
-                })}
-              </nav>
-            </div>
-          ))}
-
-          {user.is_investor && (
-            <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent backdrop-blur-sm p-2">
+    <aside className="hidden md:flex flex-col fixed left-0 top-14 bottom-0 w-56 border-r bg-background">
+      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+        <nav className="space-y-0.5">
+          {mainNav.map((item) => {
+            const Icon = item.icon
+            const active = isActive(item.href)
+            return (
               <Link
-                href="/investor"
-                onClick={handleLinkClick}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:bg-primary/10"
+                key={item.href}
+                href={item.href === '/profile/me' ? `/profile/${user.username}` : item.href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
               >
-                <span className="text-base">💰</span>
-                Investor Dashboard
+                <Icon className="w-4 h-4" />
+                {item.name}
               </Link>
-            </div>
-          )}
+            )
+          })}
+        </nav>
 
-          <div className="pt-2 pb-4">
-            <p className="text-[10px] text-muted-foreground/30 font-light tracking-wide italic text-center">
-              dedicated to my beautiful wife hajra
-            </p>
+        <div className="pt-4 border-t space-y-0.5">
+          {personalNav.map((item) => {
+            const Icon = item.icon
+            const href = item.href === '/profile/me' ? `/profile/${user.username}` : item.href
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.name}
+                href={href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  active
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                {item.name}
+              </Link>
+            )
+          })}
+        </div>
+
+        <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Upgrade to Pro</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Unlock advanced tools and analytics.
+          </p>
+          <Button size="sm" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+            Upgrade Now
+          </Button>
+        </div>
+
+        <div className="bg-muted/30 border rounded-xl p-3 flex items-center gap-3">
+          <Avatar className="w-8 h-8">
+            <AvatarFallback className="text-xs bg-gradient-to-br from-purple-500 to-blue-500 text-white">
+              AI
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium">DSRT Mentor</p>
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              <p className="text-[10px] text-muted-foreground">Online</p>
+            </div>
           </div>
         </div>
-      </aside>
-    </>
+      </div>
+
+      <div className="p-3 border-t">
+        <p className="text-[10px] text-muted-foreground/40 font-light tracking-wide italic text-center">
+          dedicated to my beautiful wife hajra
+        </p>
+      </div>
+    </aside>
   )
 }

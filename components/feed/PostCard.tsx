@@ -1,260 +1,207 @@
 'use client'
-import { PostComments } from './PostComments'
+
 import { useState } from 'react'
 import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  Heart,
-  MessageCircle,
-  Share2,
-  Bookmark,
-  Rocket,
-  Lightbulb,
-  Code2,
-  Trophy,
-  FileText,
-  MessageSquare,
-} from 'lucide-react'
+import { Heart, MessageCircle, Bookmark, Share2, MoreVertical, Sparkles, Trophy, Lightbulb, UserPlus, HandHeart, HelpCircle, Trash2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { motion } from 'framer-motion'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
-interface PostCardProps {
-  post: any
-  currentUser: any
+const typeConfig: Record<string, { icon: any; color: string; label: string }> = {
+  update: { icon: Sparkles, color: 'text-blue-500 bg-blue-500/10', label: 'Update' },
+  milestone: { icon: Trophy, color: 'text-yellow-500 bg-yellow-500/10', label: 'Milestone' },
+  idea: { icon: Lightbulb, color: 'text-purple-500 bg-purple-500/10', label: 'Idea' },
+  looking_for: { icon: UserPlus, color: 'text-green-500 bg-green-500/10', label: 'Looking For' },
+  i_have: { icon: HandHeart, color: 'text-pink-500 bg-pink-500/10', label: 'I Have' },
+  question: { icon: HelpCircle, color: 'text-orange-500 bg-orange-500/10', label: 'Question' },
 }
 
-const typeConfig: Record<string, { label: string; icon: any; color: string }> = {
-  idea: { label: 'Idea', icon: Lightbulb, color: 'text-amber-500' },
-  build_log: { label: 'Build Log', icon: Code2, color: 'text-emerald-500' },
-  milestone: { label: 'Milestone', icon: Trophy, color: 'text-yellow-500' },
-  launch: { label: 'Launch', icon: Rocket, color: 'text-orange-500' },
-  looking_for: { label: 'Looking For', icon: FileText, color: 'text-blue-500' },
-  discussion: { label: 'Discussion', icon: MessageSquare, color: 'text-purple-500' },
-  update: { label: 'Update', icon: MessageSquare, color: 'text-muted-foreground' },
-}
-
-export function PostCard({ post, currentUser }: PostCardProps) {
-  const supabase = createClient()
-  const [liked, setLiked] = useState(false)
+export function PostCard({ post, currentUser, onUpdate, onDelete }: any) {
+  const [isLiked, setIsLiked] = useState(post.is_liked || false)
+  const [isBookmarked, setIsBookmarked] = useState(post.is_bookmarked || false)
   const [likeCount, setLikeCount] = useState(post.like_count || 0)
-  const [showComments, setShowComments] = useState(false)
-    const [shared, setShared] = useState(false)
+  const [bookmarkCount, setBookmarkCount] = useState(post.bookmark_count || 0)
 
-  const handleShare = async () => {
-    const url = `${window.location.origin}/feed?post=${post.id}`
-    const text = post.content?.slice(0, 100) + (post.content?.length > 100 ? '...' : '')
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Post by ${post.users?.full_name} on DSRT`,
-          text,
-          url,
-        })
-        return
-      } catch {
-        // User cancelled or share not available, fall through to copy
-      }
-    }
-
-    // Fallback: copy to clipboard
-    try {
-      await navigator.clipboard.writeText(url)
-      setShared(true)
-      setTimeout(() => setShared(false), 2000)
-    } catch {
-      alert('Link: ' + url)
-    }
-  }
-
+  const supabase = createClient()
   const config = typeConfig[post.type] || typeConfig.update
   const Icon = config.icon
+  const user = post.users
+  const isOwnPost = currentUser?.id === post.user_id
 
   const handleLike = async () => {
-    if (liked) {
-      setLiked(false)
-      setLikeCount((c: number) => c - 1)
+    const newLiked = !isLiked
+    setIsLiked(newLiked)
+    setLikeCount((prev: number) => newLiked ? prev + 1 : prev - 1)
+
+    if (newLiked) {
+      const { error } = await supabase
+        .from('post_likes')
+        .insert({ post_id: post.id, user_id: currentUser.id })
+      
+      if (error) {
+        setIsLiked(false)
+        setLikeCount((prev: number) => prev - 1)
+        toast.error('Failed to like')
+      }
+    } else {
       await supabase
         .from('post_likes')
         .delete()
         .eq('post_id', post.id)
         .eq('user_id', currentUser.id)
-    } else {
-      setLiked(true)
-      setLikeCount((c: number) => c + 1)
-      await supabase
-        .from('post_likes')
-        .insert({ post_id: post.id, user_id: currentUser.id })
     }
   }
 
+  const handleBookmark = async () => {
+    const newBookmarked = !isBookmarked
+    setIsBookmarked(newBookmarked)
+    setBookmarkCount((prev: number) => newBookmarked ? prev + 1 : prev - 1)
+
+    if (newBookmarked) {
+      await supabase
+        .from('post_bookmarks')
+        .insert({ post_id: post.id, user_id: currentUser.id })
+      toast.success('Bookmarked')
+    } else {
+      await supabase
+        .from('post_bookmarks')
+        .delete()
+        .eq('post_id', post.id)
+        .eq('user_id', currentUser.id)
+    }
+  }
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/posts/${post.id}`
+    await navigator.clipboard.writeText(url)
+    toast.success('Link copied')
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('Delete this post?')) return
+    
+    await supabase.from('posts').delete().eq('id', post.id)
+    onDelete?.(post.id)
+    toast.success('Post deleted')
+  }
+
   return (
-    <article className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-3 md:p-4 space-y-3">
-      {/* Header */}
+    <motion.article
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-card border rounded-2xl p-4 space-y-3"
+    >
       <div className="flex items-start gap-3">
-        <Link href={`/profile/${post.users?.username}`}>
+        <Link href={`/profile/${user?.username}`}>
           <Avatar className="w-10 h-10">
-            <AvatarImage src={post.users?.avatar_url} />
-            <AvatarFallback className="text-xs">
-              {post.users?.full_name?.[0]?.toUpperCase()}
+            <AvatarImage src={user?.avatar_url} />
+            <AvatarFallback>
+              {user?.full_name?.[0]?.toUpperCase()}
             </AvatarFallback>
           </Avatar>
         </Link>
-
         <div className="flex-1 min-w-0">
-          <Link
-            href={`/profile/${post.users?.username}`}
-            className="font-semibold text-sm hover:underline"
-          >
-            {post.users?.full_name}
-          </Link>
-          {post.users?.tagline && (
-            <p className="text-xs text-muted-foreground line-clamp-1">
-              {post.users.tagline}
-            </p>
-          )}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-            <span>
-              {formatDistanceToNow(new Date(post.created_at), {
-                addSuffix: true,
-              })}
-            </span>
-            <span>•</span>
-            <span className={`flex items-center gap-1 ${config.color}`}>
-              <Icon className="w-3 h-3" />
+          <div className="flex items-center gap-2">
+            <Link 
+              href={`/profile/${user?.username}`}
+              className="font-semibold text-sm hover:underline"
+            >
+              {user?.full_name}
+            </Link>
+            <span className={cn(
+              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+              config.color
+            )}>
+              <Icon className="w-2.5 h-2.5" />
               {config.label}
             </span>
           </div>
+          {user?.tagline && (
+            <p className="text-xs text-muted-foreground truncate">{user.tagline}</p>
+          )}
+          <p className="text-[10px] text-muted-foreground">
+            {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+          </p>
         </div>
+
+        {isOwnPost && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="p-1 hover:bg-muted rounded transition-colors">
+                <MoreVertical className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-3 h-3 mr-2" />
+                Delete post
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
-            {/* Content */}
-      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-        {post.content}
-      </p>
-
-            {/* Media - images and audio */}
-      {post.media_urls && post.media_urls.length > 0 && (
-        <div className="space-y-2 mt-2">
-          {/* Audio files */}
-          {post.media_urls
-            .filter((url: string) => /\.(webm|mp3|wav|ogg|m4a)/i.test(url))
-            .map((url: string, i: number) => (
-              <div
-                key={`audio-${i}`}
-                className="p-3 rounded-lg bg-muted/30 border border-border/40"
-              >
-                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                  🎤 Voice note
-                </p>
-                <audio src={url} controls className="w-full h-8" />
-              </div>
+      <div>
+        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+          {post.content}
+        </p>
+        {post.tags?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {post.tags.map((tag: string) => (
+              <span key={tag} className="text-xs text-blue-500 hover:underline cursor-pointer">
+                #{tag}
+              </span>
             ))}
+          </div>
+        )}
+      </div>
 
-          {/* Images */}
-          {(() => {
-            const images = post.media_urls.filter(
-              (url: string) => !/\.(webm|mp3|wav|ogg|m4a)/i.test(url)
-            )
-            if (images.length === 0) return null
-            return (
-              <div
-                className={cn(
-                  'grid gap-2',
-                  images.length === 1 && 'grid-cols-1',
-                  images.length === 2 && 'grid-cols-2',
-                  images.length >= 3 && 'grid-cols-2'
-                )}
-              >
-                {images.map((url: string, i: number) => (
-                  <img
-                    key={`img-${i}`}
-                    src={url}
-                    alt=""
-                    className={cn(
-                      'w-full object-cover rounded-lg border border-border/40',
-                      images.length === 1 ? 'max-h-96' : 'h-40'
-                    )}
-                  />
-                ))}
-              </div>
-            )
-          })()}
-        </div>
-      )}
-
-      {/* Tags */}
-      {post.tags && post.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {post.tags.map((tag: string) => (
-            <span
-              key={tag}
-              className="text-xs text-primary hover:underline cursor-pointer"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center justify-between pt-2 border-t border-border/40">
+      <div className="flex items-center gap-1 pt-2 border-t">
         <button
-          type="button"
           onClick={handleLike}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs hover:bg-muted/40 transition-colors',
-            liked && 'text-rose-500'
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+            isLiked ? 'text-red-500 bg-red-500/10' : 'hover:bg-muted'
           )}
         >
-          <Heart className={cn('w-4 h-4', liked && 'fill-current')} />
-          <span>{likeCount}</span>
+          <Heart className={cn('w-4 h-4', isLiked && 'fill-current')} />
+          {likeCount > 0 && likeCount}
+        </button>
+
+        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-muted transition-colors">
+          <MessageCircle className="w-4 h-4" />
+          {post.comment_count > 0 && post.comment_count}
         </button>
 
         <button
-          type="button"
-          onClick={() => setShowComments(!showComments)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs hover:bg-muted/40 transition-colors"
-        >
-          <MessageCircle className="w-4 h-4" />
-          <span>{post.comment_count || 0}</span>
-        </button>
-
-        {post.type === 'looking_for' && (
-          <button
-            type="button"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs hover:bg-muted/40 transition-colors text-primary"
-          >
-            <Rocket className="w-4 h-4" />
-            <span>Join</span>
-          </button>
-        )}
-
-                <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            handleShare()
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs hover:bg-muted/40 transition-colors"
-          title="Share"
+          onClick={handleShare}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-muted transition-colors"
         >
           <Share2 className="w-4 h-4" />
-          {shared && <span className="text-emerald-500">Copied</span>}
         </button>
 
         <button
-          type="button"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs hover:bg-muted/40 transition-colors"
+          onClick={handleBookmark}
+          className={cn(
+            'ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+            isBookmarked ? 'text-yellow-500 bg-yellow-500/10' : 'hover:bg-muted'
+          )}
         >
-          <Bookmark className="w-4 h-4" />
+          <Bookmark className={cn('w-4 h-4', isBookmarked && 'fill-current')} />
         </button>
       </div>
-      {showComments && (
-        <PostComments postId={post.id} currentUser={currentUser} />
-      )}
-    </article>
+    </motion.article>
   )
 }

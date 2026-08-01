@@ -1,17 +1,15 @@
-import { NewProjectForm } from '@/components/projects/NewProjectForm'
+import { CreateProjectForm } from '@/components/projects/CreateProjectForm'
 
 export default function NewProjectPage() {
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Start a Project</h1>
+    <div className="max-w-3xl mx-auto p-6 md:p-10">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight">Create New Project</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Open collaborative work. Hackathons, prototypes, research builds, or
-          side projects.
+          Set up your project workspace. You can always change these later.
         </p>
       </div>
-
-      <NewProjectForm />
+      <CreateProjectForm />
     </div>
   )
 }

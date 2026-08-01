@@ -7,7 +7,6 @@ import {
   Sparkles,
   Users,
   ChevronDown,
-  Info,
   Hash,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -26,7 +25,6 @@ export function RightSidebar({ user }: RightSidebarProps) {
   const [suggestedBuilders, setSuggestedBuilders] = useState<any[]>([])
   const [trendingBuilds, setTrendingBuilds] = useState<any[]>([])
   const [trendingTags, setTrendingTags] = useState<any[]>([])
-  const [bellFlash, setBellFlash] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -34,11 +32,9 @@ export function RightSidebar({ user }: RightSidebarProps) {
     const fetchData = async () => {
       const { data: pulse } = await supabase
         .from('editorial_posts')
-        .select(
-          'id, headline, published_at, view_count, editorial_categories(name, icon, color)'
-        )
+        .select('id, headline, published_at, view_count')
         .order('published_at', { ascending: false })
-        .limit(showAllNews ? 15 : 5)
+        .limit(showAllNews ? 12 : 5)
 
       setPulseItems(pulse || [])
 
@@ -50,7 +46,6 @@ export function RightSidebar({ user }: RightSidebarProps) {
 
       setUnreadNotifs(notifs || 0)
 
-      // Trending builds
       try {
         const trendRes = await fetch('/api/trending')
         const trendData = await trendRes.json()
@@ -68,161 +63,84 @@ export function RightSidebar({ user }: RightSidebarProps) {
             href: `/projects/${p.slug}`,
           })),
         ]
-        setTrendingBuilds(combined.slice(0, 4))
+        setTrendingBuilds(combined.slice(0, 3))
       } catch {}
 
-      // Suggested builders
       try {
         const res = await fetch('/api/matching/suggest?type=builders')
         const data = await res.json()
         setSuggestedBuilders((data.items || []).slice(0, 3))
       } catch {}
 
-      // Trending tags
       try {
         const tagsRes = await fetch('/api/trending/tags')
         const tagsData = await tagsRes.json()
-        setTrendingTags(tagsData.tags || [])
+        setTrendingTags((tagsData.tags || []).slice(0, 8))
       } catch {}
     }
 
     fetchData()
-
-    // Notifications realtime with bell flash + sound
-    const notifChannel = supabase
-      .channel('notifs')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          setUnreadNotifs((n) => n + 1)
-          setBellFlash(true)
-          setTimeout(() => setBellFlash(false), 2500)
-
-          if (typeof window !== 'undefined' && 'Audio' in window) {
-            try {
-              const audio = new Audio(
-                'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA='
-              )
-              audio.volume = 0.3
-              audio.play().catch(() => {})
-            } catch {}
-          }
-        }
-      )
-      .subscribe()
-
-    const editorialChannel = supabase
-      .channel('editorial')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'editorial_posts',
-        },
-        () => {
-          fetchData()
-        }
-      )
-      .subscribe()
-
-    const startupsChannel = supabase
-      .channel('startups-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'startups',
-        },
-        () => {
-          fetchData()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      notifChannel.unsubscribe()
-      editorialChannel.unsubscribe()
-      startupsChannel.unsubscribe()
-    }
+    const interval = setInterval(fetchData, 60000)
+    return () => clearInterval(interval)
   }, [user.id, showAllNews])
 
   return (
-    <aside className="hidden lg:flex flex-col fixed right-0 top-14 bottom-0 w-80 overflow-y-auto">
+    <aside className="hidden lg:flex flex-col fixed right-0 top-14 bottom-0 w-72 overflow-y-auto border-l border-border">
       <div className="p-3 space-y-3">
-        {/* ACTIVITY */}
-        <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-2">
-          <p className="px-3 pt-2 pb-2 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
-            ACTIVITY
-          </p>
+        {/* Notifications */}
+        <div className="skeu-card p-2">
           <Link
             href="/notifications"
-            className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm hover:bg-muted/50 transition-colors ${
-              bellFlash ? 'bg-primary/10' : ''
-            }`}
+            className="flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-muted transition-colors"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Bell
-                className={
-                  bellFlash
-                    ? 'w-4 h-4 text-primary animate-bounce'
-                    : unreadNotifs > 0
-                    ? 'w-4 h-4 text-primary animate-pulse'
-                    : 'w-4 h-4 text-muted-foreground'
-                }
+                className={`w-4 h-4 ${
+                  unreadNotifs > 0
+                    ? 'text-primary animate-pulse'
+                    : 'text-muted-foreground'
+                }`}
               />
-              <span>Notifications</span>
+              <span className="text-sm font-medium">Notifications</span>
             </div>
             {unreadNotifs > 0 && (
-              <span
-                className={`text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5 font-semibold ${
-                  bellFlash ? 'animate-pulse' : ''
-                }`}
-              >
+              <span className="chip chip-cerulean numeric">
                 {unreadNotifs}
               </span>
             )}
           </Link>
         </div>
 
-        {/* DSRT NEWS */}
-        <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
-          <div className="flex items-center gap-1.5 mb-3">
-            <h3 className="font-semibold text-sm">DSRT News</h3>
-            <Info className="w-3 h-3 text-muted-foreground" />
-            <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        {/* DSRT News */}
+        <div className="skeu-card p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="accent-dot" />
+              <p className="section-label">DSRT NEWS</p>
+            </div>
+            <span className="text-[9px] text-emerald-500 font-mono uppercase tracking-wider">
+              Live
+            </span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {pulseItems.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Loading headlines...
-              </p>
+              <p className="text-xs text-muted-foreground">Loading...</p>
             ) : (
               pulseItems.map((item) => (
                 <Link
                   key={item.id}
                   href={`/pulse/${item.id}`}
-                  className="block group"
+                  className="block group py-1"
                 >
-                  <p className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-foreground text-foreground/90">
+                  <p className="text-xs font-medium leading-snug line-clamp-2 group-hover:text-primary transition-colors">
                     {item.headline}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-[10px] text-muted-foreground mt-0.5 numeric">
                     {formatDistanceToNow(new Date(item.published_at), {
                       addSuffix: true,
-                    })}
-                    {' · '}
-                    {item.view_count ||
-                      Math.floor(Math.random() * 5000) + 100}{' '}
-                    readers
+                    })}{' '}
+                    · {item.view_count || 0}
                   </p>
                 </Link>
               ))
@@ -232,47 +150,41 @@ export function RightSidebar({ user }: RightSidebarProps) {
           <button
             type="button"
             onClick={() => setShowAllNews(!showAllNews)}
-            className="mt-4 flex items-center gap-1 text-sm font-medium text-foreground/80 hover:text-foreground"
+            className="mt-2 pt-2 border-t border-border w-full flex items-center justify-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground"
           >
-            {showAllNews ? 'Show less' : 'Show all news'}
+            {showAllNews ? 'Less' : 'More'}
             <ChevronDown
-              className={
-                showAllNews
-                  ? 'w-4 h-4 rotate-180 transition-transform'
-                  : 'w-4 h-4 transition-transform'
-              }
+              className={`w-3 h-3 transition-transform ${
+                showAllNews ? 'rotate-180' : ''
+              }`}
             />
           </button>
         </div>
 
-        {/* TRENDING BUILDS */}
-        <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
-          <div className="flex items-center gap-1.5 mb-3">
-            <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
-            <h3 className="font-semibold text-sm">Trending Builds</h3>
-          </div>
-          {trendingBuilds.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              No builds yet. Be the first.
-            </p>
-          ) : (
-            <div className="space-y-2.5">
+        {/* Trending Builds */}
+        {trendingBuilds.length > 0 && (
+          <div className="skeu-card p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <TrendingUp className="w-3 h-3 text-muted-foreground" />
+              <p className="section-label">TRENDING</p>
+            </div>
+            <div className="space-y-1.5">
               {trendingBuilds.map((b: any) => (
                 <Link
                   key={`${b.type}-${b.id}`}
                   href={b.href}
                   className="block group"
                 >
-                  <div className="flex items-start gap-2">
-                    <span className="text-base mt-0.5">
-                      {b.type === 'venture' ? '🚀' : '⚡'}
+                  <div className="flex items-start gap-1.5">
+                    <span className="text-xs mt-0.5">
+                      {b.type === 'venture' ? '◈' : '◇'}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate group-hover:underline">
+                      <p className="text-xs font-medium truncate group-hover:text-primary">
                         {b.name}
                       </p>
                       {b.tagline && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">
+                        <p className="text-[10px] text-muted-foreground line-clamp-1">
                           {b.tagline}
                         </p>
                       )}
@@ -281,127 +193,106 @@ export function RightSidebar({ user }: RightSidebarProps) {
                 </Link>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* TRENDING TAGS */}
+        {/* Trending Tags */}
         {trendingTags.length > 0 && (
-          <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
-            <div className="flex items-center gap-1.5 mb-3">
-              <Hash className="w-3.5 h-3.5 text-muted-foreground" />
-              <h3 className="font-semibold text-sm">Trending Tags</h3>
+          <div className="skeu-card p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Hash className="w-3 h-3 text-muted-foreground" />
+              <p className="section-label">TAGS</p>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {trendingTags.slice(0, 10).map((t: any) => (
+            <div className="flex flex-wrap gap-1">
+              {trendingTags.map((t: any) => (
                 <Link
                   key={t.tag}
                   href={`/explore?tag=${t.tag}`}
-                  className="text-xs px-2.5 py-1 rounded-full bg-muted/50 hover:bg-muted transition-colors"
+                  className="chip chip-cerulean hover:opacity-80"
                 >
                   #{t.tag}
-                  <span className="text-muted-foreground ml-1">
-                    {t.post_count}
-                  </span>
                 </Link>
               ))}
             </div>
           </div>
         )}
 
-        {/* SUGGESTED BUILDERS */}
-        <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4">
-          <div className="flex items-center gap-1.5 mb-3">
-            <Users className="w-3.5 h-3.5 text-muted-foreground" />
-            <h3 className="font-semibold text-sm">Suggested Builders</h3>
+        {/* Suggested Builders */}
+        <div className="skeu-card p-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Users className="w-3 h-3 text-muted-foreground" />
+            <p className="section-label">SUGGESTED</p>
           </div>
           {suggestedBuilders.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Complete your profile for suggestions.
+            <p className="text-[11px] text-muted-foreground">
+              Complete profile
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {suggestedBuilders.map((s: any) => (
                 <Link
                   key={s.user.id}
                   href={`/profile/${s.user.username}`}
                   className="flex items-start gap-2 group"
                 >
-                  <Avatar className="w-8 h-8">
+                  <Avatar className="w-7 h-7 border border-border">
                     <AvatarImage src={s.user.avatar_url} />
-                    <AvatarFallback className="text-[10px]">
+                    <AvatarFallback className="text-[9px]">
                       {s.user.full_name?.[0]?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate group-hover:underline">
+                    <p className="text-xs font-medium truncate group-hover:text-primary">
                       {s.user.full_name}
                     </p>
-                    {s.user.tagline && (
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {s.user.tagline}
-                      </p>
-                    )}
-                    {s.reasons && s.reasons.length > 0 && (
-                      <p className="text-[10px] text-primary mt-0.5">
+                    {s.reasons?.[0] && (
+                      <p className="text-[10px] text-primary numeric">
                         {s.reasons[0]}
                       </p>
                     )}
                   </div>
                 </Link>
               ))}
-              <Link
-                href="/explore?tab=builders"
-                className="block text-xs text-primary hover:underline pt-1"
-              >
-                See more →
-              </Link>
             </div>
           )}
         </div>
 
-        {/* TAKE A BREAK */}
-        <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 backdrop-blur-sm p-4">
+        {/* Break — Games */}
+        <div className="skeu-card p-3 bg-gradient-to-br from-purple-500/5 to-transparent border-purple-500/20">
           <div className="flex items-center gap-1.5 mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <h3 className="font-semibold text-sm">Take a break</h3>
+            <Sparkles className="w-3 h-3 text-amber-500" />
+            <p className="section-label">BREAK</p>
           </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            Quick games between builds
-          </p>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Link
               href="/games/pingpong"
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-background/40 transition-colors"
+              className="flex items-center gap-2 text-xs px-1.5 py-1 rounded hover:bg-muted"
             >
-              <span className="text-base">🏓</span>
-              <span className="text-xs font-medium">Emoji PingPong</span>
+              <span>🏓</span>
+              <span>Ping Pong</span>
             </Link>
             <Link
               href="/games/blockcube"
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-background/40 transition-colors"
+              className="flex items-center gap-2 text-xs px-1.5 py-1 rounded hover:bg-muted"
             >
-              <span className="text-base">🎲</span>
-              <span className="text-xs font-medium">Block Cube</span>
+              <span>🎲</span>
+              <span>Block Cube</span>
             </Link>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="pt-2 pb-4 px-2 space-y-2">
-          <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-            <a href="#" className="hover:text-foreground">
-              About
-            </a>
+        <div className="pt-2 pb-4 space-y-1">
+          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[9px] font-mono uppercase tracking-wider text-muted-foreground/60">
+            <a href="#" className="hover:text-foreground">About</a>
             <span>·</span>
-            <a href="#" className="hover:text-foreground">
-              Privacy
-            </a>
+            <a href="#" className="hover:text-foreground">Privacy</a>
             <span>·</span>
-            <a href="#" className="hover:text-foreground">
-              Terms
-            </a>
+            <a href="#" className="hover:text-foreground">Terms</a>
           </div>
-          <p className="text-[10px] text-muted-foreground/60">DSRT © 2025</p>
+          <p className="text-[9px] text-muted-foreground/40 font-mono">
+            DSRT © 2025
+          </p>
         </div>
       </div>
     </aside>

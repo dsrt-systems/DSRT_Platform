@@ -42,101 +42,142 @@ export function StepSeeking() {
   }
 
   const finish = async () => {
-    setLoading(true)
-    setError(null)
+  setLoading(true)
+  setError(null)
 
-    try {
-      const finalData = {
-        ...data,
+  try {
+    const finalData = {
+      ...data,
+      seeking: selected,
+      availability,
+    }
+    updateData({ seeking: selected, availability })
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
+    // 1. Update user profile
+    const { error: userError } = await supabase
+      .from('users')
+      .update({
+        full_name: finalData.full_name,
+        username: finalData.username,
+        tagline: finalData.tagline || null,
+        location: finalData.location || null,
+        brings: finalData.brings || [],
         seeking: selected,
-        availability,
-      }
-      updateData({ seeking: selected, availability })
+        interest_topics: finalData.interest_topics || [],
+        availability: availability || null,
+        onboarding_complete: true,
+        last_active: new Date().toISOString(),
+      })
+      .eq('id', user.id)
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
+    if (userError) {
+      console.error('User update error:', userError)
+      setError('Failed to save profile. Please try again.')
+      setLoading(false)
+      return
+    }
 
-      // 1. Update user profile
-      const { error: userError } = await supabase
-        .from('users')
-        .update({
-          full_name: finalData.full_name,
-          username: finalData.username,
-          tagline: finalData.tagline || null,
-          location: finalData.location || null,
-          brings: finalData.brings || [],
-          seeking: selected,
-          interest_topics: finalData.interest_topics || [],
-          availability: availability || null,
-          onboarding_complete: true,
-          last_active: new Date().toISOString(),
-        })
-        .eq('id', user.id)
+    // 2. Add education
+    if (finalData.institution_id || finalData.institution_name) {
+      await supabase.from('user_education').insert({
+        user_id: user.id,
+        institution_id: finalData.institution_id || null,
+        institution_name: finalData.institution_name || null,
+        degree: finalData.degree || null,
+        field: finalData.field || null,
+        start_year: finalData.start_year || null,
+        end_year: finalData.is_current ? null : finalData.end_year || null,
+        is_current: finalData.is_current ?? false,
+      })
 
-      if (userError) {
-        console.error('User update error:', userError)
-        setError('Failed to save profile. Please try again.')
-        setLoading(false)
-        return
-      }
+      // 3. Auto-join institution community
+      if (finalData.institution_id) {
+        const { data: instCommunity } = await supabase
+          .from('communities')
+          .select('id')
+          .eq('institution_id', finalData.institution_id)
+          .single()
 
-      // 2. Add education
-      if (finalData.institution_id || finalData.institution_name) {
-        await supabase.from('user_education').insert({
-          user_id: user.id,
-          institution_id: finalData.institution_id || null,
-          institution_name: finalData.institution_name || null,
-          degree: finalData.degree || null,
-          field: finalData.field || null,
-          start_year: finalData.start_year || null,
-          end_year: finalData.is_current ? null : finalData.end_year || null,
-          is_current: finalData.is_current ?? false,
-        })
-
-        // 3. Auto-join institution community
-        if (finalData.institution_id) {
-          const { data: community } = await supabase
-            .from('communities')
-            .select('id')
-            .eq('institution_id', finalData.institution_id)
-            .single()
-
-          if (community) {
-            await supabase.from('community_members').insert({
-              community_id: community.id,
-              user_id: user.id,
-              role: 'member',
-            })
-          }
+        if (instCommunity) {
+          await supabase.from('community_members').insert({
+            community_id: instCommunity.id,
+            user_id: user.id,
+            role: 'member',
+          })
         }
       }
+    }
 
-      // 4. Add skills
-      if (finalData.skill_ids && finalData.skill_ids.length > 0) {
-        await supabase.from('user_skills').insert(
-          finalData.skill_ids.map((skill_id: string) => ({
-            user_id: user.id,
-            skill_id,
-            level: 'intermediate',
-          }))
-        )
+    // 4. Auto-join domain communities matching interests
+    if (finalData.interest_topics && finalData.interest_topics.length > 0) {
+      const interestSlugMap: Record<string, string> = {
+        'ai': 'ai-ml',
+        'saas': 'ai-ml',
+        'fintech': 'fintech',
+        'healthtech': 'healthtech',
+        'edtech': 'edtech',
+        'agritech': 'agritech',
+        'cleantech': 'climatetech',
+        'robotics': 'robotics-iot',
+        'iot': 'robotics-iot',
+        'blockchain': 'web3-blockchain',
+        'cybersecurity': 'cybersecurity',
+        'gaming': 'gaming',
+        'ecommerce': 'ecommerce-retail',
+        'arvr': 'gaming',
+        'space': 'defense-aerospace',
+        'climate': 'climatetech',
       }
 
-      // 5. Reset onboarding store
-      reset()
+      const targetSlugs = finalData.interest_topics
+        .map((t: string) => interestSlugMap[t])
+        .filter(Boolean)
 
-      // 6. Redirect to feed
-      router.refresh()
-      router.push('/feed')
-    } catch (err) {
-      console.error('Onboarding error:', err)
-      setError('Something went wrong. Please try again.')
-      setLoading(false)
+      if (targetSlugs.length > 0) {
+        const { data: matchingCommunities } = await supabase
+          .from('communities')
+          .select('id')
+          .in('slug', targetSlugs)
+
+        if (matchingCommunities && matchingCommunities.length > 0) {
+          const memberships = matchingCommunities.map((c: any) => ({
+            community_id: c.id,
+            user_id: user.id,
+            role: 'member',
+          }))
+
+          await supabase.from('community_members').insert(memberships)
+        }
+      }
     }
+
+    // 5. Add skills
+    if (finalData.skill_ids && finalData.skill_ids.length > 0) {
+      await supabase.from('user_skills').insert(
+        finalData.skill_ids.map((skill_id: string) => ({
+          user_id: user.id,
+          skill_id,
+          level: 'intermediate',
+        }))
+      )
+    }
+
+    // 6. Reset store and redirect
+    reset()
+    router.refresh()
+    router.push('/')
+  } catch (err) {
+    console.error('Onboarding error:', err)
+    setError('Something went wrong. Please try again.')
+    setLoading(false)
   }
+}
 
   return (
     <div className="space-y-6">

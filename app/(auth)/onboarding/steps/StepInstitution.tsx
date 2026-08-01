@@ -177,7 +177,6 @@ export function StepInstitution() {
         </div>
       )}
 
-      {/* Education details */}
       {(selectedId || customName) && (
         <div className="space-y-4 pt-4 border-t">
           <div className="grid grid-cols-2 gap-3">

@@ -2,20 +2,27 @@
 
 import { useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Lightbulb, Code2, Trophy, Rocket, FileText, MessageSquare } from 'lucide-react'
+import {
+  Lightbulb,
+  Code2,
+  Trophy,
+  Rocket,
+  FileText,
+  MessageSquare,
+} from 'lucide-react'
 import { ComposeDialog } from './ComposeDialog'
 
 interface ComposeCardProps {
   user: any
 }
 
-const postTypes = [
-  { id: 'idea', label: 'Idea', icon: Lightbulb, color: 'text-amber-500' },
-  { id: 'build_log', label: 'Build Log', icon: Code2, color: 'text-emerald-500' },
-  { id: 'milestone', label: 'Milestone', icon: Trophy, color: 'text-yellow-500' },
-  { id: 'launch', label: 'Launch', icon: Rocket, color: 'text-orange-500' },
-  { id: 'looking_for', label: 'Looking For', icon: FileText, color: 'text-blue-500' },
-  { id: 'discussion', label: 'Discussion', icon: MessageSquare, color: 'text-purple-500' },
+const POST_TYPES = [
+  { id: 'idea', label: 'IDEA', icon: Lightbulb, color: 'text-amber-500' },
+  { id: 'build_log', label: 'BUILD LOG', icon: Code2, color: 'text-emerald-500' },
+  { id: 'milestone', label: 'MILESTONE', icon: Trophy, color: 'text-yellow-500' },
+  { id: 'launch', label: 'LAUNCH', icon: Rocket, color: 'text-orange-500' },
+  { id: 'looking_for', label: 'LOOKING FOR', icon: FileText, color: 'text-blue-500' },
+  { id: 'discussion', label: 'DISCUSSION', icon: MessageSquare, color: 'text-purple-500' },
 ]
 
 export function ComposeCard({ user }: ComposeCardProps) {
@@ -29,11 +36,11 @@ export function ComposeCard({ user }: ComposeCardProps) {
 
   return (
     <>
-      <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-4 space-y-4">
-        <div className="flex items-start gap-3">
-          <Avatar className="w-10 h-10 flex-shrink-0">
+      <div className="skeu-card p-3">
+        <div className="flex items-center gap-2.5">
+          <Avatar className="w-9 h-9 border border-border">
             <AvatarImage src={user?.avatar_url} />
-            <AvatarFallback>
+            <AvatarFallback className="text-xs">
               {user?.full_name?.[0]?.toUpperCase()}
             </AvatarFallback>
           </Avatar>
@@ -41,24 +48,24 @@ export function ComposeCard({ user }: ComposeCardProps) {
           <button
             type="button"
             onClick={() => openCompose('update')}
-            className="flex-1 text-left px-4 py-2.5 rounded-full bg-muted/40 hover:bg-muted/60 transition-colors text-sm text-muted-foreground"
+            className="flex-1 text-left px-3 py-2 skeu-inset text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            What are you building today, {user?.full_name?.split(' ')[0]}?
+            What are you building, {user?.full_name?.split(' ')[0]}?
           </button>
         </div>
 
-        <div className="flex items-center gap-1 overflow-x-auto pb-1">
-          {postTypes.map((type) => {
+        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border overflow-x-auto">
+          {POST_TYPES.map((type) => {
             const Icon = type.icon
             return (
               <button
                 key={type.id}
                 type="button"
                 onClick={() => openCompose(type.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-muted/40 transition-colors text-xs font-medium whitespace-nowrap"
+                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono tracking-wider hover:bg-muted transition-colors whitespace-nowrap"
               >
-                <Icon className={`w-3.5 h-3.5 ${type.color}`} />
-                {type.label}
+                <Icon className={`w-3 h-3 ${type.color}`} />
+                <span>{type.label}</span>
               </button>
             )
           })}

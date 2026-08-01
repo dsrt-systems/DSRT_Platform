@@ -1,57 +1,81 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { ProjectView } from '@/components/projects/ProjectView'
+import { ProjectWorkspace } from '@/components/projects/ProjectWorkspace'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
-export default async function ProjectPage({ params }: PageProps) {
+export default async function ProjectDetailPage({ params }: PageProps) {
+  const { slug } = await params
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: project } = await supabase
     .from('projects')
-    .select('*, users:creator_id(*)')
-    .eq('slug', params.slug)
+    .select('*')
+    .eq('slug', slug)
     .single()
 
   if (!project) notFound()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Verify user has access
+  const { data: role } = await supabase
+    .from('project_roles')
+    .select('*')
+    .eq('project_id', project.id)
+    .eq('user_id', user!.id)
+    .single()
 
-  const [{ data: members }, { data: buildLogs }, { data: tasks }] =
-    await Promise.all([
-      supabase
-        .from('project_members')
-        .select('*, users(id, full_name, username, avatar_url, tagline)')
-        .eq('project_id', project.id)
-        .eq('status', 'active'),
-      supabase
-        .from('project_build_logs')
-        .select('*, users(id, full_name, username, avatar_url)')
-        .eq('project_id', project.id)
-        .order('created_at', { ascending: false })
-        .limit(20),
-      supabase
-        .from('project_tasks')
-        .select('*')
-        .eq('project_id', project.id),
-    ])
+  if (!role && project.visibility === 'private') {
+    notFound()
+  }
 
-  const isMember = members?.some((m: any) => m.user_id === user?.id) || false
-  const isCreator = project.creator_id === user?.id
+  const [
+    { data: tasks },
+    { data: members },
+    { data: sprints },
+    { data: activities },
+    { data: repos },
+  ] = await Promise.all([
+    supabase
+      .from('project_tasks')
+      .select('*, users:user_id(full_name, username, avatar_url)')
+      .eq('project_id', project.id)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('project_roles')
+      .select('*, users:user_id(id, full_name, username, avatar_url, tagline, last_active)')
+      .eq('project_id', project.id)
+      .eq('status', 'active'),
+    supabase
+      .from('sprints')
+      .select('*')
+      .eq('project_id', project.id)
+      .order('number', { ascending: false }),
+    supabase
+      .from('activity_events')
+      .select('*, actor:actor_id(full_name, username, avatar_url)')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('tracked_repos')
+      .select('*')
+      .eq('project_id', project.id),
+  ])
 
   return (
-    <ProjectView
+    <ProjectWorkspace
       project={project}
+      currentUser={user}
+      currentUserRole={role}
+      initialTasks={tasks || []}
       members={members || []}
-      buildLogs={buildLogs || []}
-      tasks={tasks || []}
-      isMember={isMember}
-      isCreator={isCreator}
-      currentUserId={user?.id}
+      sprints={sprints || []}
+      activities={activities || []}
+      repos={repos || []}
     />
   )
 }

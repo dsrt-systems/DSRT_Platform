@@ -1,107 +1,55 @@
-import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   const supabase = createClient()
-  const { searchParams } = new URL(request.url)
-  const q = searchParams.get('q')
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!q || q.length < 2) {
-    return NextResponse.json({
-      users: [],
-      projects: [],
-      ventures: [],
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(request.url)
+  const query = searchParams.get('q')?.trim()
+
+  if (!query || query.length < 1) {
+    return NextResponse.json({ 
+      users: [], 
+      projects: [], 
       communities: [],
     })
   }
 
-  // Try full-text search first, fallback to ilike if no results
-  const tsQuery = q
-    .trim()
-    .split(/\s+/)
-    .map((w) => w.replace(/[^\w]/g, '') + ':*')
-    .filter(Boolean)
-    .join(' & ')
+  const searchTerm = `%${query}%`
 
-  // --- USERS ---
-  let users: any[] = []
-  try {
-    if (tsQuery) {
-      const { data } = await supabase
-        .from('users')
-        .select('id, full_name, username, avatar_url, tagline')
-        .textSearch('search_vector', tsQuery, { config: 'english' })
-        .eq('onboarding_complete', true)
-        .limit(5)
-      users = data || []
-    }
-  } catch {}
-
-  if (users.length === 0) {
-    const { data } = await supabase
+  const [
+    { data: users },
+    { data: projects },
+    { data: communities },
+  ] = await Promise.all([
+    supabase
       .from('users')
-      .select('id, full_name, username, avatar_url, tagline')
-      .or(`full_name.ilike.%${q}%,username.ilike.%${q}%,tagline.ilike.%${q}%`)
+      .select('id, full_name, username, avatar_url, tagline, brings, follower_count')
+      .or(`full_name.ilike.${searchTerm},username.ilike.${searchTerm},tagline.ilike.${searchTerm}`)
       .eq('onboarding_complete', true)
-      .limit(5)
-    users = data || []
-  }
-
-  // --- PROJECTS ---
-  let projects: any[] = []
-  try {
-    if (tsQuery) {
-      const { data } = await supabase
-        .from('projects')
-        .select('id, slug, title, tagline')
-        .textSearch('search_vector', tsQuery, { config: 'english' })
-        .limit(5)
-      projects = data || []
-    }
-  } catch {}
-
-  if (projects.length === 0) {
-    const { data } = await supabase
+      .neq('id', user.id)
+      .limit(8),
+    supabase
       .from('projects')
-      .select('id, slug, title, tagline')
-      .or(`title.ilike.%${q}%,tagline.ilike.%${q}%`)
-      .limit(5)
-    projects = data || []
-  }
+      .select('id, name, slug, icon, color, sector, description, progress_percent, founder_id')
+      .or(`name.ilike.${searchTerm},description.ilike.${searchTerm},sector.ilike.${searchTerm}`)
+      .limit(8),
+    supabase
+      .from('communities')
+      .select('id, name, slug, description, member_count, icon_color, is_verified')
+      .or(`name.ilike.${searchTerm},description.ilike.${searchTerm}`)
+      .eq('is_public', true)
+      .limit(8),
+  ])
 
-  // --- VENTURES (startups) ---
-  let ventures: any[] = []
-  try {
-    if (tsQuery) {
-      const { data } = await supabase
-        .from('startups')
-        .select('id, slug, name, tagline')
-        .textSearch('search_vector', tsQuery, { config: 'english' })
-        .limit(5)
-      ventures = data || []
-    }
-  } catch {}
-
-  if (ventures.length === 0) {
-    const { data } = await supabase
-      .from('startups')
-      .select('id, slug, name, tagline')
-      .or(`name.ilike.%${q}%,tagline.ilike.%${q}%`)
-      .limit(5)
-    ventures = data || []
-  }
-
-  // --- COMMUNITIES ---
-  const { data: communitiesData } = await supabase
-    .from('communities')
-    .select('id, slug, name')
-    .ilike('name', `%${q}%`)
-    .limit(5)
-
-  return NextResponse.json({
-    users,
-    projects,
-    ventures,
-    communities: communitiesData || [],
+  return NextResponse.json({ 
+    users: users || [], 
+    projects: projects || [], 
+    communities: communities || [],
   })
 }

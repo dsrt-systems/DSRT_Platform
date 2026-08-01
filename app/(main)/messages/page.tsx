@@ -1,65 +1,62 @@
 import { createClient } from '@/lib/supabase/server'
-import { MessagesView } from '@/components/messages/MessagesView'
+import { MessagesInbox } from '@/components/messages/MessagesInbox'
 
-export const dynamic = 'force-dynamic'
-
-interface PageProps {
-  searchParams: { mentor?: string }
-}
-
-export default async function MessagesPage({ searchParams }: PageProps) {
+export default async function MessagesPage() {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('id, full_name, avatar_url, username')
-    .eq('id', user!.id)
-    .single()
-
-  const { data: participations } = await supabase
+  // Get all conversations for user
+  const { data: participants } = await supabase
     .from('conversation_participants')
-    .select('conversation_id')
+    .select(`
+      conversation_id,
+      last_read_at,
+      conversations!inner (
+        id, type, name, avatar_url, last_message_at, created_at
+      )
+    `)
     .eq('user_id', user!.id)
+    .is('left_at', null)
+    .order('conversations(last_message_at)', { ascending: false })
 
-  const conversationIds = participations?.map((p) => p.conversation_id) || []
+  // For each conversation, get last message + other participant(s)
+  const conversations = await Promise.all(
+    (participants || []).map(async (p: any) => {
+      const conv = p.conversations
 
-  const { data: conversations } = await supabase
-    .from('conversations')
-    .select(
-      `
-      *,
-      conversation_participants(
-        user_id,
-        is_archived,
-        users(id, full_name, username, avatar_url, tagline, is_bot)
-      ),
-      messages(id, content, created_at, sender_id)
-    `
-    )
-    .in(
-      'id',
-      conversationIds.length > 0
-        ? conversationIds
-        : ['00000000-0000-0000-0000-000000000000']
-    )
-    .order('created_at', { ascending: false })
+      // Get last message
+      const { data: lastMessage } = await supabase
+        .from('messages')
+        .select('id, content, sender_id, created_at')
+        .eq('conversation_id', conv.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-  const { data: mentorConversations } = await supabase
-    .from('mentor_conversations')
-    .select('*')
-    .eq('user_id', user!.id)
-    .order('updated_at', { ascending: false })
-    .limit(5)
+      // Get other participants for direct conversations
+      const { data: otherParticipants } = await supabase
+        .from('conversation_participants')
+        .select('users:user_id (id, full_name, username, avatar_url)')
+        .eq('conversation_id', conv.id)
+        .neq('user_id', user!.id)
+        .is('left_at', null)
 
-  return (
-    <MessagesView
-      conversations={conversations || []}
-      mentorConversations={mentorConversations || []}
-      currentUser={profile}
-      initialOpenMentor={searchParams.mentor === '1'}
-    />
+      // Count unread
+      const { count: unreadCount } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('conversation_id', conv.id)
+        .gt('created_at', p.last_read_at)
+        .neq('sender_id', user!.id)
+
+      return {
+        ...conv,
+        last_message: lastMessage,
+        other_participants: (otherParticipants || []).map((p: any) => p.users).filter(Boolean),
+        unread_count: unreadCount || 0,
+      }
+    })
   )
+
+  return <MessagesInbox conversations={conversations} currentUserId={user!.id} />
 }

@@ -1,74 +1,101 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
 
 export default async function ProjectsPage() {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: projects } = await supabase
     .from('projects')
-    .select('*, users:creator_id(id, full_name, username, avatar_url)')
-    .order('created_at', { ascending: false })
-    .limit(30)
+    .select('*')
+    .eq('founder_id', user!.id)
+    .order('updated_at', { ascending: false })
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="max-w-5xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Projects</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Open collaborative work from across the ecosystem
+            {projects?.length || 0} project{(projects?.length || 0) !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/projects/new">
-            <Plus className="w-4 h-4 mr-1.5" />
-            New Project
-          </Link>
-        </Button>
+        <Link
+          href="/projects/new"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          New Project
+        </Link>
       </div>
 
       {!projects || projects.length === 0 ? (
-        <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-12 text-center space-y-3">
-          <div className="text-4xl">⚡</div>
-          <h3 className="font-semibold">No projects yet</h3>
+        <div className="bg-card border rounded-2xl p-16 text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center">
+            <Plus className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h2 className="text-lg font-semibold">No projects yet</h2>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            Be the first to start a project on DSRT.
+            Create your first project to start tracking progress,
+            managing tasks, and collaborating with your team.
           </p>
-          <Button asChild>
-            <Link href="/projects/new">Start a Project</Link>
-          </Button>
+          <Link
+            href="/projects/new"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Create Your First Project
+          </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {projects.map((p) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map(project => (
             <Link
-              key={p.id}
-              href={`/projects/${p.slug}`}
-              className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-5 hover:border-border transition-all"
+              key={project.id}
+              href={`/projects/${project.slug}`}
+              className="bg-card border rounded-2xl p-5 hover:border-primary/30 transition-all group space-y-3"
             >
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-muted capitalize">
-                  {p.stage}
-                </span>
-                {p.is_hiring && (
-                  <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-rose-500/10 text-rose-500">
-                    Hiring
-                  </span>
-                )}
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl bg-${project.color || 'blue'}-500 flex items-center justify-center text-white font-bold text-lg`}>
+                  {project.icon || project.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate group-hover:text-primary transition-colors">
+                    {project.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {project.sector} {project.category?.length ? `• ${project.category.join(', ')}` : ''}
+                  </p>
+                </div>
               </div>
-              <h3 className="font-bold">{p.title}</h3>
-              {p.tagline && (
-                <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                  {p.tagline}
+
+              {project.description && (
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {project.description}
                 </p>
               )}
-              <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                <span>by {p.users?.full_name}</span>
-                <span>•</span>
-                <span>{p.member_count} members</span>
+
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">
+                    {project.completed_tasks || 0}/{project.total_tasks || 0} tasks
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full bg-${project.color || 'blue'}-500 rounded-full`}
+                      style={{ width: `${project.progress_percent || 0}%` }}
+                    />
+                  </div>
+                  <span className="font-bold">{project.progress_percent || 0}%</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-2 border-t">
+                <span className="capitalize">{project.visibility}</span>
+                <span>{project.status}</span>
               </div>
             </Link>
           ))}
