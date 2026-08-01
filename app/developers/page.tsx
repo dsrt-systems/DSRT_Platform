@@ -6,10 +6,9 @@ export default function DevelopersPage() {
           Built for Developers
         </h1>
         <p className="text-base text-muted-foreground max-w-2xl mx-auto">
-          DSRT is being built with a developer-first mindset. 
+          DSRT is being built with a developer-first mindset.
           API access, integrations, and documentation coming soon.
         </p>
-        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-12 max-w-3xl mx-auto">
           <div className="p-6 border rounded-2xl bg-card">
             <h3 className="font-bold mb-2">REST API</h3>
@@ -20,7 +19,6 @@ export default function DevelopersPage() {
               Coming Q1 2027
             </p>
           </div>
-          
           <div className="p-6 border rounded-2xl bg-card">
             <h3 className="font-bold mb-2">Webhooks</h3>
             <p className="text-xs text-muted-foreground">
@@ -30,7 +28,6 @@ export default function DevelopersPage() {
               Coming Q1 2027
             </p>
           </div>
-          
           <div className="p-6 border rounded-2xl bg-card">
             <h3 className="font-bold mb-2">SDKs</h3>
             <p className="text-xs text-muted-foreground">
