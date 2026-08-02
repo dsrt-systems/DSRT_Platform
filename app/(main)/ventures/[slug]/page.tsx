@@ -1,68 +1,50 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { VentureView } from '@/components/ventures/VentureView'
+import { VentureDetailView } from '@/components/ventures/VentureDetailView'
 
 interface PageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
-export default async function VenturePage({ params }: PageProps) {
+export default async function VentureDetailPage({ params }: PageProps) {
+  const { slug } = await params
   const supabase = createClient()
 
   const { data: venture } = await supabase
-    .from('startups')
-    .select('*, users:founder_id(*)')
-    .eq('slug', params.slug)
+    .from('ventures')
+    .select('*')
+    .eq('slug', slug)
     .single()
 
   if (!venture) notFound()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isOwner = user?.id === venture.user_id
 
   const [
-    { data: members },
-    { data: milestones },
-    { data: roles },
-    { data: founderProfile },
+    { data: teamMembers },
+    { data: metrics },
+    { data: updates },
+    { data: lookingFor },
+    { data: documents },
   ] = await Promise.all([
-    supabase
-      .from('startup_members')
-      .select('*, users(id, full_name, username, avatar_url, tagline)')
-      .eq('startup_id', venture.id)
-      .eq('status', 'active'),
-    supabase
-      .from('startup_milestones')
-      .select('*')
-      .eq('startup_id', venture.id)
-      .order('achieved_date', { ascending: true }),
-    supabase
-      .from('startup_roles')
-      .select('*')
-      .eq('startup_id', venture.id)
-      .eq('status', 'open'),
-    supabase
-      .from('venture_founder_profiles')
-      .select('*')
-      .eq('startup_id', venture.id)
-      .eq('user_id', venture.founder_id)
-      .maybeSingle(),
+    supabase.from('venture_team_members').select('*').eq('venture_id', venture.id).order('position'),
+    supabase.from('venture_metrics').select('*').eq('venture_id', venture.id).order('position'),
+    supabase.from('venture_updates').select('*').eq('venture_id', venture.id).order('created_at', { ascending: false }).limit(10),
+    supabase.from('venture_looking_for').select('*').eq('venture_id', venture.id).order('position'),
+    supabase.from('venture_documents').select('*').eq('venture_id', venture.id).order('created_at', { ascending: false }),
   ])
 
-  const isMember = members?.some((m: any) => m.user_id === user?.id) || false
-  const isFounder = venture.founder_id === user?.id
-
   return (
-    <VentureView
+    <VentureDetailView
       venture={venture}
-      members={members || []}
-      milestones={milestones || []}
-      openRoles={roles || []}
-      founderProfile={founderProfile}
-      isMember={isMember}
-      isFounder={isFounder}
-      currentUserId={user?.id}
+      isOwner={isOwner}
+      currentUser={user}
+      teamMembers={teamMembers || []}
+      metrics={metrics || []}
+      updates={updates || []}
+      lookingFor={lookingFor || []}
+      documents={documents || []}
     />
   )
 }
