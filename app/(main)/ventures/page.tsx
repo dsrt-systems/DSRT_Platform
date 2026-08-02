@@ -1,13 +1,34 @@
-﻿export default function VenturesPage() {
+﻿import { createClient } from '@/lib/supabase/server'
+import { VenturesListView } from '@/components/ventures/VenturesListView'
+
+export default async function VenturesPage() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const [
+    { data: myVentures },
+    { data: allVentures },
+  ] = await Promise.all([
+    supabase
+      .from('ventures')
+      .select('*')
+      .eq('user_id', user!.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('ventures')
+      .select('*, users:user_id(full_name, username, avatar_url)')
+      .eq('is_building_public', true)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ])
+
   return (
-    <div className="max-w-3xl mx-auto p-6 md:p-10">
-      <div className="py-16 text-center space-y-4">
-        <h1 className="text-3xl font-bold tracking-tight">Ventures</h1>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">
-          This section is being built as part of the DSRT roadmap.
-          Full functionality coming soon.
-        </p>
-      </div>
-    </div>
+    <VenturesListView 
+      myVentures={myVentures || []} 
+      allVentures={allVentures || []}
+      currentUserId={user!.id}
+    />
   )
 }
