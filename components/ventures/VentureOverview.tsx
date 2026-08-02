@@ -23,7 +23,10 @@ import {
   Wrench,
 } from '@phosphor-icons/react'
 import { EditTextModal } from './modals/EditTextModal'
-import { EditListModal } from './modals/EditListModal'
+import { BusinessModelModal } from './modals/BusinessModelModal'
+import { TeamMemberModal } from './modals/TeamMemberModal'
+import { MetricModal } from './modals/MetricModal'
+import { MetricDataModal } from './modals/MetricDataModal'
 
 interface VentureOverviewProps {
   venture: any
@@ -44,8 +47,31 @@ export function VentureOverview({
   documents,
   isOwner,
   onUpdate,
+  onTeamUpdate,
+  onMetricsUpdate,
 }: VentureOverviewProps) {
-  const [editModal, setEditModal] = useState<{ open: boolean; field: string; label: string; value: string; multiline?: boolean; maxLength?: number } | null>(null)
+  // Text edit modal
+  const [editModal, setEditModal] = useState<{ 
+    open: boolean; 
+    field: string; 
+    label: string; 
+    value: string; 
+    multiline?: boolean; 
+    maxLength?: number 
+  } | null>(null)
+
+  // Business model modal
+  const [businessModelModalOpen, setBusinessModelModalOpen] = useState(false)
+
+  // Team modals
+  const [teamModalOpen, setTeamModalOpen] = useState(false)
+  const [editingMember, setEditingMember] = useState<any>(null)
+
+  // Metric modals
+  const [metricModalOpen, setMetricModalOpen] = useState(false)
+  const [editingMetric, setEditingMetric] = useState<any>(null)
+  const [metricDataModalOpen, setMetricDataModalOpen] = useState(false)
+  const [selectedMetric, setSelectedMetric] = useState<any>(null)
 
   const openEditor = (field: string, label: string, value: string, multiline = true, maxLength = 2000) => {
     setEditModal({ open: true, field, label, value: value || '', multiline, maxLength })
@@ -157,7 +183,7 @@ export function VentureOverview({
           isEmpty={!venture.business_model}
           emptyText="How do you make money?"
           emptySubtext="Select from 30+ business models"
-          onAdd={() => openEditor('business_model_details', 'Business Model Details', venture.business_model_details, true, 1000)}
+          onAdd={() => setBusinessModelModalOpen(true)}
         >
           {venture.business_model && (
             <div className="space-y-2">
@@ -212,24 +238,45 @@ export function VentureOverview({
           isEmpty={metrics.length === 0}
           emptyText="Track your growth"
           emptySubtext="Add MRR, users, retention & more"
-          onAdd={() => {}}
-          topRight={metrics.length > 0 && (
-            <a href={`/ventures/${venture.slug}/analytics`} 
-              className="text-xs text-blue-500 hover:underline flex items-center gap-1">
-              View All
-              <ArrowRight className="w-3 h-3" weight="bold" />
-            </a>
+          onAdd={() => {
+            setEditingMetric(null)
+            setMetricModalOpen(true)
+          }}
+          topRight={metrics.length > 0 && isOwner && (
+            <button
+              onClick={() => {
+                setEditingMetric(null)
+                setMetricModalOpen(true)
+              }}
+              className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+            >
+              + Add
+            </button>
           )}
         >
           {metrics.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
-              {metrics.slice(0, 4).map((m) => (
-                <div key={m.id} className="p-2.5 border rounded-lg">
+              {metrics.filter((m: any) => m.show_on_overview).slice(0, 4).map((m: any) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    if (isOwner) {
+                      setSelectedMetric(m)
+                      setMetricDataModalOpen(true)
+                    }
+                  }}
+                  className={cn(
+                    'p-2.5 border rounded-lg text-left transition-all',
+                    isOwner && 'hover:border-primary/50 hover:bg-muted/30 cursor-pointer'
+                  )}
+                >
                   <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
                     {m.name}
                   </p>
-                  <p className="text-sm font-bold mt-1">--</p>
-                </div>
+                  <p className="text-sm font-bold mt-1">
+                    {isOwner ? 'Click to add data' : '--'}
+                  </p>
+                </button>
               ))}
             </div>
           )}
@@ -245,19 +292,51 @@ export function VentureOverview({
           isEmpty={teamMembers.length === 0}
           emptyText="Add team members"
           emptySubtext="Show who's building"
-          onAdd={() => {}}
+          onAdd={() => {
+            setEditingMember(null)
+            setTeamModalOpen(true)
+          }}
+          topRight={teamMembers.length > 0 && isOwner && (
+            <button
+              onClick={() => {
+                setEditingMember(null)
+                setTeamModalOpen(true)
+              }}
+              className="text-xs text-blue-500 hover:underline"
+            >
+              + Add
+            </button>
+          )}
         >
           {teamMembers.length > 0 && (
             <div className="space-y-2">
-              {teamMembers.slice(0, 4).map((m) => (
-                <div key={m.id} className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
-                    {m.name?.[0]?.toUpperCase()}
-                  </div>
+              {teamMembers.slice(0, 5).map((m: any) => (
+                <div key={m.id} className="flex items-center gap-2 group">
+                  {m.avatar_url ? (
+                    <img src={m.avatar_url} alt={m.name} className="w-8 h-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                      {m.name?.[0]?.toUpperCase()}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate">{m.name}</p>
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs font-semibold truncate">{m.name}</p>
+                      {m.is_founder && <Sparkle className="w-2.5 h-2.5 text-yellow-500" weight="fill" />}
+                    </div>
                     <p className="text-[10px] text-muted-foreground truncate">{m.role}</p>
                   </div>
+                  {isOwner && (
+                    <button
+                      onClick={() => {
+                        setEditingMember(m)
+                        setTeamModalOpen(true)
+                      }}
+                      className="opacity-0 group-hover:opacity-100 text-blue-500 text-[10px] hover:underline"
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -283,7 +362,7 @@ export function VentureOverview({
         )}
       </div>
 
-      {/* Edit Modal */}
+      {/* MODALS */}
       {editModal && (
         <EditTextModal
           open={editModal.open}
@@ -298,6 +377,62 @@ export function VentureOverview({
             onUpdate(updated)
             setEditModal(null)
           }}
+        />
+      )}
+
+      {businessModelModalOpen && (
+        <BusinessModelModal
+          open={businessModelModalOpen}
+          onOpenChange={setBusinessModelModalOpen}
+          venture={venture}
+          onSaved={(updated) => {
+            onUpdate(updated)
+            setBusinessModelModalOpen(false)
+          }}
+        />
+      )}
+
+      {teamModalOpen && (
+        <TeamMemberModal
+          open={teamModalOpen}
+          onOpenChange={setTeamModalOpen}
+          ventureId={venture.id}
+          member={editingMember}
+          onSaved={(m, isEdit) => {
+            if (isEdit) {
+              onTeamUpdate(teamMembers.map((tm) => tm.id === m.id ? m : tm))
+            } else {
+              onTeamUpdate([...teamMembers, m])
+            }
+            setTeamModalOpen(false)
+            setEditingMember(null)
+          }}
+        />
+      )}
+
+      {metricModalOpen && (
+        <MetricModal
+          open={metricModalOpen}
+          onOpenChange={setMetricModalOpen}
+          ventureId={venture.id}
+          metric={editingMetric}
+          onSaved={(m, isEdit) => {
+            if (isEdit) {
+              onMetricsUpdate(metrics.map((met) => met.id === m.id ? m : met))
+            } else {
+              onMetricsUpdate([...metrics, m])
+            }
+            setMetricModalOpen(false)
+            setEditingMetric(null)
+          }}
+        />
+      )}
+
+      {metricDataModalOpen && selectedMetric && (
+        <MetricDataModal
+          open={metricDataModalOpen}
+          onOpenChange={setMetricDataModalOpen}
+          metric={selectedMetric}
         />
       )}
     </div>

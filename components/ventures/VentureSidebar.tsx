@@ -1,12 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Heart, 
   Info, 
   Plus, 
-  ArrowRight,
-  Building,
+  Buildings,
   Users,
   Globe,
   Calendar,
@@ -14,12 +14,12 @@ import {
   Sparkle,
   Rocket,
   UserPlus,
-  Buildings,
   Lightbulb,
+  Buildings as Building,
 } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { LookingForModal } from './modals/LookingForModal'
 
 interface VentureSidebarProps {
   venture: any
@@ -38,8 +38,12 @@ export function VentureSidebar({
   updates,
   teamMembers,
   isOwner,
+  onLookingForUpdate,
 }: VentureSidebarProps) {
-  // Calculate simple health score for now (real AI later)
+  const [lookingForModalOpen, setLookingForModalOpen] = useState(false)
+  const [editingLookingFor, setEditingLookingFor] = useState<any>(null)
+
+  // Calculate simple health score
   const healthScore = calculateSimpleHealth(venture, teamMembers)
 
   return (
@@ -142,7 +146,13 @@ export function VentureSidebar({
             </p>
           </div>
           {isOwner && (
-            <button className="text-muted-foreground hover:text-foreground">
+            <button 
+              onClick={() => {
+                setEditingLookingFor(null)
+                setLookingForModalOpen(true)
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
               <Plus className="w-3.5 h-3.5" weight="bold" />
             </button>
           )}
@@ -153,12 +163,15 @@ export function VentureSidebar({
             isOwner={isOwner}
             emptyText="Nothing listed yet"
             actionText="Add what you need →"
-            onClick={() => {}}
+            onClick={() => {
+              setEditingLookingFor(null)
+              setLookingForModalOpen(true)
+            }}
           />
         ) : (
           <div className="space-y-2">
             {lookingFor.slice(0, 5).map((item) => (
-              <div key={item.id} className="flex items-start gap-2 pb-2 border-b last:border-0">
+              <div key={item.id} className="flex items-start gap-2 pb-2 border-b last:border-0 group">
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium leading-tight">{item.title}</p>
                   {item.amount && (
@@ -170,12 +183,23 @@ export function VentureSidebar({
                     {item.count}
                   </span>
                 )}
+                {isOwner && (
+                  <button
+                    onClick={() => {
+                      setEditingLookingFor(item)
+                      setLookingForModalOpen(true)
+                    }}
+                    className="opacity-0 group-hover:opacity-100 text-blue-500 text-[10px] hover:underline"
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
 
-        {!isOwner && (
+        {!isOwner && lookingFor.length > 0 && (
           <Button size="sm" className="w-full mt-3">
             Connect with Us
           </Button>
@@ -215,6 +239,25 @@ export function VentureSidebar({
           </div>
         )}
       </div>
+
+      {/* Looking For Modal */}
+      {lookingForModalOpen && (
+        <LookingForModal
+          open={lookingForModalOpen}
+          onOpenChange={setLookingForModalOpen}
+          ventureId={venture.id}
+          item={editingLookingFor}
+          onSaved={(item, isEdit) => {
+            if (isEdit) {
+              onLookingForUpdate(lookingFor.map((lf) => lf.id === item.id ? item : lf))
+            } else {
+              onLookingForUpdate([...lookingFor, item])
+            }
+            setLookingForModalOpen(false)
+            setEditingLookingFor(null)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -234,16 +277,16 @@ function calculateSimpleHealth(venture: any, teamMembers: any[]) {
   // Team
   team = Math.min(teamMembers.length * 20, 100)
 
-  // Execution (placeholder logic)
+  // Execution
   if (venture.business_model) execution += 20
   if (venture.headquarters) execution += 20
   if (venture.registration_type && venture.registration_type !== 'not-registered') execution += 30
   if (venture.website) execution += 30
 
-  // Traction (placeholder - will use metrics later)
+  // Traction
   traction = venture.follower_count > 0 ? 50 : 20
 
-  // Potential (based on stage + funding)
+  // Potential
   const stageScores: any = {
     'idea': 20, 'prototype': 30, 'mvp': 50, 'early-stage': 60,
     'growth': 80, 'scale': 90, 'established': 100
