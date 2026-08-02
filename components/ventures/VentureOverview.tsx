@@ -1,18 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import { 
-  BookOpen, 
   Target, 
   Compass,
   Lightbulb,
-  Rocket,
   Warning,
   PuzzlePiece,
-  Money,
   ChartLineUp,
   Users,
   FilePdf,
@@ -20,7 +18,13 @@ import {
   PencilSimple,
   Sparkle,
   ArrowRight,
-  Wrench,
+  TrendUp,
+  Rocket,
+  Buildings,
+  Coin,
+  Path,
+  Calendar,
+  Handshake,
 } from '@phosphor-icons/react'
 import { EditTextModal } from './modals/EditTextModal'
 import { BusinessModelModal } from './modals/BusinessModelModal'
@@ -28,6 +32,8 @@ import { TeamMemberModal } from './modals/TeamMemberModal'
 import { MetricModal } from './modals/MetricModal'
 import { MetricDataModal } from './modals/MetricDataModal'
 import { PitchDeckModal } from './modals/PitchDeckModal'
+import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts'
+import Link from 'next/link'
 
 interface VentureOverviewProps {
   venture: any
@@ -51,336 +57,531 @@ export function VentureOverview({
   onTeamUpdate,
   onMetricsUpdate,
 }: VentureOverviewProps) {
-  // Text edit modal
-  const [editModal, setEditModal] = useState<{ 
-    open: boolean; 
-    field: string; 
-    label: string; 
-    value: string; 
-    multiline?: boolean; 
-    maxLength?: number 
-  } | null>(null)
+  const supabase = createClient()
+  const [metricEntries, setMetricEntries] = useState<any[]>([])
 
-  // Business model modal
+  // Modals
+  const [editModal, setEditModal] = useState<any>(null)
   const [businessModelModalOpen, setBusinessModelModalOpen] = useState(false)
-
-  // Team modals
   const [teamModalOpen, setTeamModalOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<any>(null)
-
-  // Metric modals
   const [metricModalOpen, setMetricModalOpen] = useState(false)
   const [editingMetric, setEditingMetric] = useState<any>(null)
   const [metricDataModalOpen, setMetricDataModalOpen] = useState(false)
   const [selectedMetric, setSelectedMetric] = useState<any>(null)
-
-  // Pitch Deck modal
   const [pitchDeckModalOpen, setPitchDeckModalOpen] = useState(false)
+
+  // Load metric entries
+  useEffect(() => {
+    const load = async () => {
+      if (metrics.length === 0) return
+      const { data } = await supabase
+        .from('venture_metric_entries')
+        .select('*')
+        .in('metric_id', metrics.map(m => m.id))
+        .order('date', { ascending: true })
+      setMetricEntries(data || [])
+    }
+    load()
+  }, [metrics])
 
   const openEditor = (field: string, label: string, value: string, multiline = true, maxLength = 2000) => {
     setEditModal({ open: true, field, label, value: value || '', multiline, maxLength })
   }
 
+  // Prepare growth chart data
+  const chartData = prepareChartData(metricEntries)
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Main Content - 2 cols */}
-      <div className="lg:col-span-2 space-y-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4">
+      {/* ==================== LEFT COLUMN ==================== */}
+      <div className="space-y-4">
         {/* About Section */}
-        <SectionCard
-          icon={BookOpen}
-          iconColor="text-blue-500"
-          iconBg="bg-blue-500/10"
+        <CompactCard
           title={`About ${venture.name}`}
           isOwner={isOwner}
-          isEmpty={!venture.description || venture.description.length < 50}
-          emptyText="Tell the world your story"
-          emptySubtext="Share a 2000-word description of what you do, who you serve, and why it matters"
-          onAdd={() => openEditor('description', `About ${venture.name}`, venture.description, true, 2000)}
+          onEdit={() => openEditor('description', `About ${venture.name}`, venture.description, true, 2000)}
         >
-          {venture.description && (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
+          {venture.description ? (
+            <p className="text-sm leading-relaxed text-foreground/80">
               {venture.description}
             </p>
+          ) : (
+            <EmptyPrompt
+              text="Tell your story"
+              subtext="What you do, who you serve, why it matters"
+              onClick={() => openEditor('description', `About ${venture.name}`, '', true, 2000)}
+              isOwner={isOwner}
+            />
           )}
-        </SectionCard>
+        </CompactCard>
 
-        {/* Mission | Vision | Why Now */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <MiniSection
-            icon={Target}
-            iconColor="text-purple-500"
-            iconBg="bg-purple-500/10"
-            title="Mission"
-            content={venture.mission}
-            emptyText="Why you exist"
-            isOwner={isOwner}
-            onAdd={() => openEditor('mission', 'Mission', venture.mission, true, 500)}
-          />
-          <MiniSection
-            icon={Compass}
-            iconColor="text-indigo-500"
-            iconBg="bg-indigo-500/10"
+        {/* Vision | Mission | Why Now - 3 col compact */}
+        <div className="grid grid-cols-3 gap-3">
+          <MiniInfoCard
             title="Vision"
             content={venture.vision}
             emptyText="Where you're going"
             isOwner={isOwner}
-            onAdd={() => openEditor('vision', 'Vision', venture.vision, true, 500)}
+            onAdd={() => openEditor('vision', 'Vision', venture.vision, true, 400)}
           />
-          <MiniSection
-            icon={Lightbulb}
-            iconColor="text-yellow-500"
-            iconBg="bg-yellow-500/10"
+          <MiniInfoCard
+            title="Mission"
+            content={venture.mission}
+            emptyText="Why you exist"
+            isOwner={isOwner}
+            onAdd={() => openEditor('mission', 'Mission', venture.mission, true, 400)}
+          />
+          <MiniInfoCard
             title="Why Now?"
             content={venture.why_now}
-            emptyText="Why this timing matters"
+            emptyText="Why the timing is right"
             isOwner={isOwner}
-            onAdd={() => openEditor('why_now', 'Why Now?', venture.why_now, true, 500)}
+            onAdd={() => openEditor('why_now', 'Why Now?', venture.why_now, true, 400)}
           />
         </div>
 
-        {/* Problem & Solution */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <SectionCard
+        {/* Stage Strip - Horizontal info bar */}
+        <div className="bg-card border rounded-2xl p-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <StripItem 
+              icon={Rocket}
+              label="Stage" 
+              value={venture.stage?.replace(/-/g, ' ')?.replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Not set'}
+            />
+            <StripItem 
+              icon={Buildings}
+              label="Registration" 
+              value={venture.registration_type === 'not-registered' ? 'Not Registered' : venture.registration_type?.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || '—'}
+            />
+            <StripItem 
+              icon={Coin}
+              label="Funding" 
+              value={venture.funding_amount || venture.funding_stage?.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || '—'}
+              onClick={() => isOwner && openEditor('funding_amount', 'Funding Amount', venture.funding_amount || '', false, 50)}
+              editable={isOwner}
+            />
+            <StripItem 
+              icon={Path}
+              label="Use of Funds" 
+              value={venture.target_market || '—'}
+              onClick={() => isOwner && openEditor('target_market', 'Use of Funds', venture.target_market || '', false, 100)}
+              editable={isOwner}
+            />
+            <StripItem 
+              icon={Calendar}
+              label="Runway" 
+              value={venture.runway || '—'}
+              onClick={() => isOwner && openEditor('runway', 'Runway', venture.runway || '', false, 30)}
+              editable={isOwner}
+            />
+          </div>
+        </div>
+
+        {/* Problem & Solution - Compact side by side */}
+        <div className="grid grid-cols-2 gap-3">
+          <CompactCard
             icon={Warning}
             iconColor="text-red-500"
             iconBg="bg-red-500/10"
             title="The Problem"
             isOwner={isOwner}
-            isEmpty={!venture.problem}
-            emptyText="What are you solving?"
-            emptySubtext="Describe the pain point"
-            onAdd={() => openEditor('problem', 'The Problem', venture.problem, true, 1000)}
+            onEdit={() => openEditor('problem', 'The Problem', venture.problem, true, 800)}
           >
-            {venture.problem && (
-              <p className="text-sm leading-relaxed text-muted-foreground">
+            {venture.problem ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 {venture.problem}
               </p>
+            ) : (
+              <EmptyPrompt
+                text="What are you solving?"
+                onClick={() => openEditor('problem', 'The Problem', '', true, 800)}
+                isOwner={isOwner}
+                compact
+              />
             )}
-          </SectionCard>
+          </CompactCard>
 
-          <SectionCard
+          <CompactCard
             icon={PuzzlePiece}
             iconColor="text-green-500"
             iconBg="bg-green-500/10"
             title="Our Solution"
             isOwner={isOwner}
-            isEmpty={!venture.solution}
-            emptyText="How you're solving it"
-            emptySubtext="Explain your approach"
-            onAdd={() => openEditor('solution', 'Our Solution', venture.solution, true, 1000)}
+            onEdit={() => openEditor('solution', 'Our Solution', venture.solution, true, 800)}
           >
-            {venture.solution && (
-              <p className="text-sm leading-relaxed text-muted-foreground">
+            {venture.solution ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 {venture.solution}
               </p>
+            ) : (
+              <EmptyPrompt
+                text="How you solve it"
+                onClick={() => openEditor('solution', 'Our Solution', '', true, 800)}
+                isOwner={isOwner}
+                compact
+              />
             )}
-          </SectionCard>
+          </CompactCard>
         </div>
 
-        {/* Business Model */}
-        <SectionCard
-          icon={Money}
-          iconColor="text-emerald-500"
-          iconBg="bg-emerald-500/10"
-          title="Business Model"
-          isOwner={isOwner}
-          isEmpty={!venture.business_model}
-          emptyText="How do you make money?"
-          emptySubtext="Select from 30+ business models"
-          onAdd={() => setBusinessModelModalOpen(true)}
-        >
-          {venture.business_model && (
-            <div className="space-y-2">
-              <div className="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-lg text-sm font-semibold capitalize">
-                {venture.business_model.replace(/-/g, ' ')}
-              </div>
-              {venture.business_model_details && (
-                <p className="text-sm text-muted-foreground leading-relaxed mt-2">
-                  {venture.business_model_details}
+        {/* Pitch Deck - Compact horizontal card */}
+        <div className="bg-card border rounded-2xl p-4">
+          <div className="flex items-start justify-between mb-3">
+            <h3 className="font-bold text-sm">Pitch Deck Preview</h3>
+            {venture.pitch_deck_url && (
+              <a 
+                href={venture.pitch_deck_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1 bg-primary text-primary-foreground rounded-md text-xs font-semibold hover:bg-primary/90"
+              >
+                View Full Deck
+              </a>
+            )}
+          </div>
+          
+          {venture.pitch_deck_url ? (
+            <div className="flex gap-3">
+              {/* Deck thumbnail */}
+              <div 
+                onClick={() => isOwner && setPitchDeckModalOpen(true)}
+                className="w-40 aspect-video bg-gradient-to-br from-purple-500/20 via-blue-500/20 to-pink-500/20 rounded-lg flex flex-col items-center justify-center flex-shrink-0 cursor-pointer relative group"
+              >
+                <p className="text-xs font-bold text-center px-2">
+                  {venture.name}
                 </p>
-              )}
-            </div>
-          )}
-        </SectionCard>
+                <p className="text-[9px] text-muted-foreground text-center mt-0.5">
+                  Pitch Deck
+                </p>
+                {isOwner && (
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                    <span className="text-[10px] text-white font-semibold">Replace</span>
+                  </div>
+                )}
+              </div>
 
-        {/* Pitch Deck Preview */}
-        <SectionCard
-          icon={FilePdf}
-          iconColor="text-pink-500"
-          iconBg="bg-pink-500/10"
-          title="Pitch Deck"
-          isOwner={isOwner}
-          isEmpty={!venture.pitch_deck_url}
-          emptyText="Upload your pitch deck"
-          emptySubtext="PDF up to 20MB · Include problem, solution, market, team"
-          onAdd={() => setPitchDeckModalOpen(true)}
-          topRight={venture.pitch_deck_url && (
-            <a href={venture.pitch_deck_url} target="_blank" rel="noopener noreferrer" 
-              className="text-xs text-blue-500 hover:underline flex items-center gap-1">
-              View Full Deck
-              <ArrowRight className="w-3 h-3" weight="bold" />
-            </a>
-          )}
-        >
-          {venture.pitch_deck_url && (
-            <div className="aspect-video bg-muted rounded-xl flex items-center justify-center relative overflow-hidden">
-              <FilePdf className="w-12 h-12 text-muted-foreground" weight="duotone" />
-              {isOwner && (
-                <button
-                  onClick={() => setPitchDeckModalOpen(true)}
-                  className="absolute top-2 right-2 bg-background/90 backdrop-blur px-2 py-1 rounded text-[10px] font-semibold shadow-lg hover:bg-background transition-colors"
-                >
-                  Replace
-                </button>
-              )}
+              {/* Slide checklist */}
+              <div className="flex-1 space-y-1">
+                {['Problem', 'Solution', 'Market', 'Product', 'Business Model', 'Team', 'Roadmap', 'Financial Plan'].map((slide) => (
+                  <div key={slide} className="flex items-center gap-1.5 text-[10px]">
+                    <div className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                    <span className="text-muted-foreground">{slide}</span>
+                  </div>
+                ))}
+              </div>
             </div>
+          ) : (
+            <EmptyPrompt
+              text="Upload your pitch deck"
+              subtext="PDF up to 20MB"
+              onClick={() => setPitchDeckModalOpen(true)}
+              isOwner={isOwner}
+              compact
+            />
           )}
-        </SectionCard>
+        </div>
       </div>
 
-      {/* Right - 1 col */}
-      <div className="space-y-6">
-        {/* Key Metrics */}
-        <SectionCard
-          icon={ChartLineUp}
-          iconColor="text-blue-500"
-          iconBg="bg-blue-500/10"
-          title="Key Metrics"
-          isOwner={isOwner}
-          isEmpty={metrics.length === 0}
-          emptyText="Track your growth"
-          emptySubtext="Add MRR, users, retention & more"
-          onAdd={() => {
-            setEditingMetric(null)
-            setMetricModalOpen(true)
-          }}
-          topRight={metrics.length > 0 && isOwner && (
-            <button
+      {/* ==================== MIDDLE COLUMN ==================== */}
+      <div className="space-y-4">
+        {/* Traction Snapshot - Metric grid */}
+        <div className="bg-card border rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-sm">Traction Snapshot</h3>
+            {isOwner && (
+              <button
+                onClick={() => {
+                  setEditingMetric(null)
+                  setMetricModalOpen(true)
+                }}
+                className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" weight="bold" />
+                Add Metric
+              </button>
+            )}
+          </div>
+
+          {metrics.length === 0 ? (
+            <EmptyPrompt
+              text="Track key metrics"
+              subtext="Add MRR, users, retention & more"
               onClick={() => {
                 setEditingMetric(null)
                 setMetricModalOpen(true)
               }}
-              className="text-xs text-blue-500 hover:underline flex items-center gap-1"
-            >
-              + Add
-            </button>
-          )}
-        >
-          {metrics.length > 0 && (
-            <div className="grid grid-cols-2 gap-2">
-              {metrics.filter((m: any) => m.show_on_overview).slice(0, 4).map((m: any) => (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    if (isOwner) {
-                      setSelectedMetric(m)
-                      setMetricDataModalOpen(true)
-                    }
-                  }}
-                  className={cn(
-                    'p-2.5 border rounded-lg text-left transition-all',
-                    isOwner && 'hover:border-primary/50 hover:bg-muted/30 cursor-pointer'
-                  )}
-                >
-                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
-                    {m.name}
-                  </p>
-                  <p className="text-sm font-bold mt-1">
-                    {isOwner ? 'Click to add data' : '--'}
-                  </p>
-                </button>
-              ))}
+              isOwner={isOwner}
+              compact
+            />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {metrics.filter((m: any) => m.show_on_overview).slice(0, 4).map((m: any) => {
+                const entries = metricEntries.filter(e => e.metric_id === m.id)
+                const latest = entries[entries.length - 1]
+                const previous = entries[entries.length - 2]
+                const change = latest && previous 
+                  ? ((latest.value - previous.value) / previous.value * 100)
+                  : 0
+
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      if (isOwner) {
+                        setSelectedMetric(m)
+                        setMetricDataModalOpen(true)
+                      }
+                    }}
+                    className={cn(
+                      'p-3 rounded-lg text-left transition-all',
+                      isOwner && 'hover:bg-muted/50 cursor-pointer'
+                    )}
+                  >
+                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">
+                      {m.name}
+                    </p>
+                    <p className="text-xl font-bold mt-1 tabular-nums">
+                      {latest ? formatMetricValue(latest.value, m) : '—'}
+                    </p>
+                    {change !== 0 && latest && (
+                      <div className={cn(
+                        'flex items-center gap-0.5 text-[10px] font-semibold mt-1',
+                        change > 0 ? 'text-green-500' : 'text-red-500'
+                      )}>
+                        <TrendUp className={cn('w-2.5 h-2.5', change < 0 && 'rotate-180')} weight="bold" />
+                        {Math.abs(change).toFixed(0)}%
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           )}
-        </SectionCard>
+        </div>
 
-        {/* Team */}
-        <SectionCard
-          icon={Users}
-          iconColor="text-cyan-500"
-          iconBg="bg-cyan-500/10"
-          title="Team"
-          isOwner={isOwner}
-          isEmpty={teamMembers.length === 0}
-          emptyText="Add team members"
-          emptySubtext="Show who's building"
-          onAdd={() => {
-            setEditingMember(null)
-            setTeamModalOpen(true)
-          }}
-          topRight={teamMembers.length > 0 && isOwner && (
-            <button
+        {/* Growth Over Time chart */}
+        <div className="bg-card border rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-sm">Growth Over Time</h3>
+            <select className="text-[10px] bg-muted/40 border rounded px-2 py-0.5 focus:outline-none">
+              <option>Last 6 Months</option>
+              <option>Last 3 Months</option>
+              <option>Last Year</option>
+            </select>
+          </div>
+
+          {chartData.length > 0 ? (
+            <div className="h-40">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <XAxis 
+                    dataKey="label" 
+                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis hide />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '11px',
+                      padding: '6px 10px',
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(280, 91%, 60%)"
+                    strokeWidth={2}
+                    dot={{ fill: 'hsl(280, 91%, 60%)', r: 3, strokeWidth: 2, stroke: 'hsl(var(--background))' }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center">
+              <p className="text-xs text-muted-foreground italic">
+                Add metric data to see growth chart
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Team - Compact horizontal */}
+        <div className="bg-card border rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm">Team</h3>
+              <a href="#team" className="text-[10px] text-blue-500 hover:underline">
+                View All ({teamMembers.length})
+              </a>
+            </div>
+            {isOwner && (
+              <button
+                onClick={() => {
+                  setEditingMember(null)
+                  setTeamModalOpen(true)
+                }}
+                className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" weight="bold" />
+              </button>
+            )}
+          </div>
+
+          {teamMembers.length === 0 ? (
+            <EmptyPrompt
+              text="Add team members"
               onClick={() => {
                 setEditingMember(null)
                 setTeamModalOpen(true)
               }}
-              className="text-xs text-blue-500 hover:underline"
-            >
-              + Add
-            </button>
-          )}
-        >
-          {teamMembers.length > 0 && (
-            <div className="space-y-2">
-              {teamMembers.slice(0, 5).map((m: any) => (
-                <div key={m.id} className="flex items-center gap-2 group">
+              isOwner={isOwner}
+              compact
+            />
+          ) : (
+            <div className="flex items-center gap-3 overflow-x-auto pb-2">
+              {teamMembers.slice(0, 4).map((m: any) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    if (isOwner) {
+                      setEditingMember(m)
+                      setTeamModalOpen(true)
+                    }
+                  }}
+                  className="flex flex-col items-center gap-1.5 flex-shrink-0 group"
+                >
                   {m.avatar_url ? (
-                    <img src={m.avatar_url} alt={m.name} className="w-8 h-8 rounded-full object-cover" />
+                    <img 
+                      src={m.avatar_url} 
+                      alt={m.name} 
+                      className="w-14 h-14 rounded-full object-cover ring-2 ring-transparent group-hover:ring-primary transition-all"
+                    />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-base font-bold ring-2 ring-transparent group-hover:ring-primary transition-all">
                       {m.name?.[0]?.toUpperCase()}
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <p className="text-xs font-semibold truncate">{m.name}</p>
-                      {m.is_founder && <Sparkle className="w-2.5 h-2.5 text-yellow-500" weight="fill" />}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground truncate">{m.role}</p>
+                  <div className="text-center min-w-0">
+                    <p className="text-[10px] font-semibold truncate max-w-[70px]">{m.name?.split(' ')[0]}</p>
+                    <p className="text-[9px] text-muted-foreground truncate max-w-[70px]">{m.role}</p>
                   </div>
-                  {isOwner && (
-                    <button
-                      onClick={() => {
-                        setEditingMember(m)
-                        setTeamModalOpen(true)
-                      }}
-                      className="opacity-0 group-hover:opacity-100 text-blue-500 text-[10px] hover:underline"
-                    >
-                      Edit
-                    </button>
-                  )}
-                </div>
+                </button>
               ))}
+              
+              {teamMembers.length > 4 && (
+                <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+                    <span className="text-xs font-bold text-muted-foreground">+{teamMembers.length - 4}</span>
+                  </div>
+                </div>
+              )}
+
+              {isOwner && (
+                <button
+                  onClick={() => {
+                    setEditingMember(null)
+                    setTeamModalOpen(true)
+                  }}
+                  className="flex flex-col items-center gap-1.5 flex-shrink-0"
+                >
+                  <div className="w-14 h-14 rounded-full border-2 border-dashed border-muted flex items-center justify-center hover:border-primary hover:bg-primary/5 transition-all">
+                    <Plus className="w-4 h-4 text-muted-foreground" weight="bold" />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">Add</p>
+                </button>
+              )}
             </div>
           )}
-        </SectionCard>
+        </div>
 
-        {/* Get Verified */}
-        {isOwner && !venture.is_verified && (
-          <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-2xl p-4">
-            <div className="flex items-start gap-2 mb-3">
-              <Sparkle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" weight="fill" />
-              <div>
-                <p className="text-sm font-bold">Get Verified</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Verified ventures get a blue checkmark and priority in discovery
-                </p>
-              </div>
+        {/* Roadmap placeholder */}
+        <div className="bg-card border rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm">Roadmap</h3>
+              <button className="text-[10px] text-blue-500 hover:underline">
+                View Full Roadmap →
+              </button>
             </div>
-            <Button size="sm" className="w-full">
-              Start Verification
-            </Button>
           </div>
-        )}
+          <div className="space-y-2">
+            {[
+              { period: 'Q2 2025', title: 'MVP Launch & Beta Testing', done: true },
+              { period: 'Q3 2025', title: 'Enterprise Pilot Program', done: false, current: true },
+              { period: 'Q4 2025', title: 'Public Launch', done: false },
+              { period: 'Q1 2026', title: 'Global Expansion', done: false },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className={cn(
+                  'w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0',
+                  item.done && 'bg-green-500 border-green-500',
+                  item.current && 'border-blue-500 bg-blue-500/20',
+                  !item.done && !item.current && 'border-muted'
+                )}>
+                  {item.done && <div className="w-1 h-1 rounded-full bg-white" />}
+                  {item.current && <div className="w-1 h-1 rounded-full bg-blue-500" />}
+                </div>
+                <span className={cn(
+                  'text-[10px] font-mono w-16',
+                  item.current ? 'text-blue-500 font-bold' : 'text-muted-foreground'
+                )}>
+                  {item.period}
+                </span>
+                <span className={cn(
+                  'text-xs flex-1',
+                  item.done ? 'text-muted-foreground line-through' : 'font-medium'
+                )}>
+                  {item.title}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Investors & Supporters */}
+        <div className="bg-card border rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm">Investors & Supporters</h3>
+              <button className="text-[10px] text-blue-500 hover:underline">
+                View All →
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {[
+              { name: 'TechFront Ventures', status: 'Interested', icon: 'T' },
+              { name: 'AI Fund', status: 'Interested', icon: 'A' },
+              { name: 'Builder Angels', status: 'Advisory', icon: 'B' },
+            ].map((inv, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                  {inv.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate">{inv.name}</p>
+                </div>
+                <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded font-medium">
+                  {inv.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* ============ ALL MODALS ============ */}
-
-      {/* Text Edit Modal */}
+      {/* ==================== ALL MODALS ==================== */}
       {editModal && (
         <EditTextModal
           open={editModal.open}
-          onOpenChange={(open) => !open && setEditModal(null)}
+          onOpenChange={(open: boolean) => !open && setEditModal(null)}
           venture={venture}
           field={editModal.field}
           label={editModal.label}
@@ -394,7 +595,6 @@ export function VentureOverview({
         />
       )}
 
-      {/* Business Model Modal */}
       {businessModelModalOpen && (
         <BusinessModelModal
           open={businessModelModalOpen}
@@ -407,7 +607,6 @@ export function VentureOverview({
         />
       )}
 
-      {/* Team Member Modal */}
       {teamModalOpen && (
         <TeamMemberModal
           open={teamModalOpen}
@@ -426,7 +625,6 @@ export function VentureOverview({
         />
       )}
 
-      {/* Metric Modal */}
       {metricModalOpen && (
         <MetricModal
           open={metricModalOpen}
@@ -445,7 +643,6 @@ export function VentureOverview({
         />
       )}
 
-      {/* Metric Data Entry Modal */}
       {metricDataModalOpen && selectedMetric && (
         <MetricDataModal
           open={metricDataModalOpen}
@@ -454,7 +651,6 @@ export function VentureOverview({
         />
       )}
 
-      {/* Pitch Deck Modal */}
       {pitchDeckModalOpen && (
         <PitchDeckModal
           open={pitchDeckModalOpen}
@@ -470,73 +666,53 @@ export function VentureOverview({
   )
 }
 
-// ============ SUB COMPONENTS ============
+// ==================== SUB COMPONENTS ====================
 
-// Section Card Component
-function SectionCard({ 
-  icon: Icon, iconColor, iconBg, title, isOwner, isEmpty, 
-  emptyText, emptySubtext, onAdd, topRight, children 
-}: any) {
+function CompactCard({ icon: Icon, iconColor, iconBg, title, isOwner, onEdit, children }: any) {
   return (
-    <div className="bg-card border rounded-2xl p-5">
+    <div className="bg-card border rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', iconBg)}>
-            <Icon className={cn('w-4 h-4', iconColor)} weight="fill" />
-          </div>
+          {Icon && iconBg && (
+            <div className={cn('w-6 h-6 rounded flex items-center justify-center', iconBg)}>
+              <Icon className={cn('w-3.5 h-3.5', iconColor)} weight="fill" />
+            </div>
+          )}
           <h3 className="font-bold text-sm">{title}</h3>
         </div>
-        <div className="flex items-center gap-2">
-          {topRight}
-          {isOwner && !isEmpty && (
-            <button
-              onClick={onAdd}
-              className="text-muted-foreground hover:text-foreground p-1 hover:bg-muted rounded"
-            >
-              <PencilSimple className="w-3.5 h-3.5" weight="duotone" />
-            </button>
-          )}
-        </div>
+        {isOwner && onEdit && (
+          <button
+            onClick={onEdit}
+            className="text-muted-foreground hover:text-foreground p-1 hover:bg-muted rounded opacity-60 hover:opacity-100"
+          >
+            <PencilSimple className="w-3 h-3" weight="duotone" />
+          </button>
+        )}
       </div>
-
-      {isEmpty ? (
-        <PlaceholderPrompt
-          isOwner={isOwner}
-          emptyText={emptyText}
-          emptySubtext={emptySubtext}
-          onAdd={onAdd}
-        />
-      ) : (
-        children
-      )}
+      {children}
     </div>
   )
 }
 
-// Mini Section for Mission/Vision/Why Now
-function MiniSection({ icon: Icon, iconColor, iconBg, title, content, emptyText, isOwner, onAdd }: any) {
+function MiniInfoCard({ title, content, emptyText, isOwner, onAdd }: any) {
   return (
-    <div className="bg-card border rounded-2xl p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <div className={cn('w-6 h-6 rounded flex items-center justify-center', iconBg)}>
-          <Icon className={cn('w-3 h-3', iconColor)} weight="fill" />
-        </div>
-        <h4 className="font-bold text-xs">{title}</h4>
-      </div>
-
+    <div className="bg-card border rounded-2xl p-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-1.5">
+        {title}
+      </p>
       {content ? (
-        <p className="text-xs text-muted-foreground leading-relaxed">
+        <p className="text-[11px] leading-relaxed text-foreground/80 line-clamp-4">
           {content}
         </p>
       ) : (
         <div>
-          <p className="text-xs text-muted-foreground/60 italic">
+          <p className="text-[10px] text-muted-foreground/60 italic">
             {emptyText}
           </p>
           {isOwner && (
             <button
               onClick={onAdd}
-              className="text-[10px] text-blue-500 hover:underline font-medium mt-2 flex items-center gap-1"
+              className="text-[10px] text-blue-500 hover:underline font-medium mt-1.5 flex items-center gap-0.5"
             >
               <Plus className="w-2.5 h-2.5" weight="bold" />
               Add
@@ -548,12 +724,36 @@ function MiniSection({ icon: Icon, iconColor, iconBg, title, content, emptyText,
   )
 }
 
-// Placeholder Prompt
-function PlaceholderPrompt({ isOwner, emptyText, emptySubtext, onAdd }: any) {
+function StripItem({ icon: Icon, label, value, onClick, editable }: any) {
+  const content = (
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+        <Icon className="w-4 h-4 text-muted-foreground" weight="duotone" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold truncate">
+          {label}
+        </p>
+        <p className="text-xs font-semibold truncate">{value}</p>
+      </div>
+    </div>
+  )
+
+  if (editable && onClick) {
+    return (
+      <button onClick={onClick} className="text-left hover:bg-muted/30 -m-1 p-1 rounded transition-colors">
+        {content}
+      </button>
+    )
+  }
+  return content
+}
+
+function EmptyPrompt({ text, subtext, onClick, isOwner, compact }: any) {
   if (!isOwner) {
     return (
-      <div className="text-center py-6">
-        <p className="text-xs text-muted-foreground italic">{emptyText}</p>
+      <div className={cn('text-center', compact ? 'py-3' : 'py-6')}>
+        <p className="text-xs text-muted-foreground italic">{text}</p>
       </div>
     )
   }
@@ -561,22 +761,59 @@ function PlaceholderPrompt({ isOwner, emptyText, emptySubtext, onAdd }: any) {
   return (
     <motion.button
       whileHover={{ scale: 1.005 }}
-      onClick={onAdd}
-      className="w-full py-6 border-2 border-dashed border-border rounded-xl hover:border-primary/50 hover:bg-primary/5 transition-all group"
+      onClick={onClick}
+      className={cn(
+        'w-full border-2 border-dashed border-border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-all group flex flex-col items-center justify-center',
+        compact ? 'py-4' : 'py-6'
+      )}
     >
-      <div className="flex flex-col items-center gap-1">
-        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-          <Plus className="w-4 h-4 text-muted-foreground group-hover:text-primary" weight="bold" />
-        </div>
-        <p className="text-xs font-medium text-muted-foreground group-hover:text-foreground">
-          {emptyText}
-        </p>
-        {emptySubtext && (
-          <p className="text-[10px] text-muted-foreground/70">
-            {emptySubtext}
-          </p>
-        )}
+      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+        <Plus className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" weight="bold" />
       </div>
+      <p className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground mt-1.5">
+        {text}
+      </p>
+      {subtext && (
+        <p className="text-[9px] text-muted-foreground/70 mt-0.5">
+          {subtext}
+        </p>
+      )}
     </motion.button>
   )
+}
+
+// Helpers
+function formatMetricValue(val: number, metric: any) {
+  if (metric.type === 'currency') {
+    if (val >= 1000000) return `${metric.unit || '$'}${(val / 1000000).toFixed(1)}M`
+    if (val >= 1000) return `${metric.unit || '$'}${(val / 1000).toFixed(1)}K`
+    return `${metric.unit || '$'}${val}`
+  }
+  if (metric.type === 'percentage') return `${val}%`
+  if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`
+  if (val >= 1000) return `${(val / 1000).toFixed(1)}K`
+  return val.toLocaleString()
+}
+
+function prepareChartData(entries: any[]) {
+  if (entries.length === 0) return []
+
+  const grouped: Record<string, { total: number; count: number }> = {}
+
+  entries.forEach(entry => {
+    const date = new Date(entry.date)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    if (!grouped[key]) grouped[key] = { total: 0, count: 0 }
+    grouped[key].total += entry.value
+    grouped[key].count += 1
+  })
+
+  return Object.keys(grouped).sort().slice(-6).map(key => {
+    const [year, month] = key.split('-')
+    const date = new Date(parseInt(year), parseInt(month) - 1)
+    return {
+      label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      value: Math.round(grouped[key].total / grouped[key].count),
+    }
+  })
 }
