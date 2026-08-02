@@ -27,6 +27,7 @@ import { BusinessModelModal } from './modals/BusinessModelModal'
 import { TeamMemberModal } from './modals/TeamMemberModal'
 import { MetricModal } from './modals/MetricModal'
 import { MetricDataModal } from './modals/MetricDataModal'
+import { PitchDeckModal } from './modals/PitchDeckModal'
 
 interface VentureOverviewProps {
   venture: any
@@ -72,6 +73,9 @@ export function VentureOverview({
   const [editingMetric, setEditingMetric] = useState<any>(null)
   const [metricDataModalOpen, setMetricDataModalOpen] = useState(false)
   const [selectedMetric, setSelectedMetric] = useState<any>(null)
+
+  // Pitch Deck modal
+  const [pitchDeckModalOpen, setPitchDeckModalOpen] = useState(false)
 
   const openEditor = (field: string, label: string, value: string, multiline = true, maxLength = 2000) => {
     setEditModal({ open: true, field, label, value: value || '', multiline, maxLength })
@@ -209,7 +213,7 @@ export function VentureOverview({
           isEmpty={!venture.pitch_deck_url}
           emptyText="Upload your pitch deck"
           emptySubtext="PDF up to 20MB · Include problem, solution, market, team"
-          onAdd={() => {}}
+          onAdd={() => setPitchDeckModalOpen(true)}
           topRight={venture.pitch_deck_url && (
             <a href={venture.pitch_deck_url} target="_blank" rel="noopener noreferrer" 
               className="text-xs text-blue-500 hover:underline flex items-center gap-1">
@@ -219,8 +223,16 @@ export function VentureOverview({
           )}
         >
           {venture.pitch_deck_url && (
-            <div className="aspect-video bg-muted rounded-xl flex items-center justify-center">
+            <div className="aspect-video bg-muted rounded-xl flex items-center justify-center relative overflow-hidden">
               <FilePdf className="w-12 h-12 text-muted-foreground" weight="duotone" />
+              {isOwner && (
+                <button
+                  onClick={() => setPitchDeckModalOpen(true)}
+                  className="absolute top-2 right-2 bg-background/90 backdrop-blur px-2 py-1 rounded text-[10px] font-semibold shadow-lg hover:bg-background transition-colors"
+                >
+                  Replace
+                </button>
+              )}
             </div>
           )}
         </SectionCard>
@@ -362,7 +374,9 @@ export function VentureOverview({
         )}
       </div>
 
-      {/* MODALS */}
+      {/* ============ ALL MODALS ============ */}
+
+      {/* Text Edit Modal */}
       {editModal && (
         <EditTextModal
           open={editModal.open}
@@ -380,6 +394,7 @@ export function VentureOverview({
         />
       )}
 
+      {/* Business Model Modal */}
       {businessModelModalOpen && (
         <BusinessModelModal
           open={businessModelModalOpen}
@@ -392,6 +407,7 @@ export function VentureOverview({
         />
       )}
 
+      {/* Team Member Modal */}
       {teamModalOpen && (
         <TeamMemberModal
           open={teamModalOpen}
@@ -410,6 +426,7 @@ export function VentureOverview({
         />
       )}
 
+      {/* Metric Modal */}
       {metricModalOpen && (
         <MetricModal
           open={metricModalOpen}
@@ -428,6 +445,7 @@ export function VentureOverview({
         />
       )}
 
+      {/* Metric Data Entry Modal */}
       {metricDataModalOpen && selectedMetric && (
         <MetricDataModal
           open={metricDataModalOpen}
@@ -435,9 +453,24 @@ export function VentureOverview({
           metric={selectedMetric}
         />
       )}
+
+      {/* Pitch Deck Modal */}
+      {pitchDeckModalOpen && (
+        <PitchDeckModal
+          open={pitchDeckModalOpen}
+          onOpenChange={setPitchDeckModalOpen}
+          venture={venture}
+          onSaved={(updated) => {
+            onUpdate(updated)
+            setPitchDeckModalOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
+
+// ============ SUB COMPONENTS ============
 
 // Section Card Component
 function SectionCard({ 

@@ -14,12 +14,16 @@ import {
   DotsThree,
   MapPin,
   Users,
-  Buildings,
   Plus,
 } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { VentureOverview } from './VentureOverview'
 import { VentureSidebar } from './VentureSidebar'
+import { VentureUpdates } from './VentureUpdates'
+import { VentureNotifications } from './VentureNotifications'
+import { GrowthOverview } from './GrowthOverview'
+import { ConnectionModal } from './modals/ConnectionModal'
+import { toast } from 'sonner'
 
 const tabs = [
   { id: 'overview', label: 'Overview' },
@@ -65,15 +69,20 @@ export function VentureDetailView({
   const [lookingFor, setLookingFor] = useState(initialLookingFor)
   const [documents, setDocuments] = useState(initialDocuments)
   const [activeTab, setActiveTab] = useState('overview')
+  const [connectionModalOpen, setConnectionModalOpen] = useState(false)
 
   const stage = STAGES.find(s => s.id === venture.stage) || STAGES[0]
 
-  // Add owner tabs
   const displayedTabs = isOwner ? [...tabs, { id: 'notifications', label: 'Notifications' }] : tabs
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/ventures/${venture.slug}`
+    await navigator.clipboard.writeText(url)
+    toast.success('Venture link copied to clipboard')
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Back link */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 pt-4">
         <Link
           href="/ventures"
@@ -84,13 +93,11 @@ export function VentureDetailView({
         </Link>
       </div>
 
-      {/* Header */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-          {/* Left: Venture Header */}
+          {/* Left: Header */}
           <div>
             <div className="flex items-start gap-4">
-              {/* Logo */}
               {venture.logo_url ? (
                 <img
                   src={venture.logo_url}
@@ -104,7 +111,6 @@ export function VentureDetailView({
               )}
 
               <div className="flex-1 min-w-0">
-                {/* Stage badge */}
                 <div className="flex items-center gap-2 mb-1">
                   <span className={cn(
                     'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border',
@@ -120,19 +126,16 @@ export function VentureDetailView({
                   )}
                 </div>
 
-                {/* Name */}
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
                   {venture.name}
                 </h1>
 
-                {/* Tagline */}
                 {venture.tagline && (
                   <p className="text-sm text-muted-foreground mt-1">
                     {venture.tagline}
                   </p>
                 )}
 
-                {/* Category Tags */}
                 <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                   {venture.industry && (
                     <span className="text-[10px] px-2 py-0.5 bg-muted rounded font-medium">
@@ -146,7 +149,6 @@ export function VentureDetailView({
                   )}
                 </div>
 
-                {/* Meta */}
                 <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">
                   {venture.start_date && (
                     <span>
@@ -165,7 +167,7 @@ export function VentureDetailView({
                   </span>
                   {venture.funding_stage && (
                     <span className="text-blue-500 font-medium">
-                      {venture.funding_stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {venture.funding_stage.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                     </span>
                   )}
                 </div>
@@ -180,7 +182,11 @@ export function VentureDetailView({
                     <UserPlus className="w-3.5 h-3.5 mr-1" weight="bold" />
                     Follow
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setConnectionModalOpen(true)}
+                  >
                     <ShareNetwork className="w-3.5 h-3.5 mr-1" weight="bold" />
                     Connect
                   </Button>
@@ -195,7 +201,7 @@ export function VentureDetailView({
                   This is your venture. Click any section below to add details.
                 </span>
               )}
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={handleShare}>
                 <ShareNetwork className="w-3.5 h-3.5" weight="bold" />
               </Button>
               <Button variant="ghost" size="sm">
@@ -218,7 +224,7 @@ export function VentureDetailView({
         </div>
 
         {/* Tabs */}
-        <div className="mt-8 border-b overflow-x-auto">
+        <div className="mt-8 border-b overflow-x-auto sticky top-14 bg-background z-30">
           <div className="flex gap-1 min-w-max">
             {displayedTabs.map((tab) => (
               <button
@@ -232,6 +238,11 @@ export function VentureDetailView({
                 )}
               >
                 {tab.label}
+                {tab.id === 'notifications' && isOwner && (
+                  <span className="ml-1 text-[9px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+                    New
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -240,20 +251,37 @@ export function VentureDetailView({
         {/* Tab Content */}
         <div className="mt-6 pb-12">
           {activeTab === 'overview' && (
-            <VentureOverview
+            <div className="space-y-6">
+              <VentureOverview
+                venture={venture}
+                teamMembers={teamMembers}
+                metrics={metrics}
+                documents={documents}
+                isOwner={isOwner}
+                onUpdate={setVenture}
+                onTeamUpdate={setTeamMembers}
+                onMetricsUpdate={setMetrics}
+                onDocumentsUpdate={setDocuments}
+              />
+
+              {/* Growth Overview - shown below overview grid */}
+              <GrowthOverview venture={venture} metrics={metrics} />
+            </div>
+          )}
+
+          {activeTab === 'updates' && (
+            <VentureUpdates
               venture={venture}
-              teamMembers={teamMembers}
-              metrics={metrics}
-              documents={documents}
+              initialUpdates={updates}
               isOwner={isOwner}
-              onUpdate={setVenture}
-              onTeamUpdate={setTeamMembers}
-              onMetricsUpdate={setMetrics}
-              onDocumentsUpdate={setDocuments}
             />
           )}
 
-          {activeTab !== 'overview' && (
+          {activeTab === 'notifications' && isOwner && (
+            <VentureNotifications ventureId={venture.id} />
+          )}
+
+          {!['overview', 'updates', 'notifications'].includes(activeTab) && (
             <div className="bg-card border rounded-2xl p-12 text-center">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center mb-4">
                 <Plus className="w-6 h-6 text-blue-500" weight="bold" />
@@ -267,7 +295,7 @@ export function VentureDetailView({
         </div>
       </div>
 
-      {/* Footer - Building in Public */}
+      {/* Footer */}
       {venture.is_building_public && (
         <div className="border-t bg-gradient-to-br from-blue-500/5 to-purple-500/5 py-6 mt-8">
           <div className="max-w-7xl mx-auto px-4 md:px-6 text-center">
@@ -279,6 +307,16 @@ export function VentureDetailView({
             </p>
           </div>
         </div>
+      )}
+
+      {/* Connection Modal */}
+      {connectionModalOpen && (
+        <ConnectionModal
+          open={connectionModalOpen}
+          onOpenChange={setConnectionModalOpen}
+          venture={venture}
+          onSent={() => {}}
+        />
       )}
     </div>
   )
