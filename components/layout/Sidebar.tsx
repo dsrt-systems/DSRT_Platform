@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { Search, CalendarDays } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import {
   Home,
@@ -10,6 +9,8 @@ import {
   Users,
   Compass,
   Trophy,
+  CalendarDays,
+  Search,
   Sparkles,
   BookOpen,
   User,

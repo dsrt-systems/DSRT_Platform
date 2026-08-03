@@ -1,51 +1,40 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const supabase = createClient()
 
-  // Get most used skills in recent posts (last 30 days)
-  const { data: recentPosts } = await supabase
-    .from('posts')
-    .select('skills, tags')
-    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-    .not('skills', 'is', null)
+  const sinceDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
-  // Count skill frequency
-  const skillCounts: Record<string, number> = {}
+  const [{ data: recentPosts }, { data: recentUserSkills }] = await Promise.all([
+    supabase.from('posts').select('skills, tags, created_at').gte('created_at', sinceDate).limit(500),
+    supabase.from('user_skills').select('skills(name), created_at').order('created_at', { ascending: false }).limit(300),
+  ])
 
-  recentPosts?.forEach(post => {
-    const allSkills = [...(post.skills || []), ...(post.tags || [])]
-    allSkills.forEach(skill => {
-      const normalized = skill.toLowerCase().trim()
-      if (normalized.length > 1) {
-        skillCounts[normalized] = (skillCounts[normalized] || 0) + 1
-      }
+  const counts: Record<string, number> = {}
+
+  ;(recentPosts || []).forEach(p => {
+    const all = [...((p.skills as string[]) || []), ...((p.tags as string[]) || [])]
+    all.forEach(s => {
+      if (!s || typeof s !== 'string') return
+      const key = s.trim()
+      if (key.length < 2) return
+      counts[key] = (counts[key] || 0) + 1
     })
   })
 
-  // Also get most added user skills recently
-  const { data: recentUserSkills } = await supabase
-    .from('user_skills')
-    .select('skills(name)')
-    .order('created_at', { ascending: false })
-    .limit(200)
-
-  recentUserSkills?.forEach((us: any) => {
-    const name = us.skills?.name?.toLowerCase().trim()
-    if (name) {
-      skillCounts[name] = (skillCounts[name] || 0) + 1
-    }
+  ;(recentUserSkills || []).forEach((us: any) => {
+    const name = us.skills?.name?.trim()
+    if (!name) return
+    counts[name] = (counts[name] || 0) + 0.5
   })
 
-  // Sort and return top 15
-  const trending = Object.entries(skillCounts)
+  const trending = Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
-    .map(([name, count]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      count,
-    }))
+    .slice(0, 16)
+    .map(([name, count]) => ({ name, count: Math.round(count) }))
 
   return NextResponse.json({ skills: trending })
 }
