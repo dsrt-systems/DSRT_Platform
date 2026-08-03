@@ -463,11 +463,11 @@ export function CommunityPage({ currentUser, myCommunities, goals }: CommunityPa
               onTrack={track}
             />
             <TrendingSkillsSidebar
-              skills={trendingSkills}
-              onSelect={(name) => {
-                setSkillFilter(name)
-                track({ signal_type: 'click_skill', topics: [name] })
-              }}
+                skills={trendingSkills}
+                onSelect={(name: string) => {
+                    setSkillFilter(name)
+                    track({ signal_type: 'click_skill', topics: [name] })
+                }}
             />
           </div>
         </aside>
@@ -1384,7 +1384,13 @@ function AIMatchSidebar({ builders, onConnect, connectedIds, onTrack }: any) {
 // ============================================
 // TRENDING SKILLS SIDEBAR
 // ============================================
-function TrendingSkillsSidebar({ skills, onSelect }: any) {
+function TrendingSkillsSidebar({
+  skills,
+  onSelect,
+}: {
+  skills: Array<{ name: string; count: number }>
+  onSelect: (name: string) => void
+}) {
   return (
     <div className="bg-card border rounded-2xl overflow-hidden">
       <div className="p-3.5 border-b flex items-center justify-between">
