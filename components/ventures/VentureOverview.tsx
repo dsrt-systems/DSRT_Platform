@@ -116,8 +116,8 @@ export function VentureOverview({
           )}
         </CompactCard>
 
-        {/* Vision | Mission | Why Now - 3 col compact */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* CHANGE 1 — Mission | Vision | Why Now | Target Market | Business Model | Headquarters */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <MiniInfoCard
             title="Vision"
             content={venture.vision}
@@ -139,11 +139,36 @@ export function VentureOverview({
             isOwner={isOwner}
             onAdd={() => openEditor('why_now', 'Why Now?', venture.why_now, true, 400)}
           />
+          <MiniInfoCard
+            title="Target Market"
+            content={venture.target_market}
+            emptyText="Who your customers are"
+            isOwner={isOwner}
+            onAdd={() => openEditor('target_market', 'Target Market', venture.target_market, true, 400)}
+          />
+          <MiniInfoCard
+            title="Business Model"
+            content={venture.business_model 
+              ? venture.business_model.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) +
+                (venture.business_model_details ? ' — ' + venture.business_model_details : '')
+              : null
+            }
+            emptyText="How you make money"
+            isOwner={isOwner}
+            onAdd={() => setBusinessModelModalOpen(true)}
+          />
+          <MiniInfoCard
+            title="Headquarters"
+            content={venture.headquarters}
+            emptyText="Where you're based"
+            isOwner={isOwner}
+            onAdd={() => openEditor('headquarters', 'Headquarters', venture.headquarters, false, 100)}
+          />
         </div>
 
-        {/* Stage Strip - Horizontal info bar */}
-        <div className="bg-card border rounded-2xl p-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {/* CHANGE 2 — Stage Strip with more spacing */}
+        <div className="bg-card border rounded-2xl p-5">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
             <StripItem 
               icon={Rocket}
               label="Stage" 
@@ -500,81 +525,7 @@ export function VentureOverview({
           )}
         </div>
 
-        {/* Roadmap placeholder */}
-        <div className="bg-card border rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm">Roadmap</h3>
-              <button className="text-[10px] text-blue-500 hover:underline">
-                View Full Roadmap →
-              </button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {[
-              { period: 'Q2 2025', title: 'MVP Launch & Beta Testing', done: true },
-              { period: 'Q3 2025', title: 'Enterprise Pilot Program', done: false, current: true },
-              { period: 'Q4 2025', title: 'Public Launch', done: false },
-              { period: 'Q1 2026', title: 'Global Expansion', done: false },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={cn(
-                  'w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0',
-                  item.done && 'bg-green-500 border-green-500',
-                  item.current && 'border-blue-500 bg-blue-500/20',
-                  !item.done && !item.current && 'border-muted'
-                )}>
-                  {item.done && <div className="w-1 h-1 rounded-full bg-white" />}
-                  {item.current && <div className="w-1 h-1 rounded-full bg-blue-500" />}
-                </div>
-                <span className={cn(
-                  'text-[10px] font-mono w-16',
-                  item.current ? 'text-blue-500 font-bold' : 'text-muted-foreground'
-                )}>
-                  {item.period}
-                </span>
-                <span className={cn(
-                  'text-xs flex-1',
-                  item.done ? 'text-muted-foreground line-through' : 'font-medium'
-                )}>
-                  {item.title}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Investors & Supporters */}
-        <div className="bg-card border rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm">Investors & Supporters</h3>
-              <button className="text-[10px] text-blue-500 hover:underline">
-                View All →
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {[
-              { name: 'TechFront Ventures', status: 'Interested', icon: 'T' },
-              { name: 'AI Fund', status: 'Interested', icon: 'A' },
-              { name: 'Builder Angels', status: 'Advisory', icon: 'B' },
-            ].map((inv, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {inv.icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold truncate">{inv.name}</p>
-                </div>
-                <span className="text-[9px] px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded font-medium">
-                  {inv.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* CHANGE 3 — Roadmap & Investors sections removed */}
       </div>
 
       {/* ==================== ALL MODALS ==================== */}
