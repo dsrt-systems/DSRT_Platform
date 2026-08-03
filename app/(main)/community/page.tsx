@@ -1,45 +1,33 @@
 import { createClient } from '@/lib/supabase/server'
-import { CommunitiesDiscovery } from '@/components/communities/CommunitiesDiscovery'
+import { CommunityPage } from '@/components/community/CommunityPage'
 
-export default async function CommunityPage() {
+export default async function Page() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [
-    { data: myCommunitiesData },
-    { data: allCommunities },
-    { data: investors },
-  ] = await Promise.all([
-    supabase
-      .from('community_members')
-      .select('community_id, communities(*)')
-      .eq('user_id', user!.id),
-    supabase
-      .from('communities')
-      .select('*')
-      .eq('is_public', true)
-      .order('member_count', { ascending: false })
-      .limit(50),
-    supabase
-      .from('investor_profiles')
-      .select('*')
-      .eq('is_active', true)
-      .order('is_verified', { ascending: false })
-      .limit(20),
-  ])
+  const { data: profile } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', user!.id)
+    .single()
 
-  const myCommunities = (myCommunitiesData || [])
-    .map((m: any) => m.communities)
-    .filter(Boolean)
+  // Get user's communities
+  const { data: myCommunities } = await supabase
+    .from('community_members')
+    .select('communities(*)')
+    .eq('user_id', user!.id)
 
-  const myCommunityIds = new Set(myCommunities.map((c: any) => c.id))
+  // Get goals list
+  const { data: goals } = await supabase
+    .from('goals')
+    .select('*')
+    .order('usage_count', { ascending: false })
 
   return (
-    <CommunitiesDiscovery
-      myCommunities={myCommunities}
-      allCommunities={allCommunities || []}
-      investors={investors || []}
-      myCommunityIds={Array.from(myCommunityIds)}
+    <CommunityPage
+      currentUser={profile}
+      myCommunities={(myCommunities || []).map((m: any) => m.communities).filter(Boolean)}
+      goals={goals || []}
     />
   )
 }
