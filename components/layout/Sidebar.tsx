@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Search, CalendarDays } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import {
   Home,
@@ -32,8 +33,10 @@ const mainNav = [
   { name: 'Messages', href: '/messages', icon: MessageSquare },
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Ventures', href: '/ventures', icon: Rocket },
-  { name: 'Communities', href: '/community', icon: Users },
+  { name: 'Looking For', href: '/looking-for', icon: Search },
+  { name: 'Community', href: '/community', icon: Users },
   { name: 'Explore', href: '/explore', icon: Compass },
+  { name: 'Events', href: '/events', icon: CalendarDays },
   { name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
   { name: 'AI Mentor', href: '/mentor', icon: Sparkles },
   { name: 'Resources', href: '/resources', icon: BookOpen },
