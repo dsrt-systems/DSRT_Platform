@@ -55,11 +55,11 @@ const communityBaseNav = [
 // Rendered dynamically: My Organization
 
 const communityMoreNav = [
-  { name: 'Following', href: '/community?tab=following', icon: Heart, exactMatch: false },
+  { name: 'Following', href: '/following', icon: Heart },
   { name: 'Saved', href: '/saved', icon: Bookmark },
   { name: 'Invitations', href: '/invitations', icon: Mail, badge: 'invitations' },
   { name: 'Applications', href: '/applications', icon: ClipboardList, badge: 'applications' },
-  { name: 'My Communities', href: '/community?tab=mine', icon: UsersRound, exactMatch: false },
+  { name: 'My Communities', href: '/my-communities', icon: UsersRound },
 ]
 
 // EXPLORE SECTION
