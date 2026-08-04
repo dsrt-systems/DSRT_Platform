@@ -18,7 +18,6 @@ export async function GET(request: Request, { params }: { params: { slug: string
   let items: any[] = []
 
   if (tab === 'projects') {
-    // Get personalized project recommendations
     const { data: recs } = await supabase.rpc('get_org_recommendations', {
       p_user_id: user.id,
       p_organization_id: org.id,
@@ -26,7 +25,7 @@ export async function GET(request: Request, { params }: { params: { slug: string
       p_limit: limit,
     })
 
-    const ids = (recs || []).map((r: any) => r.id)
+    const ids: string[] = ((recs as Array<{ id: string }>) || []).map(r => r.id)
     if (ids.length > 0) {
       const { data: projects } = await supabase
         .from('projects')
@@ -38,12 +37,12 @@ export async function GET(request: Request, { params }: { params: { slug: string
         `)
         .in('id', ids)
 
-      // Preserve recommendation order
-      const rankMap = new Map(ids.map((id: string, i: number) => [id, i]))
-      items = (projects || []).sort((a, b) => (rankMap.get(a.id) || 0) - (rankMap.get(b.id) || 0))
+      const rankMap = new Map<string, number>(ids.map((id, i) => [id, i]))
+      items = (projects || []).sort(
+        (a, b) => (rankMap.get(a.id) ?? 999) - (rankMap.get(b.id) ?? 999)
+      )
     }
 
-    // Fallback: if no personalized results, get recent
     if (items.length === 0) {
       const { data: fallback } = await supabase
         .from('projects')
@@ -66,7 +65,7 @@ export async function GET(request: Request, { params }: { params: { slug: string
       p_limit: limit,
     })
 
-    const ids = (recs || []).map((r: any) => r.id)
+    const ids: string[] = ((recs as Array<{ id: string }>) || []).map(r => r.id)
     if (ids.length > 0) {
       const { data: ventures } = await supabase
         .from('ventures')
@@ -76,8 +75,11 @@ export async function GET(request: Request, { params }: { params: { slug: string
           users:founder_id (id, full_name, username, avatar_url)
         `)
         .in('id', ids)
-      const rankMap = new Map(ids.map((id: string, i: number) => [id, i]))
-      items = (ventures || []).sort((a, b) => (rankMap.get(a.id) || 0) - (rankMap.get(b.id) || 0))
+
+      const rankMap = new Map<string, number>(ids.map((id, i) => [id, i]))
+      items = (ventures || []).sort(
+        (a, b) => (rankMap.get(a.id) ?? 999) - (rankMap.get(b.id) ?? 999)
+      )
     }
 
     if (items.length === 0) {
@@ -101,7 +103,7 @@ export async function GET(request: Request, { params }: { params: { slug: string
       p_limit: limit,
     })
 
-    const ids = (recs || []).map((r: any) => r.id)
+    const ids: string[] = ((recs as Array<{ id: string }>) || []).map(r => r.id)
     if (ids.length > 0) {
       const { data: lfs } = await supabase
         .from('venture_looking_for')
@@ -110,8 +112,11 @@ export async function GET(request: Request, { params }: { params: { slug: string
           ventures:venture_id (id, slug, name, logo_url, industry)
         `)
         .in('id', ids)
-      const rankMap = new Map(ids.map((id: string, i: number) => [id, i]))
-      items = (lfs || []).sort((a, b) => (rankMap.get(a.id) || 0) - (rankMap.get(b.id) || 0))
+
+      const rankMap = new Map<string, number>(ids.map((id, i) => [id, i]))
+      items = (lfs || []).sort(
+        (a, b) => (rankMap.get(a.id) ?? 999) - (rankMap.get(b.id) ?? 999)
+      )
     }
 
     if (items.length === 0) {
@@ -123,7 +128,9 @@ export async function GET(request: Request, { params }: { params: { slug: string
         `)
         .order('created_at', { ascending: false })
         .limit(limit * 2)
-      items = (fallback || []).filter((lf: any) => lf.ventures?.organization_id === org.id).slice(0, limit)
+      items = (fallback || [])
+        .filter((lf: any) => lf.ventures?.organization_id === org.id)
+        .slice(0, limit)
     }
   } else if (tab === 'discussions') {
     const { data: discs } = await supabase
@@ -140,15 +147,17 @@ export async function GET(request: Request, { params }: { params: { slug: string
     items = discs || []
   }
 
-  // Mark items as seen (for non-repeat)
-  const entityType = tab === 'looking_for' ? 'looking_for' : tab.slice(0, -1) // projects -> project
+  // Track as seen for non-repeat algorithm
+  const entityType = tab === 'looking_for' ? 'looking_for' : tab.slice(0, -1)
   if (items.length > 0 && ['project', 'venture', 'looking_for'].includes(entityType)) {
     const seenRows = items.map((item: any) => ({
       user_id: user.id,
       entity_type: entityType,
       entity_id: item.id,
     }))
-    await supabase.from('user_seen_items').upsert(seenRows, { onConflict: 'user_id,entity_type,entity_id' })
+    await supabase.from('user_seen_items').upsert(seenRows, {
+      onConflict: 'user_id,entity_type,entity_id',
+    })
   }
 
   return NextResponse.json({ items })
