@@ -2,13 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 60 // Cache for 60s
+export const revalidate = 60
 
 export async function GET() {
   const supabase = createClient()
 
-  // Try to refresh (best-effort, ignore errors)
-  await supabase.rpc('refresh_platform_stats').catch(() => {})
+  // Best-effort refresh
+  try { await supabase.rpc('refresh_platform_stats') } catch { /* silent */ }
 
   const { data } = await supabase
     .from('platform_stats')

@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '8'), 30)
 
   // Best-effort refresh
-  await supabase.rpc('refresh_community_metrics', { p_community_id: null }).catch(() => {})
+  try { await supabase.rpc('refresh_community_metrics', { p_community_id: null }) } catch { /* silent */ }
 
   const { data: communities, error } = await supabase.rpc('get_trending_communities', {
     p_limit: limit,

@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
-  ClipboardList, MagnifyingGlass, ShieldCheck, Clock, Check, X,
+  ClipboardText as ClipboardList,
+  MagnifyingGlass, ShieldCheck, Clock, Check, X,
   ArrowRight, FileText, Link as LinkIcon, GithubLogo,
 } from '@phosphor-icons/react'
 import { formatDistanceToNow } from 'date-fns'

@@ -69,19 +69,30 @@ export async function GET() {
     p_limit: 8,
   })
 
-  let suggestedPeople: any[] = []
+    let suggestedPeople: any[] = []
   if (suggested && suggested.length > 0) {
-    const ids = suggested.map((s: any) => s.entity_id)
+    const ids: string[] = (suggested as Array<{ entity_id: string }>).map(s => s.entity_id)
     const { data: people } = await supabase
       .from('users')
       .select('id, full_name, username, avatar_url, tagline, brings, location, execution_score')
       .in('id', ids)
-    const scoreMap = new Map(suggested.map((s: any) => [s.entity_id, { score: s.score, reason: s.reason }]))
-    suggestedPeople = (people || []).map(p => ({
-      ...p,
-      match_score: Math.min(99, Math.max(60, Math.round((scoreMap.get(p.id)?.score || 0) * 0.8))),
-      match_reason: scoreMap.get(p.id)?.reason || 'Suggested for you',
-    })).sort((a, b) => b.match_score - a.match_score)
+
+    type ScoreEntry = { score: number; reason: string }
+    const scoreMap = new Map<string, ScoreEntry>(
+      (suggested as Array<any>).map(s => [
+        s.entity_id as string,
+        { score: Number(s.score) || 0, reason: String(s.reason || '') },
+      ])
+    )
+
+    suggestedPeople = (people || []).map(p => {
+      const entry: ScoreEntry = scoreMap.get(p.id) || { score: 0, reason: 'Suggested for you' }
+      return {
+        ...p,
+        match_score: Math.min(99, Math.max(60, Math.round(entry.score * 0.8))),
+        match_reason: entry.reason || 'Suggested for you',
+      }
+    }).sort((a, b) => b.match_score - a.match_score)
   }
 
   const followingPeople = (following || []).map((f: any) => f.users).filter(Boolean)

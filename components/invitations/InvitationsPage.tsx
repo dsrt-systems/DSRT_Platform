@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import {
-  Envelope, Buildings, Users, FolderKanban, UserPlus, Check, X, Clock,
+  Envelope, Buildings, Users, Kanban as FolderKanban, UserPlus, Check, X, Clock,
 } from '@phosphor-icons/react'
 import { formatDistanceToNow } from 'date-fns'
 

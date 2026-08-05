@@ -215,7 +215,7 @@ export function BuilderProfile(props: BuilderProfileProps) {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
           {props.isOwner && (
-            <BannerUploader onUpdate={(url) => setProfile({ ...profile, banner_url: url })} />
+            <BannerUploader onUpdate={(url: string) => setProfile({ ...profile, banner_url: url })} />
           )}
         </div>
 
@@ -228,7 +228,7 @@ export function BuilderProfile(props: BuilderProfileProps) {
                   {profile.full_name?.[0]?.toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              {props.isOwner && <AvatarUploader onUpdate={(url) => setProfile({ ...profile, avatar_url: url })} />}
+              {props.isOwner && <AvatarUploader onUpdate={(url: string) => setProfile({ ...profile, avatar_url: url })} />}
               <span className="absolute bottom-2 right-2 w-4 h-4 rounded-full bg-green-500 border-2 border-background" />
             </div>
 

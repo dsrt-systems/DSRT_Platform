@@ -24,14 +24,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Log activity signal for algorithm
-  await supabase.from('user_activity_signals').insert({
-    user_id: user.id,
-    signal_type: 'join_community',
-    entity_type: 'community',
-    entity_id: community_id,
-    weight: 5.0,
-  }).catch(() => {})
+  // Track activity signal for algorithm (fire and forget, silent fail)
+  try {
+    await supabase.from('user_activity_signals').insert({
+      user_id: user.id,
+      signal_type: 'join_community',
+      entity_type: 'community',
+      entity_id: community_id,
+      weight: 5.0,
+    })
+  } catch { /* silent */ }
 
   return NextResponse.json({ success: true, membership: data })
 }
