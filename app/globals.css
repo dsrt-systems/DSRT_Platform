@@ -1,3 +1,4 @@
+﻿@import '@xyflow/react/dist/style.css';
 @import "@fontsource/ibm-plex-sans/300.css";
 @import "@fontsource/ibm-plex-sans/400.css";
 @import "@fontsource/ibm-plex-sans/500.css";
@@ -13,7 +14,7 @@
 
 @layer base {
   :root {
-    /* Light mode — warm neutrals */
+    /* Light mode â€” warm neutrals */
     --background: 30 20% 97%;
     --foreground: 220 25% 12%;
     --card: 0 0% 100%;
@@ -47,7 +48,7 @@
   }
 
   .dark {
-    /* Dark mode — deep charcoal + cerulean accents */
+    /* Dark mode â€” deep charcoal + cerulean accents */
     --background: 220 25% 8%;
     --foreground: 220 10% 92%;
     --card: 220 22% 11%;
@@ -121,7 +122,7 @@
    ============================================ */
 
 @layer components {
-  /* Raised card — subtle 3D depth */
+  /* Raised card â€” subtle 3D depth */
   .skeu-card {
     background: linear-gradient(
       145deg,
@@ -278,7 +279,7 @@
     border: 1px solid hsl(var(--border));
   }
 
-  /* Divider — precise Palantir style */
+  /* Divider â€” precise Palantir style */
   .skeu-divider {
     height: 1px;
     background: linear-gradient(
@@ -290,7 +291,7 @@
     );
   }
 
-  /* Section header — uppercase label */
+  /* Section header â€” uppercase label */
   .section-label {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
@@ -337,7 +338,7 @@
     border-color: hsl(var(--accent) / 0.4);
   }
 
-  /* Numeric display — Palantir style */
+  /* Numeric display â€” Palantir style */
   .numeric {
     font-family: 'IBM Plex Mono', monospace;
     font-variant-numeric: tabular-nums;
