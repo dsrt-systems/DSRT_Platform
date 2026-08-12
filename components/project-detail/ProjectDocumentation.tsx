@@ -1,17 +1,27 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { BookOpen, Plus, PencilSimple, Trash, Check, X, List, EyeSlash, Eye } from '@phosphor-icons/react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { BookOpen, Plus, PencilSimple, Check, X, Eye, EyeSlash, ShareNetwork, ClockCounterClockwise, Clock, Fire } from '@phosphor-icons/react'
 import { MarkdownEditor } from './MarkdownEditor'
+import { DocsSidebarTree } from './docs/DocsSidebarTree'
+import { DocsSearchBar } from './docs/DocsSearchBar'
+import { DocRenderer } from './docs/DocRenderer'
+import { DocContributors } from './docs/DocContributors'
+import { DocVersionHistory } from './docs/DocVersionHistory'
+import { DocShareModal } from './docs/DocShareModal'
+import { DocTableOfContents } from './docs/DocTableOfContents'
 
 interface DocSection {
   id: string
+  parent_id: string | null
   title: string
   content: string
+  slug: string | null
   position: number
   is_published: boolean
+  version?: number
+  view_count?: number
+  reading_minutes?: number
   updated_at: string
 }
 
@@ -29,29 +39,60 @@ export function ProjectDocumentation({ slug, project, isOwner }: Props) {
   const [draftTitle, setDraftTitle] = useState('')
   const [draftContent, setDraftContent] = useState('')
   const [saving, setSaving] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const viewCountedRef = useRef<Set<string>>(new Set())
 
+  // ─── FETCH ───
   const fetchDocs = useCallback(async () => {
     try {
       const res = await fetch('/api/projects/' + slug + '/documentation')
       const json = await res.json()
       const list: DocSection[] = json.sections || []
       setSections(list)
-      if (list.length > 0 && !activeSectionId) setActiveSectionId(list[0].id)
+      setActiveSectionId(prev => {
+        if (prev && list.some(s => s.id === prev)) return prev
+        return list.length > 0 ? list[0].id : null
+      })
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
-  }, [slug, activeSectionId])
+  }, [slug])
 
   useEffect(() => { fetchDocs() }, [fetchDocs])
 
   const activeSection = sections.find(s => s.id === activeSectionId) || null
 
-  const createSection = async () => {
+  // ─── VIEW TRACKING ───
+  useEffect(() => {
+    if (!activeSection || editing) return
+    if (viewCountedRef.current.has(activeSection.id)) return
+    viewCountedRef.current.add(activeSection.id)
+    fetch('/api/projects/' + slug + '/documentation/' + activeSection.id + '/view', { method: 'POST' })
+      .catch(() => {})
+  }, [activeSection, editing, slug])
+
+  // ─── URL fragment scroll on doc change ───
+  useEffect(() => {
+    if (editing) return
+    if (!activeSection) return
+    const hash = window.location.hash
+    if (hash) {
+      setTimeout(() => {
+        const id = hash.slice(1)
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 200)
+    }
+  }, [activeSection, editing])
+
+  // ─── ACTIONS ───
+  const createSection = async (parentId: string | null = null) => {
     setSaving(true)
     try {
       const res = await fetch('/api/projects/' + slug + '/documentation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'New section', content: '' }),
+        body: JSON.stringify({ title: 'New section', content: '', parent_id: parentId }),
       })
       const json = await res.json()
       if (res.ok) {
@@ -67,7 +108,7 @@ export function ProjectDocumentation({ slug, project, isOwner }: Props) {
   const startEdit = () => {
     if (!activeSection) return
     setDraftTitle(activeSection.title)
-    setDraftContent(activeSection.content)
+    setDraftContent(activeSection.content || '')
     setEditing(true)
   }
 
@@ -92,28 +133,43 @@ export function ProjectDocumentation({ slug, project, isOwner }: Props) {
       if (res.ok) {
         await fetchDocs()
         setEditing(false)
+        setRefreshKey(k => k + 1)
       }
     } finally { setSaving(false) }
   }
 
-  const togglePublish = async () => {
-    if (!activeSection) return
+  const renameSection = async (id: string, title: string) => {
     try {
-      await fetch('/api/projects/' + slug + '/documentation/' + activeSection.id, {
+      await fetch('/api/projects/' + slug + '/documentation/' + id, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_published: !activeSection.is_published }),
+        body: JSON.stringify({ title }),
       })
       await fetchDocs()
     } catch (e) { console.error(e) }
   }
 
-  const deleteSection = async () => {
-    if (!activeSection) return
-    if (!confirm('Delete "' + activeSection.title + '"?')) return
+  const togglePublish = async (id: string, next: boolean) => {
     try {
-      await fetch('/api/projects/' + slug + '/documentation/' + activeSection.id, { method: 'DELETE' })
-      const idx = sections.findIndex(s => s.id === activeSection.id)
+      await fetch('/api/projects/' + slug + '/documentation/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_published: next }),
+      })
+      await fetchDocs()
+    } catch (e) { console.error(e) }
+  }
+
+  const togglePublishActive = async () => {
+    if (!activeSection) return
+    await togglePublish(activeSection.id, !activeSection.is_published)
+  }
+
+  const deleteSection = async (id: string) => {
+    if (!confirm('Delete this section and all its history?')) return
+    try {
+      await fetch('/api/projects/' + slug + '/documentation/' + id, { method: 'DELETE' })
+      const idx = sections.findIndex(s => s.id === id)
       const next = sections[idx + 1] || sections[idx - 1]
       setActiveSectionId(next?.id || null)
       await fetchDocs()
@@ -122,16 +178,17 @@ export function ProjectDocumentation({ slug, project, isOwner }: Props) {
 
   return (
     <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
         <div>
           <h2 className="text-[18px] font-semibold text-white flex items-center gap-2">
-            <BookOpen size={17} /> Documentation
+            <BookOpen size={17} weight="fill" /> Documentation
           </h2>
-          <p className="text-[12px] text-white/45 mt-0.5">Technical guides, API references, tutorials</p>
+          <p className="text-[12px] text-white/45 mt-0.5">Guides, references, tutorials for {project?.name}</p>
         </div>
         {isOwner && (
           <button
-            onClick={createSection}
+            onClick={() => createSection(null)}
             disabled={saving}
             className="flex items-center gap-1.5 text-[13px] font-semibold bg-white text-black hover:bg-white/90 px-3.5 h-8 rounded-md disabled:opacity-50"
           >
@@ -147,11 +204,11 @@ export function ProjectDocumentation({ slug, project, isOwner }: Props) {
           <BookOpen size={36} className="mx-auto mb-4 text-white/20" />
           <p className="text-[14px] text-white/50 mb-1">No documentation yet</p>
           <p className="text-[12px] text-white/30 mb-4">
-            {isOwner ? 'Start documenting your project for others.' : 'This project has no documentation.'}
+            {isOwner ? 'Start documenting your project. Everything is versioned automatically.' : 'This project has no documentation.'}
           </p>
           {isOwner && (
             <button
-              onClick={createSection}
+              onClick={() => createSection(null)}
               className="text-[13px] font-medium text-white/85 hover:text-white underline underline-offset-2"
             >
               + Create first section
@@ -159,33 +216,30 @@ export function ProjectDocumentation({ slug, project, isOwner }: Props) {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-[220px_1fr] min-h-[500px]">
-          {/* Sidebar list */}
-          <div className="border-r border-white/[0.06] py-2">
-            <div className="px-4 py-2 flex items-center gap-1.5 text-[11px] text-white/40 uppercase tracking-wider font-semibold">
-              <List size={11} /> Sections
-            </div>
-            <div className="space-y-0.5">
-              {sections.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => { setActiveSectionId(s.id); setEditing(false) }}
-                  className={
-                    'w-full text-left px-4 py-2 text-[13px] transition-colors flex items-center justify-between gap-2 ' +
-                    (activeSectionId === s.id
-                      ? 'bg-white/[0.06] text-white border-l-2 border-white'
-                      : 'text-white/60 hover:bg-white/[0.03] hover:text-white border-l-2 border-transparent')
-                  }
-                >
-                  <span className="truncate">{s.title}</span>
-                  {!s.is_published && <EyeSlash size={10} className="text-white/30 flex-shrink-0" />}
-                </button>
-              ))}
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_200px] min-h-[600px]">
+          {/* Sidebar tree */}
+          <div className="border-b lg:border-b-0 lg:border-r border-white/[0.06] flex flex-col overflow-hidden">
+            {isOwner && (
+              <div className="p-3 border-b border-white/[0.06] flex-shrink-0">
+                <DocsSearchBar slug={slug} onSelect={(id) => { setActiveSectionId(id); setEditing(false) }} />
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto p-2 min-h-[200px]">
+              <DocsSidebarTree
+                sections={sections}
+                activeSectionId={activeSectionId}
+                isOwner={isOwner}
+                onSelect={(id) => { setActiveSectionId(id); setEditing(false) }}
+                onAdd={createSection}
+                onDelete={deleteSection}
+                onRename={renameSection}
+                onTogglePublish={togglePublish}
+              />
             </div>
           </div>
 
-          {/* Content area */}
-          <div className="p-6">
+          {/* Main content */}
+          <div className="p-6 min-w-0 overflow-x-hidden">
             {activeSection ? (
               editing ? (
                 <>
@@ -198,67 +252,110 @@ export function ProjectDocumentation({ slug, project, isOwner }: Props) {
                   <MarkdownEditor
                     value={draftContent}
                     onChange={setDraftContent}
-                    placeholder="Write your documentation. Use headings, code blocks, lists..."
-                    minHeight={400}
+                    placeholder="Write your documentation. Supports full markdown, code blocks with syntax highlighting..."
+                    minHeight={450}
                     maxLength={100000}
                   />
-                  <div className="flex items-center justify-end gap-2 mt-4">
-                    <button
-                      onClick={cancelEdit}
-                      disabled={saving}
-                      className="px-4 h-9 text-[13px] text-white/70 hover:text-white border border-white/[0.1] rounded-md"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveSection}
-                      disabled={saving}
-                      className="px-5 h-9 text-[13px] font-semibold bg-white text-black hover:bg-white/90 rounded-md flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      {saving ? 'Saving...' : (<><Check size={13} weight="bold" /> Save</>)}
-                    </button>
+                  <div className="flex items-center justify-between gap-2 mt-4">
+                    <p className="text-[11px] text-white/40">
+                      💡 Every save creates a revision — nothing is lost.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={cancelEdit}
+                        disabled={saving}
+                        className="px-4 h-9 text-[13px] text-white/70 hover:text-white border border-white/[0.1] rounded-md"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={saveSection}
+                        disabled={saving}
+                        className="px-5 h-9 text-[13px] font-semibold bg-white text-black hover:bg-white/90 rounded-md flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {saving ? 'Saving...' : (<><Check size={13} weight="bold" /> Save</>)}
+                      </button>
+                    </div>
                   </div>
                 </>
               ) : (
                 <>
+                  {/* Section header */}
                   <div className="flex items-start justify-between gap-4 mb-4 pb-4 border-b border-white/[0.06]">
                     <div className="min-w-0">
-                      <h1 className="text-[22px] font-bold text-white leading-tight">{activeSection.title}</h1>
-                      <p className="text-[12px] text-white/40 mt-1">
-                        Updated {new Date(activeSection.updated_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        {!activeSection.is_published && <span className="ml-2 text-yellow-400/80">· Draft</span>}
-                      </p>
-                    </div>
-                    {isOwner && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={togglePublish}
-                          className="w-8 h-8 rounded-md hover:bg-white/[0.06] text-white/60 hover:text-white flex items-center justify-center"
-                          title={activeSection.is_published ? 'Unpublish' : 'Publish'}
-                        >
-                          {activeSection.is_published ? <Eye size={14} /> : <EyeSlash size={14} />}
-                        </button>
-                        <button
-                          onClick={startEdit}
-                          className="flex items-center gap-1.5 text-[13px] font-medium text-white/70 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] px-3 h-8 rounded-md"
-                        >
-                          <PencilSimple size={12} /> Edit
-                        </button>
-                        <button
-                          onClick={deleteSection}
-                          className="w-8 h-8 rounded-md hover:bg-red-500/10 text-white/50 hover:text-red-400 flex items-center justify-center"
-                          title="Delete"
-                        >
-                          <Trash size={13} />
-                        </button>
+                      <h1 className="text-[24px] font-bold text-white leading-tight tracking-tight">{activeSection.title}</h1>
+                      <div className="flex items-center gap-3 mt-1.5 text-[11.5px] text-white/45">
+                        {activeSection.reading_minutes && (
+                          <span className="flex items-center gap-1"><Clock size={11} /> {activeSection.reading_minutes} min read</span>
+                        )}
+                        {activeSection.view_count !== undefined && (activeSection.view_count > 0) && (
+                          <>
+                            <span>·</span>
+                            <span className="flex items-center gap-1"><Eye size={11} /> {activeSection.view_count} view{activeSection.view_count !== 1 ? 's' : ''}</span>
+                          </>
+                        )}
+                        {activeSection.version && (
+                          <>
+                            <span>·</span>
+                            <button
+                              onClick={() => setHistoryOpen(true)}
+                              className="flex items-center gap-1 hover:text-white transition-colors"
+                            >
+                              <ClockCounterClockwise size={11} /> v{activeSection.version}
+                            </button>
+                          </>
+                        )}
+                        {!activeSection.is_published && (
+                          <>
+                            <span>·</span>
+                            <span className="text-orange-300 font-semibold flex items-center gap-1">
+                              <EyeSlash size={11} /> Draft
+                            </span>
+                          </>
+                        )}
                       </div>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => setShareOpen(true)}
+                        title="Share"
+                        className="w-8 h-8 rounded-md hover:bg-white/[0.06] text-white/60 hover:text-white flex items-center justify-center"
+                      >
+                        <ShareNetwork size={14} />
+                      </button>
+                      <button
+                        onClick={() => setHistoryOpen(true)}
+                        title="History"
+                        className="w-8 h-8 rounded-md hover:bg-white/[0.06] text-white/60 hover:text-white flex items-center justify-center"
+                      >
+                        <ClockCounterClockwise size={14} />
+                      </button>
+                      {isOwner && (
+                        <>
+                          <button
+                            onClick={togglePublishActive}
+                            title={activeSection.is_published ? 'Unpublish' : 'Publish'}
+                            className="w-8 h-8 rounded-md hover:bg-white/[0.06] text-white/60 hover:text-white flex items-center justify-center"
+                          >
+                            {activeSection.is_published ? <Eye size={14} /> : <EyeSlash size={14} />}
+                          </button>
+                          <button
+                            onClick={startEdit}
+                            className="flex items-center gap-1.5 text-[13px] font-medium text-white/70 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.1] px-3 h-8 rounded-md ml-1"
+                          >
+                            <PencilSimple size={12} /> Edit
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
 
+                  {/* Contributors */}
+                  <DocContributors slug={slug} docId={activeSection.id} refreshKey={refreshKey} />
+
+                  {/* Content */}
                   {activeSection.content ? (
-                    <div className="prose prose-invert prose-sm max-w-none text-[14px] text-white/85 leading-relaxed prose-headings:text-white prose-headings:font-semibold prose-a:text-purple-300 prose-strong:text-white prose-code:text-purple-200 prose-code:bg-white/[0.06] prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-black/40 prose-pre:border prose-pre:border-white/[0.08]">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{activeSection.content}</ReactMarkdown>
-                    </div>
+                    <DocRenderer content={activeSection.content} />
                   ) : (
                     <div className="py-10 text-center">
                       <p className="text-[14px] text-white/45 mb-2">This section is empty</p>
@@ -278,7 +375,35 @@ export function ProjectDocumentation({ slug, project, isOwner }: Props) {
               <div className="py-10 text-center text-[14px] text-white/45">Select a section</div>
             )}
           </div>
+
+          {/* Right: Table of Contents (only when viewing, not editing, and content has headings) */}
+          {activeSection && !editing && (
+            <div className="hidden xl:block border-l border-white/[0.06] p-5 overflow-y-auto max-h-[600px]">
+              <DocTableOfContents content={activeSection.content || ''} />
+            </div>
+          )}
         </div>
+      )}
+
+      {historyOpen && activeSection && (
+        <DocVersionHistory
+          slug={slug}
+          docId={activeSection.id}
+          currentTitle={activeSection.title}
+          isOwner={isOwner}
+          onClose={() => setHistoryOpen(false)}
+          onReverted={() => { fetchDocs(); setRefreshKey(k => k + 1) }}
+        />
+      )}
+
+      {shareOpen && activeSection && (
+        <DocShareModal
+          slug={slug}
+          docSlug={activeSection.slug}
+          isPublished={activeSection.is_published}
+          onClose={() => setShareOpen(false)}
+          onTogglePublish={togglePublishActive}
+        />
       )}
     </div>
   )

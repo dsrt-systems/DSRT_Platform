@@ -1,34 +1,12 @@
-﻿import { createClient } from '@/lib/supabase/server'
-import { VenturesListView } from '@/components/ventures/VenturesListView'
+﻿import { VenturesDashboard } from '@/components/ventures-hub/VenturesDashboard'
 
-export default async function VenturesPage() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export const metadata = {
+  title: 'Ventures | DSRT Connect',
+  description: 'Build, grow and discover ambitious companies.',
+}
 
-  const [
-    { data: myVentures },
-    { data: allVentures },
-  ] = await Promise.all([
-    supabase
-      .from('ventures')
-      .select('*')
-      .eq('user_id', user!.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('ventures')
-      .select('*, users:user_id(full_name, username, avatar_url)')
-      .eq('is_building_public', true)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(20),
-  ])
+export const dynamic = 'force-dynamic'
 
-  return (
-    <VenturesListView 
-      myVentures={myVentures || []} 
-      allVentures={allVentures || []}
-      currentUserId={user!.id}
-    />
-  )
+export default function VenturesPage() {
+  return <VenturesDashboard />
 }
