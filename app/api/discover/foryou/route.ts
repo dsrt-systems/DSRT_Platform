@@ -1,44 +1,92 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ items: [] })
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ items: [] });
 
-  // Get top 6 recommended communities
-  const { data: communities } = await supabase.rpc('recommend_communities', {
-    p_user_id: user.id,
-    p_limit: 6,
-    p_offset: 0,
-  })
+  // Get personalized communities with REAL data
+  const { data: communities } = await supabase.rpc(
+    "smart_discover_communities",
+    {
+      p_user_id: user.id,
+      p_tab: "foryou",
+      p_limit: 20,
+      p_offset: 0,
+    },
+  );
 
-  // Get 4 trending projects
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('id, name, slug, tagline, cover_image_url, sector, category, traction_score')
-    .eq('is_public', true)
-    .order('traction_score', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(4)
+  // Enrich with real project/venture counts
+  const enrichedCommunities = await enrichCommunities(
+    supabase,
+    communities || [],
+  );
 
-  // Get 3 recommended builders
-  const { data: builders } = await supabase
-    .from('users')
-    .select('id, username, full_name, avatar_url, tagline, execution_score, follower_count')
-    .eq('onboarding_complete', true)
-    .neq('id', user.id)
-    .order('execution_score', { ascending: false })
-    .limit(3)
+  return NextResponse.json({
+    items: enrichedCommunities.map((c: any) => ({
+      type: "community",
+      data: c,
+    })),
+  });
+}
 
-  // Mix them
-  const items = [
-    ...(communities || []).map((c: any) => ({ type: 'community', data: c })),
-    ...(projects || []).map((p: any) => ({ type: 'project', data: p })),
-    ...(builders || []).map((b: any) => ({ type: 'builder', data: b })),
-  ]
+// Helper to add real project/venture counts
+async function enrichCommunities(supabase: any, communities: any[]) {
+  if (communities.length === 0) return [];
 
-  return NextResponse.json({ items })
+  const commIds = communities.map((c: any) => c.id);
+
+  // Get organization mapping
+  const { data: orgCommunities } = await supabase
+    .from("organization_communities")
+    .select("community_id, organization_id")
+    .in("community_id", commIds);
+
+  const orgIdsMap: Record<string, string[]> = {};
+  (orgCommunities || []).forEach((oc: any) => {
+    if (!orgIdsMap[oc.community_id]) orgIdsMap[oc.community_id] = [];
+    orgIdsMap[oc.community_id].push(oc.organization_id);
+  });
+
+  const allOrgIds = Object.values(orgIdsMap).flat();
+
+  // Get REAL project counts
+  const { data: projects } =
+    allOrgIds.length > 0
+      ? await supabase
+          .from("projects")
+          .select("id, organization_id")
+          .in("organization_id", allOrgIds)
+      : { data: [] };
+
+  // Get REAL venture counts
+  const { data: ventures } =
+    allOrgIds.length > 0
+      ? await supabase
+          .from("ventures")
+          .select("id, organization_id")
+          .in("organization_id", allOrgIds)
+      : { data: [] };
+
+  // Count per community
+  return communities.map((c: any) => {
+    const orgIds = orgIdsMap[c.id] || [];
+    const projectCount = (projects || []).filter((p: any) =>
+      orgIds.includes(p.organization_id),
+    ).length;
+    const ventureCount = (ventures || []).filter((v: any) =>
+      orgIds.includes(v.organization_id),
+    ).length;
+
+    return {
+      ...c,
+      project_count: projectCount,
+      venture_count: ventureCount,
+    };
+  });
 }
