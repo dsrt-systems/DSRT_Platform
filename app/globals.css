@@ -117,8 +117,7 @@
   }
 }
 
-/* ============================================
-   SKEUOMORPHIC COMPONENTS
+/* =====================================   SKEUOMORPHIC COMPONENTS
    ============================================ */
 
 @layer components {
@@ -375,7 +374,6 @@
     display: none;
   }
 }
-<<<<<<< HEAD
 /* Add at the end of globals.css */
 
 @keyframes shimmer {
@@ -413,5 +411,4 @@
 .fade-in {
   animation: fadeIn 0.3s ease-out;
 }
-=======
->>>>>>> f44690a8094533556f05004b9823c595227f6801
+

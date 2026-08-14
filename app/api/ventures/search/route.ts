@@ -6,19 +6,24 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
-  const query = (searchParams.get('q') || '').trim()
-  const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 40)
+  const q = searchParams.get('q') || ''
+  const limit = parseInt(searchParams.get('limit') || '20')
+  const stage = searchParams.get('stage')
+  const industry = searchParams.get('industry')
 
-  if (!query || query.length < 2) return NextResponse.json({ results: [] })
+  let query = supabase
+    .from('ventures')
+    .select('*')
+    .eq('show_in_explore', true)
+    .not('slug', 'is', null)
+    .order('traction_score', { ascending: false })
+    .limit(limit)
 
-  try {
-    const { data, error } = await supabase.rpc('search_ventures', {
-      p_query: query,
-      p_limit: limit,
-    })
-    if (error) throw error
-    return NextResponse.json({ results: data || [] })
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message, results: [] }, { status: 500 })
-  }
+  if (q) query = query.ilike('name', `%${q}%`)
+  if (stage) query = query.eq('stage', stage)
+  if (industry) query = query.eq('industry', industry)
+
+  const { data, error } = await query
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ventures: data || [] })
 }
