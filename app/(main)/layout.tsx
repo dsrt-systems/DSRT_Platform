@@ -1,8 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Navbar } from '@/components/layout/Navbar'
-import { CommandPaletteProvider } from '@/components/command/CommandPaletteProvider'
+import { MainClientProviders } from '@/components/layout/MainClientProviders'
+
+// Required: this layout uses auth cookies which are dynamic by nature.
+// Prevents Next.js from attempting static prerender which crashes on useContext.
+export const dynamic = 'force-dynamic'
 
 export default async function MainLayout({
   children,
@@ -23,7 +27,7 @@ export default async function MainLayout({
   if (!profile?.onboarding_complete) redirect('/onboarding')
 
   return (
-    <CommandPaletteProvider>
+    <MainClientProviders>
       <div className="min-h-screen bg-background">
         <Navbar user={profile} />
         <Sidebar user={profile} />
@@ -31,6 +35,6 @@ export default async function MainLayout({
           {children}
         </main>
       </div>
-    </CommandPaletteProvider>
+    </MainClientProviders>
   )
 }

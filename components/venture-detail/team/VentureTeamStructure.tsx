@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import ReactFlow, { Background, Controls, MiniMap, Panel, ReactFlowProvider } from '@xyflow/react'
+import { ReactFlow, Background, Controls, MiniMap, Panel, ReactFlowProvider, useNodesState, useEdgesState, addEdge, ConnectionMode, MarkerType } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Plus, UsersThree, MagnifyingGlass, GridFour, ListBullets, Briefcase, User } from '@phosphor-icons/react'
 import { VentureMemberNode } from './nodes/VentureMemberNode'

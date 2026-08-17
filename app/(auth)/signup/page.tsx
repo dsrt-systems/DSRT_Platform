@@ -3,6 +3,7 @@ import { LogoSphere } from '@/components/shared/LogoSphere'
 import { PublicNav } from '@/components/public/PublicNav'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Sign Up — DSRT AI',
 }

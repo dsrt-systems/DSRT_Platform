@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   PencilSimple, Check, X, Trash, ArrowUp, ArrowDown,
   ImageSquare, VideoCamera, Play, Pause, SpeakerHigh, SpeakerSlash,
-  Corners, CaretLeft, CaretRight, DotsThree, TextAa,
+  CornersOut, CaretLeft, CaretRight, DotsThree, TextAa,
   TextB, TextItalic, TextUnderline, Link as LinkIcon,
   ListBullets, ListNumbers, Quotes, Code, Eye, Tag, CaretDown
 } from '@phosphor-icons/react'

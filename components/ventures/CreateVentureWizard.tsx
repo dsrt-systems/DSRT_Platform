@@ -18,8 +18,8 @@ import {
   Check,
   Upload,
   X,
-  ZoomIn,
-  ZoomOut,
+  MagnifyingGlassPlus, 
+  MagnifyingGlassMinus,
   ArrowClockwise,
   Sparkle,
 } from '@phosphor-icons/react'

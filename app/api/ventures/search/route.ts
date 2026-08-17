@@ -1,29 +1,43 @@
-﻿import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
   const { searchParams } = new URL(request.url)
-  const q = searchParams.get('q') || ''
-  const limit = parseInt(searchParams.get('limit') || '20')
-  const stage = searchParams.get('stage')
-  const industry = searchParams.get('industry')
+  const q = (searchParams.get('q') || '').trim()
+  const limit = Math.min(parseInt(searchParams.get('limit') || '30'), 60)
 
-  let query = supabase
-    .from('ventures')
-    .select('*')
-    .eq('show_in_explore', true)
-    .not('slug', 'is', null)
-    .order('traction_score', { ascending: false })
-    .limit(limit)
+  if (!q || q.length < 2) return NextResponse.json({ ventures: [] })
 
-  if (q) query = query.ilike('name', `%${q}%`)
-  if (stage) query = query.eq('stage', stage)
-  if (industry) query = query.eq('industry', industry)
+  const supabase = await createClient()
 
-  const { data, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ventures: data || [] })
+  try {
+    const { data: ventures, error } = await supabase
+      .from('ventures')
+      .select(`
+        id, slug, name, tagline, description, logo_url, cover_url,
+        stage, status, industry, sector, venture_type, venture_number,
+        follower_count, view_count, is_verified, is_hiring,
+        seeking_investment, seeking_cofounder,
+        last_activity_at, updated_at, created_at
+      `)
+      .eq('show_in_explore', true)
+      .neq('status', 'archived')
+      .or(
+        'name.ilike.%' + q + '%,' +
+        'tagline.ilike.%' + q + '%,' +
+        'description.ilike.%' + q + '%,' +
+        'industry.ilike.%' + q + '%,' +
+        'sector.ilike.%' + q + '%'
+      )
+      .order('follower_count', { ascending: false, nullsFirst: false })
+      .limit(limit)
+
+    if (error) throw error
+
+    return NextResponse.json({ ventures: ventures || [] })
+  } catch (e: any) {
+    return NextResponse.json({ ventures: [], error: e?.message }, { status: 500 })
+  }
 }

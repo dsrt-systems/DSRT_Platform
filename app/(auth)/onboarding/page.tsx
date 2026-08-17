@@ -13,6 +13,9 @@ import { StepInstitution } from './steps/StepInstitution'
 import { StepSeeking } from './steps/StepSeeking'
 import { motion, AnimatePresence } from 'framer-motion'
 
+
+export const dynamic = 'force-dynamic'
+
 const TOTAL_STEPS = 6
 
 const stepConfig = [

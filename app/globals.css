@@ -412,3 +412,108 @@
   animation: fadeIn 0.3s ease-out;
 }
 
+
+/* ===== TEAM UP UTILITIES ===== */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ===== TEAM UP ACCESSIBILITY & POLISH ===== */
+
+/* Respect prefers-reduced-motion for banner slider + all transitions */
+@media (prefers-reduced-motion: reduce) {
+  .team-up-no-motion,
+  .team-up-no-motion *,
+  .team-up-no-motion *::before,
+  .team-up-no-motion *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Consistent focus ring across Team Up */
+[data-teamup-search]:focus-visible,
+[role="tab"]:focus-visible,
+[role="searchbox"]:focus-visible {
+  outline: 2px solid rgb(63 63 70);
+  outline-offset: 2px;
+}
+
+/* TipTap prose overrides for opportunity content */
+.ProseMirror:focus-visible {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: rgb(82 82 91);
+  pointer-events: none;
+  height: 0;
+}
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+.ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  accent-color: rgb(59 130 246);
+  width: 0.875rem;
+  height: 0.875rem;
+  cursor: pointer;
+}
+.ProseMirror hr {
+  border: none;
+  border-top: 1px solid rgb(39 39 42);
+  margin: 1.5rem 0;
+}
+
+/* ===== TEAM UP EDITOR PLACEHOLDER FIX ===== */
+.ProseMirror .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: rgb(82 82 91);
+  pointer-events: none;
+  height: 0;
+  white-space: pre-line;
+  font-size: 16px;
+  line-height: 1.75;
+}
+.ProseMirror p:empty::before {
+  content: '';
+}
+
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(82 82 91);
+  pointer-events: none;
+}
+
+/* Template editor placeholders */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(82 82 91);
+  pointer-events: none;
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

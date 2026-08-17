@@ -21,7 +21,9 @@ import { AddMemberModal } from './AddMemberModal'
 import { GlanceEditModal } from './GlanceEditModal'
 import { TeamStructureTab } from './team/TeamStructureTab'
 import { ApplicantsTab } from './applicants/ApplicantsTab'
+import { ConnectComposer } from '@/components/inbox/ConnectComposer'
 import { PermissionsPanel } from './applicants/PermissionsPanel'
+import { OpportunitiesSection } from '@/components/looking-for/embed/OpportunitiesSection'
 
 interface Props { slug: string }
 
@@ -43,6 +45,7 @@ export function ProjectDetailPage({ slug }: Props) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [connectOpen, setConnectOpen] = useState(false)
   const [pendingAppCount, setPendingAppCount] = useState(0)
   const [canViewApplicants, setCanViewApplicants] = useState(false)
   const [glanceField, setGlanceField] = useState<string | null>(null)
@@ -67,6 +70,25 @@ export function ProjectDetailPage({ slug }: Props) {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null))
     fetchDetail()
   }, [fetchDetail, supabase])
+
+  // ── Track project view (guarantees analytics flow) ──
+  useEffect(() => {
+    if (!data?.project?.id) return
+    // Owner views are counted too for analytics
+    const trackView = async () => {
+      try {
+        await fetch('/api/projects/track-view', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_id: data.project.id,
+            source: 'direct',
+          }),
+        })
+      } catch {}
+    }
+    trackView()
+  }, [data?.project?.id, data?.is_owner])
 
   // Poll pending applicants count every 30 seconds
   useEffect(() => {
@@ -264,11 +286,24 @@ export function ProjectDetailPage({ slug }: Props) {
           isOwner={isOwner}
           isFollowing={isFollowing}
           onFollowToggle={toggleFollow}
-          onMessage={() => alert('Messaging — coming soon')}
-          onCollaborate={() => alert('Collaboration — coming soon')}
+          onMessage={() => setConnectOpen(true)}
+          onCollaborate={() => setConnectOpen(true)}
           onUpdate={patchProject}
           onUploadMedia={(file, kind) => uploadMedia(file, kind)}
         />
+
+        {/* Batch 9e — Looking For opportunities embed */}
+        <div className="mt-6">
+          <OpportunitiesSection
+            scope="project"
+            slug={slug}
+            title="Open Positions"
+            emptyMessage={isOwner
+              ? "You haven't posted any open positions yet. Create one from Looking For."
+              : "No open positions on this project right now."}
+            limit={4}
+          />
+        </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 mt-6">
           <div className="min-w-0">
@@ -421,6 +456,17 @@ export function ProjectDetailPage({ slug }: Props) {
           currentValue={glanceInitialValue}
           onClose={() => setGlanceField(null)}
           onSave={async (patch) => { await patchProject(patch) }}
+        />
+      )}
+
+      {connectOpen && (
+        <ConnectComposer
+          referenceType="project"
+          referenceId={project.id}
+          referenceName={project.name}
+          referenceSlug={project.slug}
+          onClose={() => setConnectOpen(false)}
+          onSent={() => fetchDetail()}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
   Info, Newspaper, UsersThree, BookOpen, Gear,
   ShareNetwork, BookmarkSimple, DotsThreeOutline, Briefcase, Package,
-  ChartLineUp, CurrencyDollar, ClockClockwise, Handshake
+  ChartLineUp, CurrencyDollar, ClockClockwise, Handshake, ChartBar
 } from '@phosphor-icons/react'
 import { VentureHeader } from './VentureHeader'
 import { VentureSidebar } from './VentureSidebar'
@@ -24,6 +24,8 @@ import { VentureDocumentation } from './documentation/VentureDocumentation'
 import { VentureSettings } from './VentureSettings'
 import { VentureApplicants } from './applicants/VentureApplicants'
 import { VentureNotificationsTab } from './notifications/VentureNotificationsTab'
+import { VentureAnalytics } from './VentureAnalytics'
+import { ConnectComposer } from '@/components/inbox/ConnectComposer'
 
 interface Props { slug: string }
 
@@ -42,6 +44,7 @@ export function VentureDetailPage({ slug }: Props) {
     return 'overview'
   })
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [connectOpen, setConnectOpen] = useState(false)
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -60,6 +63,31 @@ export function VentureDetailPage({ slug }: Props) {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id || null))
     fetchDetail()
   }, [fetchDetail, supabase])
+
+  // ── Track venture view on mount ──
+  useEffect(() => {
+    if (!data?.venture?.id) return
+    const sessionId = (() => {
+      if (typeof window === 'undefined') return 'ssr'
+      let sid = sessionStorage.getItem('dsrt_session_id')
+      if (!sid) {
+        sid = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
+        sessionStorage.setItem('dsrt_session_id', sid)
+      }
+      return sid
+    })()
+
+    fetch('/api/ventures/' + slug + '/view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'direct',
+        session_id: sessionId,
+        referrer_url: typeof document !== 'undefined' ? document.referrer : null,
+        device_type: typeof window !== 'undefined' && window.innerWidth < 768 ? 'mobile' : 'desktop',
+      }),
+    }).catch(() => {})
+  }, [data?.venture?.id, slug])
 
   const patchVenture = async (patch: Record<string, any>) => {
     try {
@@ -118,6 +146,13 @@ export function VentureDetailPage({ slug }: Props) {
   const pendingApps = (data?.applications || []).filter((a: any) => a.status === 'pending').length
   const unreadNotifs = venture.unread_notifications || 0
 
+  const headerStats = {
+    team: team?.length || 0,
+    followers: venture.follower_count || 0,
+    applications: data?.applications?.length || 0,
+    openRoles: (lookingFor || []).filter((r: any) => r.status === 'active' || !r.status).length,
+  }
+
   const tabs: { id: string; label: string; icon: any; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: Info },
     { id: 'products', label: 'Products', icon: Package, badge: products?.length || 0 },
@@ -130,6 +165,7 @@ export function VentureDetailPage({ slug }: Props) {
     { id: 'documentation', label: 'Docs', icon: BookOpen },
   ]
   if (isOwner) {
+    tabs.push({ id: 'analytics', label: 'Analytics', icon: ChartBar })
     tabs.push({ id: 'applicants', label: 'Applicants', icon: Briefcase, badge: pendingApps })
     tabs.push({ id: 'notifications', label: 'Notifications', icon: Newspaper, badge: unreadNotifs })
     tabs.push({ id: 'settings', label: 'Settings', icon: Gear })
@@ -146,6 +182,9 @@ export function VentureDetailPage({ slug }: Props) {
           isFollowing={isFollowing}
           onFollowToggle={toggleFollow}
           onUpdate={patchVenture}
+          onMessage={() => setConnectOpen(true)}
+          onConnect={() => setConnectOpen(true)}
+          stats={headerStats}
         />
 
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 mt-6">
@@ -201,7 +240,6 @@ export function VentureDetailPage({ slug }: Props) {
             {activeTab === 'team' && (
               <VentureTeamStructure venture={venture} team={team || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
             )}
-
             {activeTab === 'updates' && (
               <VentureUpdates venture={venture} updates={updates || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
             )}
@@ -216,6 +254,9 @@ export function VentureDetailPage({ slug }: Props) {
             )}
             {activeTab === 'documentation' && (
               <VentureDocumentation venture={venture} slug={slug} isOwner={isOwner} />
+            )}
+            {activeTab === 'analytics' && isOwner && (
+              <VentureAnalytics slug={slug} />
             )}
             {activeTab === 'applicants' && isOwner && (
               <VentureApplicants slug={slug} />
@@ -241,6 +282,19 @@ export function VentureDetailPage({ slug }: Props) {
           </div>
         </div>
       </div>
+
+      {connectOpen && (
+        <ConnectComposer
+          referenceType="venture"
+          referenceId={venture.id}
+          referenceName={venture.name}
+          referenceSlug={venture.slug}
+          onClose={() => setConnectOpen(false)}
+          onSent={() => {
+            fetchDetail()
+          }}
+        />
+      )}
     </div>
   )
 }

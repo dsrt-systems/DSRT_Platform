@@ -16,9 +16,10 @@ export async function POST(
   try {
     const body = await request.json()
 
+    // Fetch project (need name + slug for inbox message)
     const { data: project } = await supabase
       .from('projects')
-      .select('id, founder_id, user_id, is_public, application_permission')
+      .select('id, name, slug, founder_id, user_id, is_public, application_permission')
       .eq('slug', slug)
       .single()
 
@@ -27,6 +28,7 @@ export async function POST(
       return NextResponse.json({ error: 'You cannot apply to your own project' }, { status: 400 })
     }
 
+    // Fetch role
     const { data: role } = await supabase
       .from('project_roles')
       .select('id, status, project_id, title')
@@ -45,6 +47,7 @@ export async function POST(
       return NextResponse.json({ error: 'Cover letter must be at least 20 characters' }, { status: 400 })
     }
 
+    // Insert application (existing logic)
     const insert: Record<string, any> = {
       role_id: id,
       project_id: project.id,
@@ -61,20 +64,80 @@ export async function POST(
       status: 'pending',
     }
 
-    const { data, error } = await supabase
+    const { data: application, error: appErr } = await supabase
       .from('project_role_applications')
       .insert(insert)
       .select()
       .single()
 
-    if (error) {
-      if (error.code === '23505') {
+    if (appErr) {
+      if (appErr.code === '23505') {
         return NextResponse.json({ error: 'You have already applied to this role' }, { status: 409 })
       }
-      throw error
+      throw appErr
     }
 
-    return NextResponse.json({ success: true, application: data })
+    // ═══════════════════════════════════════════════════════════════
+    // NEW: Create inbox message for project owner (mirrors Batch 2 venture pattern)
+    // ═══════════════════════════════════════════════════════════════
+    const recipientId = project.founder_id || project.user_id
+
+    if (recipientId && recipientId !== user.id) {
+      const { data: applicant } = await supabase
+        .from('users')
+        .select('full_name, username')
+        .eq('id', user.id)
+        .single()
+
+      const applicantName = applicant?.full_name || applicant?.username || 'A builder'
+      const subject = 'New applicant for ' + role.title + ' at ' + project.name
+
+      const messageBody = [
+        applicantName + ' just applied for the ' + role.title + ' role.',
+        '',
+        cover_letter ? 'Cover letter:\n' + cover_letter : '(No cover letter provided)',
+        '',
+        body.availability ? 'Availability: ' + body.availability : '',
+        body.expected_hours ? 'Expected hours: ' + body.expected_hours + ' hrs/week' : '',
+        body.start_date ? 'Available to start: ' + body.start_date : '',
+      ].filter(Boolean).join('\n')
+
+      await supabase
+        .from('inbox_messages')
+        .insert({
+          recipient_id: recipientId,
+          sender_id: user.id,
+          message_type: 'role_application',
+          status: 'unread',
+          subject: subject.slice(0, 200),
+          body: messageBody.slice(0, 5000),
+          reference_type: 'project',
+          reference_id: project.id,
+          reference_name: project.name,
+          reference_slug: project.slug,
+          metadata: {
+            project_role_application_id: application.id,
+            project_role_id: role.id,
+            project_role_title: role.title,
+            portfolio_url: body.portfolio_url,
+            github_url: body.github_url,
+            linkedin_url: body.linkedin_url,
+            resume_url: body.resume_url,
+          },
+        })
+        .then(() => {}, (e) => console.error('Inbox message insert failed:', e))
+    }
+
+    // Track signal for recommendation algorithm
+    await supabase.from('user_activity_signals').insert({
+      user_id: user.id,
+      signal_type: 'apply',
+      entity_type: 'project_role',
+      entity_id: role.id,
+      weight: 8.0,
+    }).then(() => {}, () => {})
+
+    return NextResponse.json({ success: true, application })
   } catch (e: any) {
     console.error('Apply error:', e)
     return NextResponse.json({ error: e?.message }, { status: 500 })

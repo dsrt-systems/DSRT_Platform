@@ -40,31 +40,18 @@ const FUNDING_STAGES = [
 
 const BUSINESS_MODELS = [
   '',
-  // Revenue Model
   'B2B SaaS', 'B2C SaaS', 'B2B2C', 'Enterprise SaaS', 'PLG SaaS',
-  // Marketplace
   'Marketplace', 'Two-sided Marketplace', 'Multi-sided Platform', 'Aggregator',
-  // Commerce
   'E-Commerce', 'D2C', 'Marketplace + D2C', 'Dropshipping', 'Wholesale',
-  // Subscription
   'Subscription', 'Membership', 'Freemium', 'Freemium-to-Paid', 'Usage-based',
-  // Transaction
   'Transactional', 'Commission-based', 'Pay-per-use', 'Ad-supported',
-  // Content
   'Content / Media', 'Creator Economy', 'Publishing', 'Advertising Network',
-  // Hardware & Deep Tech
   'Hardware', 'IoT', 'Robotics', 'DeepTech', 'BioTech', 'Manufacturing',
-  // Financial
   'FinTech', 'Lending', 'Payments', 'InsurTech', 'WealthTech', 'CryptoCurrency', 'DeFi',
-  // Enterprise
   'Enterprise Software', 'Consulting', 'Managed Services', 'System Integrator',
-  // Consumer
   'Consumer App', 'Mobile-First', 'Social Network', 'Gaming', 'Dating',
-  // Infrastructure
   'API-first', 'Developer Tools', 'Infrastructure', 'Platform', 'PaaS', 'IaaS',
-  // Emerging
   'Open Source', 'Web3', 'AI / ML', 'AR / VR', 'Blockchain',
-  // Services
   'Marketplace-as-a-Service', 'Agency', 'Studio', 'Accelerator', 'Non-profit',
   'Other',
 ]
@@ -146,7 +133,7 @@ function AtAGlance({ venture, isOwner, onUpdate }: { venture: any; isOwner: bool
         {isOwner ? (
           <button
             onClick={async () => { await onUpdate({ show_in_explore: !venture.show_in_explore }); toast.success(venture.show_in_explore ? 'Now private' : 'Now public in Explore') }}
-            className={'text-[11px] font-semibold px-2 py-1 rounded transition-colors ' + (venture.show_in_explore ? 'text-emerald-300 hover:bg-emerald-500/10' : 'text-white/60 hover:bg-white/[0.06]')}
+            className="text-[11px] font-semibold px-2 py-1 rounded transition-colors text-white/70 hover:text-white hover:bg-white/[0.06]"
           >
             {venture.show_in_explore ? 'Public' : 'Private'} →
           </button>
@@ -182,7 +169,7 @@ function EditableTile({ label, value, fieldKey, type, options, capitalize, displ
         {editing && isOwner ? (
           type === 'location' ? (
             <button onClick={() => { setLocationOpen(true); setEditing(false) }}
-              className="text-[12px] font-semibold text-purple-300 hover:text-purple-200 text-left">
+              className="text-[12px] font-semibold text-white/80 hover:text-white text-left">
               Choose location...
             </button>
           ) : (
@@ -212,7 +199,7 @@ function EditableTile({ label, value, fieldKey, type, options, capitalize, displ
         ) : hasValue ? (
           <p
             onClick={() => isOwner && (type === 'location' ? setLocationOpen(true) : setEditing(true))}
-            className={'text-[12.5px] font-semibold text-white truncate ' + (capitalize ? 'capitalize ' : '') + (isOwner ? 'cursor-pointer hover:text-purple-200' : '')}
+            className={'text-[12.5px] font-semibold text-white truncate ' + (capitalize ? 'capitalize ' : '') + (isOwner ? 'cursor-pointer hover:text-white/80' : '')}
           >
             {displayValue}
           </p>
@@ -250,7 +237,6 @@ function LocationPickerModal({ currentValue, onClose, onSelect }: { currentValue
     setLoading(true)
     const t = setTimeout(async () => {
       try {
-        // Try DSRT locations API first
         const dsrtRes = await fetch('/api/locations/search?q=' + encodeURIComponent(query))
         const dsrtJson = await dsrtRes.json().catch(() => ({ locations: [] }))
         const dsrtLocations = (dsrtJson.locations || []).map((l: any) => ({
@@ -258,7 +244,6 @@ function LocationPickerModal({ currentValue, onClose, onSelect }: { currentValue
           isDsrt: true,
         }))
 
-        // Also fetch OpenStreetMap Nominatim (global city search — free, no key)
         const osmRes = await fetch(
           'https://nominatim.openstreetmap.org/search?format=json&limit=8&addressdetails=1&featuretype=city&q=' + encodeURIComponent(query),
           { headers: { 'Accept-Language': 'en' } }
@@ -269,7 +254,6 @@ function LocationPickerModal({ currentValue, onClose, onSelect }: { currentValue
           isDsrt: false,
         }))
 
-        // Combine, dedupe
         const seen = new Set<string>()
         const combined = [...dsrtLocations, ...osmLocations].filter(l => {
           if (seen.has(l.display_name)) return false
@@ -317,7 +301,7 @@ function LocationPickerModal({ currentValue, onClose, onSelect }: { currentValue
             ) : results.length === 0 ? (
               <div className="text-center py-6">
                 <p className="text-[12px] text-white/40 mb-3">No matches found.</p>
-                <button onClick={() => onSelect(query)} className="text-[12px] font-semibold text-purple-300 hover:text-purple-200">
+                <button onClick={() => onSelect(query)} className="text-[12px] font-semibold text-white/80 hover:text-white">
                   Use &ldquo;{query}&rdquo; anyway →
                 </button>
               </div>
@@ -331,7 +315,7 @@ function LocationPickerModal({ currentValue, onClose, onSelect }: { currentValue
                   >
                     <MapPin size={12} weight="regular" className="text-white/40 group-hover:text-white/60 flex-shrink-0" />
                     <span className="text-[12.5px] text-white/85 group-hover:text-white truncate">{r.display_name}</span>
-                    {r.isDsrt && <span className="ml-auto text-[9px] font-bold text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Popular</span>}
+                    {r.isDsrt && <span className="ml-auto text-[9px] font-bold text-white/70 bg-white/[0.08] border border-white/[0.1] px-1.5 py-0.5 rounded uppercase tracking-wider">Popular</span>}
                   </button>
                 ))}
               </div>
@@ -420,16 +404,16 @@ function FinancialsCard({ venture, isOwner, onUpdate }: { venture: any; isOwner:
         ) : (
           <div className="space-y-2.5">
             {stageLabel && <FinRow label="Stage" value={stageLabel} />}
-            {venture.funding_amount && <FinRow label={venture.seeking_investment ? 'Raising' : 'Raised'} value={venture.funding_amount} accent={venture.seeking_investment ? 'text-emerald-300' : ''} />}
+            {venture.funding_amount && <FinRow label={venture.seeking_investment ? 'Raising' : 'Raised'} value={venture.funding_amount} />}
             {venture.revenue_range && <FinRow label="Revenue" value={venture.revenue_range} />}
             {venture.runway && <FinRow label="Runway" value={venture.runway} />}
             {venture.seeking_investment && (
               <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-40" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white/90" />
                 </span>
-                <span className="text-[11px] font-semibold text-emerald-300">Currently raising</span>
+                <span className="text-[11px] font-semibold text-white/90">Currently raising</span>
               </div>
             )}
             {!stageLabel && !venture.funding_amount && !venture.revenue_range && !venture.runway && (
@@ -442,11 +426,11 @@ function FinancialsCard({ venture, isOwner, onUpdate }: { venture: any; isOwner:
   )
 }
 
-function FinRow({ label, value, accent }: { label: string; value: string; accent?: string }) {
+function FinRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-[11.5px] text-white/50">{label}</span>
-      <span className={'text-[12.5px] font-bold ' + (accent || 'text-white')}>{value}</span>
+      <span className="text-[12.5px] font-bold text-white">{value}</span>
     </div>
   )
 }

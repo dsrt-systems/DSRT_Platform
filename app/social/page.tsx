@@ -1,6 +1,8 @@
 import { PublicNav } from '@/components/public/PublicNav'
 import { PublicFooter } from '@/components/public/PublicFooter'
 
+
+export const dynamic = 'force-dynamic'
 export const metadata = {
   title: 'Social — DSRT',
 }

@@ -16,7 +16,7 @@ export async function POST(
   try {
     const { data: project } = await supabase
       .from('projects')
-      .select('id, founder_id, user_id')
+      .select('id, founder_id, user_id, follower_count')
       .eq('slug', slug)
       .single()
 
@@ -34,12 +34,31 @@ export async function POST(
       .maybeSingle()
 
     if (existing) {
+      // ─── UNFOLLOW ───
       const { error } = await supabase
         .from('follows')
         .delete()
         .eq('id', existing.id)
       if (error) throw error
 
+      // Decrement denormalized counter
+      await supabase
+        .from('projects')
+        .update({ follower_count: Math.max(0, (project.follower_count || 1) - 1) })
+        .eq('id', project.id)
+        .then(() => {}, () => {})
+
+      // Log unfollow event for analytics chart
+      await supabase
+        .from('project_follower_events')
+        .insert({
+          project_id: project.id,
+          user_id: user.id,
+          action: 'unfollow',
+        })
+        .then(() => {}, () => {})
+
+      // Track signal for recommendation algorithm
       await supabase.from('user_activity_signals').insert({
         user_id: user.id,
         signal_type: 'unfollow',
@@ -50,6 +69,7 @@ export async function POST(
 
       return NextResponse.json({ following: false })
     } else {
+      // ─── FOLLOW ───
       const { error } = await supabase
         .from('follows')
         .insert({
@@ -59,6 +79,24 @@ export async function POST(
         })
       if (error) throw error
 
+      // Increment denormalized counter
+      await supabase
+        .from('projects')
+        .update({ follower_count: (project.follower_count || 0) + 1 })
+        .eq('id', project.id)
+        .then(() => {}, () => {})
+
+      // Log follow event for analytics chart
+      await supabase
+        .from('project_follower_events')
+        .insert({
+          project_id: project.id,
+          user_id: user.id,
+          action: 'follow',
+        })
+        .then(() => {}, () => {})
+
+      // Track signal for recommendation algorithm
       await supabase.from('user_activity_signals').insert({
         user_id: user.id,
         signal_type: 'follow',
