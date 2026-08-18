@@ -26,7 +26,10 @@ const TABS: { id: TabId; label: string }[] = [
 
 export function LookingForTabs({ active, onChange }: Props) {
   return (
-    <div className="border-b border-zinc-800">
+    <div className="relative border-b border-zinc-800">
+      {/* Subtle gradient underline shadow */}
+      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
+
       <div className="flex gap-1 -mb-px overflow-x-auto scrollbar-hide">
         {TABS.map(t => {
           const isActive = active === t.id
@@ -35,13 +38,28 @@ export function LookingForTabs({ active, onChange }: Props) {
               key={t.id}
               onClick={() => onChange(t.id)}
               className={
-                'py-3 px-4 text-[13.5px] font-semibold whitespace-nowrap transition-colors border-b-2 ' +
+                'relative py-3 px-4 text-[13.5px] font-semibold whitespace-nowrap transition-all ' +
                 (isActive
-                  ? 'text-white border-white'
-                  : 'text-zinc-500 border-transparent hover:text-zinc-200')
+                  ? 'text-white'
+                  : 'text-zinc-500 hover:text-zinc-200')
               }
             >
-              {t.label}
+              <span className="relative z-10">{t.label}</span>
+
+              {/* 3D active indicator with gradient */}
+              {isActive && (
+                <>
+                  {/* Bottom bar with gradient + glow */}
+                  <span
+                    className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-gradient-to-r from-white/20 via-white to-white/20"
+                    style={{
+                      boxShadow: '0 0 12px rgba(255,255,255,0.4), 0 0 4px rgba(255,255,255,0.6)',
+                    }}
+                  />
+                  {/* Subtle background glow */}
+                  <span className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-8 rounded-lg bg-gradient-to-b from-white/[0.03] to-white/[0.01] pointer-events-none" />
+                </>
+              )}
             </button>
           )
         })}

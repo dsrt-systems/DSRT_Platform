@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
+import { TextB, TextItalic, TextUnderline, TextStrikethrough, LinkSimple } from '@phosphor-icons/react'
 
 interface Props {
   draft: any
@@ -208,6 +209,9 @@ export function TemplateEditor({ draft, onUpdate }: Props) {
           }}
         />
       )}
+
+      {/* Floating text formatter (appears on text selection) */}
+      <TextFormatToolbar />
     </div>
   )
 }
@@ -384,4 +388,87 @@ function BlockView({
         </div>
       )
   }
+}
+
+// ─── Floating text formatting toolbar ───
+export function TextFormatToolbar() {
+  const [visible, setVisible] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        setVisible(false)
+        return
+      }
+
+      // Only show for selections inside contenteditable
+      const range = sel.getRangeAt(0)
+      const node = range.commonAncestorContainer as Node
+      const el = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as HTMLElement
+      if (!el?.closest('[contenteditable="true"]')) {
+        setVisible(false)
+        return
+      }
+
+      const rect = range.getBoundingClientRect()
+      if (rect.width === 0 && rect.height === 0) {
+        setVisible(false)
+        return
+      }
+
+      setPosition({
+        top: rect.top - 42,
+        left: rect.left + rect.width / 2,
+      })
+      setVisible(true)
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => document.removeEventListener('selectionchange', handleSelectionChange)
+  }, [])
+
+  const exec = (cmd: string, value?: string) => {
+    document.execCommand(cmd, false, value)
+  }
+
+  const wrapLink = () => {
+    const url = window.prompt('Enter URL:')
+    if (!url) return
+    exec('createLink', url)
+  }
+
+  if (!visible) return null
+
+  return (
+    <div
+      className="fixed z-50 flex items-center gap-0.5 h-9 px-1 rounded-md border border-zinc-700 bg-[#111] shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+      style={{
+        top: position.top,
+        left: position.left,
+        transform: 'translateX(-50%)',
+      }}
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <FormatButton onClick={() => exec('bold')} Icon={TextB} label="Bold" />
+      <FormatButton onClick={() => exec('italic')} Icon={TextItalic} label="Italic" />
+      <FormatButton onClick={() => exec('underline')} Icon={TextUnderline} label="Underline" />
+      <FormatButton onClick={() => exec('strikeThrough')} Icon={TextStrikethrough} label="Strikethrough" />
+      <div className="w-px h-5 bg-zinc-800 mx-0.5" />
+      <FormatButton onClick={wrapLink} Icon={LinkSimple} label="Link" />
+    </div>
+  )
+}
+
+function FormatButton({ onClick, Icon, label }: { onClick: () => void; Icon: any; label: string }) {
+  return (
+    <button
+      onMouseDown={(e) => { e.preventDefault(); onClick() }}
+      title={label}
+      className="w-7 h-7 rounded flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+    >
+      <Icon size={12} weight="bold" />
+    </button>
+  )
 }

@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { PulseTabs } from '@/components/pulse/PulseTabs'
-import { AutoRefresh } from '@/components/feed/AutoRefresh'
-
+import { AutoRefresh } from '@/components/shared/AutoRefresh'
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
 

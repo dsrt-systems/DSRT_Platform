@@ -166,7 +166,13 @@ export function OpportunityCard({ opportunity, onSave }: Props) {
   return (
     <Link
       href={`/looking-for/${opportunity.slug}?source=opportunity`}
-      className="group block rounded-xl border border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 hover:bg-zinc-950/70 transition-all"
+      className={
+        'group block rounded-xl border border-zinc-800/60 transition-all ' +
+        'bg-gradient-to-b from-zinc-900/40 via-zinc-950/40 to-zinc-950/60 ' +
+        'hover:border-zinc-700/80 hover:-translate-y-[1px] ' +
+        'shadow-[0_1px_0_rgba(255,255,255,0.025)_inset,0_2px_10px_rgba(0,0,0,0.25)] ' +
+        'hover:shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_4px_16px_rgba(0,0,0,0.4)]'
+      }
     >
       <div className="p-5">
         <div className="flex gap-4">
@@ -292,8 +298,13 @@ export function OpportunityCard({ opportunity, onSave }: Props) {
               </div>
             )}
 
-            {/* CTA */}
-            <div className="inline-flex items-center h-8 px-3 rounded-md border border-zinc-800 group-hover:border-zinc-600 group-hover:bg-zinc-900 text-[12px] font-semibold text-zinc-300 group-hover:text-white transition-all">
+                        {/* CTA */}
+            <div className={
+              'inline-flex items-center h-8 px-3 rounded-md border text-[12px] font-semibold transition-all ' +
+              'border-zinc-800 bg-zinc-900/40 text-zinc-300 ' +
+              'group-hover:border-zinc-600 group-hover:bg-gradient-to-b group-hover:from-zinc-800 group-hover:to-zinc-900 group-hover:text-white ' +
+              'group-hover:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]'
+            }>
               View Details
             </div>
           </div>

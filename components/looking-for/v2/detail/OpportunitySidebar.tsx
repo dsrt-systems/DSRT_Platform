@@ -16,7 +16,11 @@ export function OpportunitySidebar({
   const comp = formatCompensation(opportunity)
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 shadow-[0_4px_24px_rgba(0,0,0,0.4)] overflow-hidden sticky top-32">
+    <div className={
+      'rounded-xl border border-zinc-800/60 overflow-hidden ' +
+      'bg-gradient-to-b from-zinc-900/40 via-zinc-950/40 to-zinc-950/60 ' +
+      'shadow-[0_1px_0_rgba(255,255,255,0.03)_inset,0_4px_24px_rgba(0,0,0,0.4)]'
+    }>
       {/* Compensation block */}
       {comp && (
         <div className="p-5 border-b border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent">

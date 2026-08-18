@@ -10,6 +10,7 @@ import { OpportunityFeed } from './OpportunityFeed'
 import { SortDropdown } from './SortDropdown'
 import { MyCategoriesPanel } from './MyCategoriesPanel'
 import { RecommendedChips } from './RecommendedChips'
+import { CompactBanners } from './CompactBanners'
 import { MyOpportunitiesTab } from './tabs/MyOpportunitiesTab'
 import { ApplicationsTab } from './tabs/ApplicationsTab'
 import { SavedTab } from './tabs/SavedTab'
@@ -53,14 +54,19 @@ export function LookingForPageV2() {
   const isExplore = activeTab === 'explore'
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-zinc-100">
+    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-5 md:py-6">
 
         {/* Header */}
         <LookingForHeader onCreate={goCreate} />
 
-        {/* Search */}
+        {/* Compact banners */}
         <div className="mt-5">
+          <CompactBanners />
+        </div>
+
+        {/* Search */}
+        <div className="mt-4">
           <SearchBar value={query} onChange={setQuery} />
         </div>
 
@@ -79,9 +85,10 @@ export function LookingForPageV2() {
 
             {/* Center: Feed */}
             <main className="min-w-0 order-1 lg:order-2">
-              {/* Feed header */}
               <div className="flex items-center justify-between mb-4">
-                <FeedCount filters={filters} query={query} />
+                <div className="text-[13px] text-zinc-400 font-medium">
+                  Loading opportunities...
+                </div>
                 <SortDropdown value={sort} onChange={setSort} />
               </div>
 
@@ -113,28 +120,15 @@ export function LookingForPageV2() {
             {activeTab === 'saved' && <SavedTab />}
             {activeTab === 'suggested' && <SuggestedTab />}
             {activeTab === 'people' && <PeopleTab />}
-            {activeTab === 'categories' && <CategoriesTab onCategoryPick={(slug) => {
-              setActiveTab('explore')
-              setFilters(f => ({ ...f, category: slug }))
-            }} />}
+            {activeTab === 'categories' && (
+              <CategoriesTab onCategoryPick={(slug: string) => {
+                setActiveTab('explore')
+                setFilters(f => ({ ...f, category: slug }))
+              }} />
+            )}
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-// ─── Feed count header ───
-function FeedCount({ filters, query }: { filters: FilterState; query: string }) {
-  const [total, setTotal] = useState<number | null>(null)
-
-  // The OpportunityFeed component will re-fetch and update this via callback
-  // For now, show a subtle placeholder
-  return (
-    <div className="text-[13px] text-zinc-400 font-medium">
-      {total !== null
-        ? `${total.toLocaleString()} ${total === 1 ? 'opportunity' : 'opportunities'} found`
-        : 'Loading opportunities...'}
     </div>
   )
 }

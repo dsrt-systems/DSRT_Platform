@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { MessageSquare, MessageCircle, Bell, FileText, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { PostCard } from '@/components/feed/PostCard'
+import { PostCard } from '@/components/shared/PostCard'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const tabs = [

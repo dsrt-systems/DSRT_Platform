@@ -130,7 +130,11 @@ export function FiltersPanel({ filters, onChange }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40">
+    <div className={
+      'rounded-xl border border-zinc-800/60 ' +
+      'bg-gradient-to-b from-zinc-900/40 to-zinc-950/60 ' +
+      'shadow-[0_1px_0_rgba(255,255,255,0.03)_inset,0_2px_12px_rgba(0,0,0,0.25)]'
+    }>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
         <h3 className="text-[13px] font-bold text-white">

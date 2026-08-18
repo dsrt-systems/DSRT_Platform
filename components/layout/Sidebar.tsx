@@ -18,7 +18,7 @@ interface SidebarProps {
 }
 
 const mainNav = [
-  { name: 'Home', href: '/feed', icon: Home },
+  { name: 'Home', href: '/home', icon: Home },
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Ventures', href: '/ventures', icon: Rocket },
   { name: 'Looking For', href: '/looking-for', icon: Search },

@@ -185,16 +185,18 @@ export function OpportunityDetailPage({ id }: Props) {
                 <OpportunityBody opportunity={data} />
               </div>
 
-              {/* Right: Sidebar */}
-              <aside className="space-y-4 min-w-0">
-                <OpportunitySidebar
-                  opportunity={data}
-                  isOwner={isOwner}
-                  isClosed={isClosed}
-                  hasApplied={hasApplied}
-                  onApply={() => setShowApply(true)}
-                />
-                <PosterCard opportunity={data} />
+                            {/* Right: Sidebar */}
+              <aside className="min-w-0">
+                <div className="space-y-4 lg:sticky lg:top-[100px]">
+                  <OpportunitySidebar
+                    opportunity={data}
+                    isOwner={isOwner}
+                    isClosed={isClosed}
+                    hasApplied={hasApplied}
+                    onApply={() => setShowApply(true)}
+                  />
+                  <PosterCard opportunity={data} />
+                </div>
               </aside>
             </div>
           ) : (

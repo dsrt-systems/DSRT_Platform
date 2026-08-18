@@ -517,3 +517,9 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(82 82 91);
+  pointer-events: none;
+}

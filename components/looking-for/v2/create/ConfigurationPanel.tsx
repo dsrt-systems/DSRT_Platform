@@ -4,7 +4,7 @@ import { CategoryPicker } from './CategoryPicker'
 import { CompensationBuilder } from './CompensationBuilder'
 import { SkillsPicker } from './SkillsPicker'
 import { CustomQuestionsBuilder } from './CustomQuestionsBuilder'
-
+import { LocationAutocomplete } from './LocationAutocomplete'
 interface Props {
   draft: any
   onUpdate: (patch: any) => void
@@ -122,14 +122,12 @@ export function ConfigurationPanel({ draft, onUpdate }: Props) {
         />
       </Section>
 
-      {/* Location */}
+            {/* Location */}
       <Section title="Location">
-        <input
-          type="text"
+        <LocationAutocomplete
           value={draft?.location || ''}
-          onChange={(e) => onUpdate({ location: e.target.value || null })}
-          placeholder="City, country, or 'Anywhere'"
-          className="w-full h-9 px-3 rounded-md bg-zinc-950 border border-zinc-800 text-[12.5px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700"
+          onChange={(loc: string) => onUpdate({ location: loc || null })}
+          placeholder="Search any city worldwide..."
         />
       </Section>
 

@@ -217,7 +217,11 @@ function QuickFact({
   value: string
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3.5 shadow-[0_2px_12px_rgba(0,0,0,0.3)]">
+    <div className={
+      'rounded-xl border border-zinc-800/60 p-3.5 ' +
+      'bg-gradient-to-b from-zinc-900/40 to-zinc-950/60 ' +
+      'shadow-[0_1px_0_rgba(255,255,255,0.03)_inset,0_2px_10px_rgba(0,0,0,0.25)]'
+    }>
       <div className="flex items-center gap-1.5 mb-1.5">
         <Icon size={11} weight="regular" className="text-zinc-500" />
         <span className="text-[10.5px] font-bold uppercase tracking-wider text-zinc-500">
