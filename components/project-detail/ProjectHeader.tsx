@@ -8,6 +8,7 @@ import {
   ShareNetwork
 } from '@phosphor-icons/react'
 import { ImageCropperModal } from './ImageCropperModal'
+import { ConnectButton } from '@/components/shared/ConnectButton'
 
 interface Project {
   id: string
@@ -43,7 +44,6 @@ interface Props {
   isOwner: boolean
   isFollowing: boolean
   onFollowToggle: () => Promise<void>
-  onMessage: () => void
   onCollaborate: () => void
   onUpdate: (patch: Partial<Project>) => Promise<void>
   onUploadMedia: (file: File, kind: 'logo' | 'cover') => Promise<string | null>
@@ -63,7 +63,7 @@ function formatFoundedDate(d: string | null): string {
 
 export function ProjectHeader({
   project, isOwner, isFollowing,
-  onFollowToggle, onMessage, onCollaborate,
+  onFollowToggle, onCollaborate,
   onUpdate, onUploadMedia
 }: Props) {
   const router = useRouter()
@@ -129,7 +129,6 @@ export function ProjectHeader({
 
   return (
     <>
-      {/* Back */}
       <div className="mb-4">
         <button
           onClick={() => router.back()}
@@ -139,9 +138,7 @@ export function ProjectHeader({
         </button>
       </div>
 
-      {/* Banner card */}
       <div className="relative rounded-2xl overflow-hidden bg-white/[0.03] border border-white/[0.08] mb-5">
-        {/* Cover */}
         <div className="relative w-full h-[180px] md:h-[220px] overflow-hidden bg-gradient-to-br from-[#1a1030] via-[#0f0a1f] to-[#0a0420] group/cover">
           {project.cover_image_url ? (
             <img src={project.cover_image_url} alt="" className="w-full h-full object-cover" />
@@ -163,10 +160,8 @@ export function ProjectHeader({
           )}
         </div>
 
-        {/* Content overlaid on bottom of banner */}
         <div className="px-6 md:px-8 pb-6 pt-4 -mt-16 md:-mt-20 relative z-10">
           <div className="flex flex-col md:flex-row md:items-end gap-5">
-            {/* Logo */}
             <div className="relative flex-shrink-0 group/logo">
               <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-[#12121a] border-2 border-white/10 overflow-hidden flex items-center justify-center shadow-2xl">
                 {project.logo_url ? (
@@ -189,9 +184,7 @@ export function ProjectHeader({
               )}
             </div>
 
-            {/* Text block */}
             <div className="flex-1 min-w-0">
-              {/* Row 1: Name + stage */}
               <div className="flex flex-wrap items-center gap-3 mb-2">
                 {editingName ? (
                   <input
@@ -235,7 +228,6 @@ export function ProjectHeader({
                 )}
               </div>
 
-              {/* Row 2: Description */}
               {editingDesc ? (
                 <input
                   autoFocus
@@ -256,7 +248,6 @@ export function ProjectHeader({
                 </p>
               )}
 
-              {/* Row 3: Meta line */}
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-white/50 mb-3">
                 <span className="font-mono text-white/40">{project.project_number}</span>
                 <span className="text-white/25">·</span>
@@ -280,7 +271,6 @@ export function ProjectHeader({
                 )}
               </div>
 
-              {/* Row 4: Industry + tech chips */}
               {(project.industry || (project.tech_stack || []).length > 0) && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {project.industry && (
@@ -296,7 +286,6 @@ export function ProjectHeader({
                 </div>
               )}
 
-              {/* Row 5: Trust badges */}
               <div className="flex flex-wrap gap-1.5">
                 {project.founder_verified && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-300 bg-blue-500/10 border border-blue-500/25 px-2 py-0.5 rounded">
@@ -326,7 +315,6 @@ export function ProjectHeader({
               </div>
             </div>
 
-            {/* Actions */}
             {!isOwner && (
               <div className="flex md:flex-col gap-2 w-full md:w-auto md:min-w-[140px] flex-shrink-0">
                 <button
@@ -347,19 +335,24 @@ export function ProjectHeader({
                 >
                   <UsersThree size={13} /> Collaborate
                 </button>
-                <button
-                  onClick={onMessage}
-                  className="flex-1 md:flex-none h-9 px-4 rounded-md font-semibold text-[13px] bg-transparent border border-white/[0.12] text-white/85 hover:bg-white/[0.05] hover:text-white flex items-center justify-center gap-1.5"
-                >
-                  <ChatCircle size={13} /> Message
-                </button>
+                <ConnectButton
+                  entityType="project"
+                  entityId={project.id}
+                  entityName={project.name}
+                  entitySlug={project.slug || project.project_number}
+                  sourceType="project_invite"
+                  label="Message"
+                  variant="outline"
+                  icon={true}
+                  className="flex-1 md:flex-none"
+                />
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {cropperSrc && (
+      {cropperSrc && cropperKind && (
         <ImageCropperModal
           imageSrc={cropperSrc}
           aspect={cropperAspect}

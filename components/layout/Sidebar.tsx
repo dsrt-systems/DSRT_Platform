@@ -22,7 +22,7 @@ const mainNav = [
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Ventures', href: '/ventures', icon: Rocket },
   { name: 'Looking For', href: '/looking-for', icon: Search },
-  { name: 'Inbox', href: '/inbox', icon: Inbox, badge: 'inbox' },
+  { name: 'DSRT Mail', href: '/inbox', icon: Inbox, badge: 'inbox' },
 ]
 
 const communityNav = [

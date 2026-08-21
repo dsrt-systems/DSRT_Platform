@@ -180,11 +180,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }).then(() => {}, () => {})
 
   // Refresh scoring cache (existing behavior)
-  await supabase.rpc('fn_calculate_team_up_score', {
-    p_user_id: user.id,
-    p_source_type: source_type,
-    p_source_id: id,
-  }).catch(() => null)
+  try {
+    await supabase.rpc('fn_calculate_team_up_score', {
+      p_user_id: user.id,
+      p_source_type: source_type,
+      p_source_id: id,
+    })
+  } catch {}
 
   return NextResponse.json({ application }, { status: 201 })
 }

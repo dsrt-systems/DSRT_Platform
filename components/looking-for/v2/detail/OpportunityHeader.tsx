@@ -5,6 +5,7 @@ import {
   ArrowLeft, BookmarkSimple, ShareNetwork, Flag,
   PencilSimple, CheckCircle,
 } from '@phosphor-icons/react'
+import { ConnectButton } from '@/components/shared/ConnectButton'
 
 interface Props {
   opportunity: any
@@ -13,7 +14,6 @@ interface Props {
   isOwner: boolean
   isClosed: boolean
   hasApplied: boolean
-  onApply: () => void
   onSave: () => void
   onShare: () => void
   onReport: () => void
@@ -23,11 +23,10 @@ interface Props {
 export function OpportunityHeader({
   opportunity, tab, onTabChange,
   isOwner, isClosed, hasApplied,
-  onApply, onSave, onShare, onReport, onBack,
+  onSave, onShare, onReport, onBack,
 }: Props) {
   return (
     <header className="sticky top-0 z-30 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-zinc-800">
-      {/* Top row: Back + Actions */}
       <div className="max-w-[1200px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
         <button
           onClick={onBack}
@@ -68,17 +67,21 @@ export function OpportunityHeader({
               Applications closed
             </button>
           ) : (
-            <button
-              onClick={onApply}
-              className="inline-flex items-center h-8 px-4 rounded-md bg-white text-black hover:bg-zinc-200 text-[12.5px] font-semibold transition-colors shadow-[0_2px_8px_rgba(255,255,255,0.1)]"
-            >
-              Apply
-            </button>
+            <ConnectButton 
+              entityType="opportunity" 
+              entityId={opportunity.id} 
+              entityName={opportunity.title} 
+              entitySlug={opportunity.id} 
+              sourceType="application"
+              label="Apply Now"
+              variant="primary"
+              icon={true}
+              size="sm"
+            />
           )}
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="max-w-[1200px] mx-auto px-6">
         <div className="flex items-center gap-6">
           <TabButton active={tab === 'opportunity'} onClick={() => onTabChange('opportunity')}>

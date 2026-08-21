@@ -1,10 +1,12 @@
-﻿import { InboxPage } from '@/components/inbox/InboxPage'
+﻿import { MailPage } from '@/components/mail/MailPage'
 
 export const metadata = {
-  title: 'Inbox | DSRT Connect',
-  description: 'Your connections, applications, and messages.',
+  title: 'DSRT Mail',
+  description: 'Unified communication for DSRT Connect',
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function Page() {
-  return <InboxPage />
+  return <MailPage />
 }
