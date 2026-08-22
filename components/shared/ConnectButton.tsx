@@ -8,7 +8,7 @@ interface ConnectButtonProps {
   entityType: 'user' | 'venture' | 'project' | 'opportunity'
   entityId: string
   entityName: string
-  entitySlug: string
+  entitySlug?: string // Made optional just in case
   sourceType?: 'connect' | 'application' | 'venture_invite' | 'project_invite' | 'direct'
   label?: string
   size?: 'sm' | 'md' | 'lg'
@@ -25,7 +25,9 @@ export function ConnectButton({
   const { openCompose } = useComposer()
 
   const handleOpen = () => {
-    const dsrt_email = `${entitySlug.toLowerCase()}@dsrt.com`
+    // Safe slug generation fallback to prevent the toLowerCase() crash
+    const safeSlug = entitySlug || entityName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+    const dsrt_email = `${safeSlug.toLowerCase()}@dsrt.com`
 
     let subject = `Connecting regarding ${entityName}`
     if (sourceType === 'application') subject = `Application for ${entityName}`

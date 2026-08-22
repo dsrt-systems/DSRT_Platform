@@ -7,9 +7,7 @@ import {
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { MailIdentityProvider } from './hooks/useMailIdentity'
-import { ComposerProvider, useComposer } from './composer/ComposerContext'
-import { ComposerModal } from './composer/ComposerModal'
+import { useComposer } from './composer/ComposerContext'
 import { MessageCard } from './reading/MessageCard'
 import { QuickReplyBar } from './reading/QuickReplyBar'
 
@@ -17,7 +15,7 @@ interface Props {
   threadId: string
 }
 
-function ThreadDetailShell({ threadId }: Props) {
+export function ThreadDetailPage({ threadId }: Props) {
   const router = useRouter()
   const { openCompose } = useComposer()
   const [thread, setThread] = useState<any>(null)
@@ -214,18 +212,6 @@ ${lastMessage.body_html || lastMessage.body_text || ''}
           )}
         </div>
       </div>
-
-      <ComposerModal />
     </div>
-  )
-}
-
-export function ThreadDetailPage({ threadId }: Props) {
-  return (
-    <MailIdentityProvider>
-      <ComposerProvider>
-        <ThreadDetailShell threadId={threadId} />
-      </ComposerProvider>
-    </MailIdentityProvider>
   )
 }

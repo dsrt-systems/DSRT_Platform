@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { At, User, CircleNotch, ArrowRight } from '@phosphor-icons/react'
+import { At, CircleNotch, ArrowRight } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
 import { AuthInput } from './AuthInput'
 import { PasswordInput } from './PasswordInput'
@@ -14,12 +15,11 @@ import type { AuthView } from './AuthShell'
 
 interface Props {
   onSwitchView: (view: AuthView) => void
-  onVerify: (email: string) => void
 }
 
-export function SignUpForm({ onSwitchView, onVerify }: Props) {
+export function SignInForm({ onSwitchView }: Props) {
+  const router = useRouter()
   const supabase = createClient()
-  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,42 +31,37 @@ export function SignUpForm({ onSwitchView, onVerify }: Props) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { 
-          redirectTo: `${window.location.origin}/callback?next=/onboarding` 
+          redirectTo: `${window.location.origin}/callback?next=/home` 
         }
       })
       if (error) throw error
     } catch (err: any) {
-      toast.error(err.message)
+      toast.error(err.message || `Failed to connect to ${provider}`)
       setOauthLoading(null)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!fullName || !email || !password) return toast.error('All fields are required')
-    if (password.length < 8) return toast.error('Password must be at least 8 characters')
+    if (!email || !password) return toast.error('Please fill in all fields')
 
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-          emailRedirectTo: `${window.location.origin}/callback?next=/onboarding`
-        }
-      })
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
+      if (!data.user) throw new Error('Sign in failed')
 
-      if (!data.session) {
-        onVerify(email)
-      } else {
-        toast.success('Account created!')
-        window.location.href = '/onboarding'
-      }
+      const { data: profile } = await supabase
+        .from('users')
+        .select('onboarding_complete')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      toast.success('Welcome back!')
+      router.refresh()
+      router.push(profile?.onboarding_complete ? '/home' : '/onboarding')
     } catch (err: any) {
-      toast.error(err.message || 'Failed to create account')
+      toast.error('Incorrect email or password.')
       setLoading(false)
     }
   }
@@ -74,8 +69,8 @@ export function SignUpForm({ onSwitchView, onVerify }: Props) {
   return (
     <div>
       <div className="text-center mb-6">
-        <h1 className="text-[22px] font-bold text-white tracking-tight">Create your account</h1>
-        <p className="text-[13px] text-white/50 mt-1">Join the DSRT builder ecosystem.</p>
+        <h1 className="text-[22px] font-bold text-white tracking-tight">Welcome back</h1>
+        <p className="text-[13px] text-white/50 mt-1">Continue where you left off.</p>
       </div>
 
       <div className="space-y-2.5">
@@ -99,25 +94,15 @@ export function SignUpForm({ onSwitchView, onVerify }: Props) {
         </OAuthButton>
       </div>
 
-      <AuthDivider label="or use email" />
+      <AuthDivider />
 
-      <form onSubmit={handleSubmit} className="space-y-3.5">
-        <AuthInput
-          label="Full Name"
-          name="fullName"
-          autoComplete="name"
-          autoFocus
-          placeholder="Jisu Mondal"
-          leading={<User className="w-4 h-4" weight="bold" />}
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-        />
-
+      <form onSubmit={handleSubmit} className="space-y-4">
         <AuthInput
           label="Email"
           type="email"
           name="email"
           autoComplete="email"
+          autoFocus
           placeholder="name@example.com"
           leading={<At className="w-4 h-4" weight="bold" />}
           value={email}
@@ -127,10 +112,12 @@ export function SignUpForm({ onSwitchView, onVerify }: Props) {
         <PasswordInput
           label="Password"
           name="password"
-          autoComplete="new-password"
-          placeholder="Minimum 8 characters"
+          autoComplete="current-password"
+          placeholder="Enter your password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          showForgotLink
+          onForgotClick={() => onSwitchView('forgot')}
         />
 
         <button
@@ -147,7 +134,7 @@ export function SignUpForm({ onSwitchView, onVerify }: Props) {
             <CircleNotch className="w-5 h-5 animate-spin" weight="bold" />
           ) : (
             <>
-              Create account
+              Sign in to DSRT
               <ArrowRight className="w-4 h-4" weight="bold" />
             </>
           )}
@@ -155,12 +142,12 @@ export function SignUpForm({ onSwitchView, onVerify }: Props) {
       </form>
 
       <p className="text-center text-[13px] text-white/50 font-medium mt-6">
-        Already have an account?{' '}
+        New to DSRT?{' '}
         <button 
-          onClick={() => onSwitchView('signin')} 
+          onClick={() => onSwitchView('signup')} 
           className="text-[#4F7CFF] hover:text-[#7093FF] font-semibold transition-colors"
         >
-          Sign in
+          Create account
         </button>
       </p>
     </div>

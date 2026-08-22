@@ -1,60 +1,57 @@
-import { SignupForm } from '@/components/auth/SignupForm'
-import { LogoSphere } from '@/components/shared/LogoSphere'
-import { PublicNav } from '@/components/public/PublicNav'
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import { LandingHeader } from '@/components/landing/LandingHeader'
+import { HeroSection } from '@/components/landing/HeroSection'
+import { LandingFooter } from '@/components/landing/LandingFooter'
+import { AuthShell } from '@/components/auth/AuthShell'
+import { AuthErrorToast } from '@/components/auth/AuthErrorToast'
+import { Snowflakes } from '@/components/shared/Snowflakes'
 
 export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
-  title: 'Sign Up — DSRT AI',
+  title: 'Sign up — DSRT',
+  description: 'Join the intelligent network for builders, projects, and ventures.',
 }
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen bg-background flex relative">
-      <PublicNav />
+    <div className="min-h-screen bg-[#05070D] text-white flex flex-col relative overflow-hidden">
+      <Suspense fallback={null}>
+        <AuthErrorToast />
+      </Suspense>
 
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-[#050510] via-[#0a0f20] to-[#0f1830]">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(circle at 50% 40%, rgba(74, 107, 160, 0.15) 0%, transparent 60%)',
-          }}
-        />
+      {/* Gentle full-page falling snow */}
+      <Snowflakes />
 
-        <div className="absolute inset-0 flex items-center justify-center p-16">
-          <div className="w-full h-full max-w-[500px] max-h-[500px]">
-            <LogoSphere />
+      <LandingHeader />
+
+      <main className="flex-1 flex flex-col lg:flex-row w-full">
+        {/* LEFT — Image & Hero (Hidden on small mobile to prioritize signup form) */}
+        <div className="hidden lg:flex flex-col justify-center w-1/2 relative p-12 xl:p-20 border-r border-white/[0.06]">
+          {/* Static Background Image with Overlays */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 mix-blend-screen"
+            style={{ backgroundImage: `url('/auth-bg.jpg')` }} 
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#05070D]/95 via-[#05070D]/75 to-[#05070D]/35" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#05070D] via-transparent to-[#05070D]/40" />
+
+          {/* Content */}
+          <div className="relative z-10">
+            <HeroSection />
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 z-10 p-10 pointer-events-none">
-          <div className="space-y-3">
-            <h2 className="text-4xl font-bold text-white leading-tight tracking-tight">
-              Join the
-              <br />
-              <span className="text-white/70">builder ecosystem.</span>
-            </h2>
-            <p className="text-sm text-white/50 max-w-md leading-relaxed">
-              Where the next generation of founders, engineers, and designers
-              find each other.
-            </p>
-          </div>
-
-          <div className="mt-8 text-[10px] text-white/30 tracking-wider">
-            © 2025 DSRT AI · dsrtai.com
-          </div>
+        {/* RIGHT — Auth Panel */}
+        <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-[#05070D] relative z-10 w-full lg:w-1/2">
+          {/* Note: initialView is 'signup' */}
+          <AuthShell initialView="signup" /> 
         </div>
-      </div>
+      </main>
 
-      <div className="flex-1 flex items-center justify-center p-6 md:p-8 pt-24">
-        <SignupForm />
-      </div>
-
-      <div className="absolute bottom-3 right-8 pointer-events-none">
-        <p className="text-[10px] text-muted-foreground/40 font-light tracking-wide italic">
-          dedicated to my beautiful wife hajra
-        </p>
+      <div className="relative z-10">
+        <LandingFooter />
       </div>
     </div>
   )

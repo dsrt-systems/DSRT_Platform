@@ -1,88 +1,54 @@
-import { LoginForm } from '@/components/auth/LoginForm'
-import { LogoSphere } from '@/components/shared/LogoSphere'
-import { PublicNav } from '@/components/public/PublicNav'
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import { LandingHeader } from '@/components/landing/LandingHeader'
+import { HeroSection } from '@/components/landing/HeroSection'
+import { LandingFooter } from '@/components/landing/LandingFooter'
+import { AuthShell } from '@/components/auth/AuthShell'
+import { AuthErrorToast } from '@/components/auth/AuthErrorToast'
+import { Snowflakes } from '@/components/shared/Snowflakes'
 
-export const dynamic = 'force-dynamic' 
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'DSRT AI — Build with the right people',
-  description:
-    'DSRT AI is the professional builder ecosystem. Join thousands of founders, engineers, designers, and investors.',
+  title: 'Log in — DSRT',
+  description: 'Log in to DSRT to continue building.',
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-background flex relative">
-      <PublicNav />
+    <div className="min-h-screen bg-[#05070D] text-white flex flex-col relative overflow-hidden">
+      <Suspense fallback={null}>
+        <AuthErrorToast />
+      </Suspense>
 
-      {/* Left — 3D sphere + branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-[#050510] via-[#0a0f20] to-[#0f1830]">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(circle at 50% 40%, rgba(74, 107, 160, 0.15) 0%, transparent 60%)',
-          }}
-        />
+      {/* Soft snow over entire page */}
+      <Snowflakes />
 
-        <div
-          className="absolute inset-0 opacity-[0.015] pointer-events-none mix-blend-overlay"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-          }}
-        />
+      <LandingHeader />
 
-        <div className="absolute inset-0 flex items-center justify-center p-16">
-          <div className="w-full h-full max-w-[500px] max-h-[500px]">
-            <LogoSphere />
+      <main className="flex-1 flex flex-col lg:flex-row w-full relative z-10">
+        {/* LEFT — banner + hero */}
+        <div className="hidden lg:flex flex-col justify-center w-1/2 relative p-12 xl:p-20 border-r border-white/[0.06]">
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url('/auth-bg.jpg')` }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#05070D]/95 via-[#05070D]/75 to-[#05070D]/35" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#05070D] via-transparent to-[#05070D]/40" />
+
+          <div className="relative z-10">
+            <HeroSection />
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 z-10 p-10 pointer-events-none">
-          <div className="space-y-3">
-            <h2 className="text-4xl font-bold text-white leading-tight tracking-tight">
-              Build with the
-              <br />
-              <span className="text-white/70">right people.</span>
-            </h2>
-            <p className="text-sm text-white/50 max-w-md leading-relaxed">
-              The AI-native builder ecosystem for founders, engineers,
-              designers, and investors.
-            </p>
-          </div>
-
-          <div className="mt-8 space-y-2">
-            {[
-              'Find co-founders across institutions',
-              'Ship projects with real collaborators',
-              'Get AI-powered advice, 24/7',
-            ].map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-2.5 text-xs text-white/60"
-              >
-                <div className="w-1 h-1 rounded-full bg-white/40" />
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 text-[10px] text-white/30 tracking-wider">
-            © 2025 DSRT AI · dsrtai.com
-          </div>
+        {/* RIGHT — auth */}
+        <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-[#05070D] w-full lg:w-1/2">
+          <AuthShell initialView="signin" />
         </div>
-      </div>
+      </main>
 
-      {/* Right — form */}
-      <div className="flex-1 flex items-center justify-center p-6 md:p-8 pt-24">
-        <LoginForm />
-      </div>
-
-      <div className="absolute bottom-3 right-8 pointer-events-none">
-        <p className="text-[10px] text-muted-foreground/40 font-light tracking-wide italic">
-          dedicated to my beautiful wife hajra
-        </p>
+      <div className="relative z-10">
+        <LandingFooter />
       </div>
     </div>
   )

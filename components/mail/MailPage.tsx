@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MailIdentityProvider, useOnIdentityChange } from './hooks/useMailIdentity'
-import { ComposerProvider, useComposer } from './composer/ComposerContext'
-import { ComposerModal } from './composer/ComposerModal'
+import { useOnIdentityChange } from './hooks/useMailIdentity'
+import { useComposer } from './composer/ComposerContext'
 import { MailTopbar } from './MailTopbar'
 import { MailSidebar } from './MailSidebar'
 import { MailTabs, MailTab } from './MailTabs'
@@ -13,7 +12,7 @@ import { AdvancedFilterBar, MailFilters } from './AdvancedFilterBar'
 import { useMailShortcuts } from './hooks/useMailShortcuts'
 import { MailCommandPalette } from './MailCommandPalette'
 
-function MailShell() {
+export function MailPage() {
   const { openCompose } = useComposer()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [cocoOpen, setCocoOpen] = useState(false)
@@ -100,7 +99,6 @@ function MailShell() {
           <AdvancedFilterBar filters={filters} onChange={setFilters} />
           
           <div className="flex-1 flex overflow-hidden min-h-0">
-            {/* Thread list now takes up the entire space */}
             <ThreadList
               key={refreshKey + '-' + folder + '-' + activeTab + '-' + JSON.stringify(filters)}
               activeFolder={folder}
@@ -120,22 +118,11 @@ function MailShell() {
         />
       </div>
 
-      <ComposerModal />
       <MailCommandPalette 
         isOpen={cmdPaletteOpen} 
         onClose={() => setCmdPaletteOpen(false)} 
         onSelectAction={executeCommand} 
       />
     </div>
-  )
-}
-
-export function MailPage() {
-  return (
-    <MailIdentityProvider>
-      <ComposerProvider>
-        <MailShell />
-      </ComposerProvider>
-    </MailIdentityProvider>
   )
 }
