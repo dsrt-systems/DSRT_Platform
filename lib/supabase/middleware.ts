@@ -31,61 +31,56 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // MUST run immediately after createServerClient
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   const pathname = request.nextUrl.pathname
 
-  // 1. Explicit Unprotected / Callback / Password Reset exceptions
+  // 1. Always allow auth callbacks, static assets, and password resets
   const bypassRoutes = [
     '/callback',
     '/auth/callback',
     '/reset-password',
     '/forgot-password',
     '/api',
+    '/_next',
+    '/favicon.ico',
   ]
 
-  const isBypass = bypassRoutes.some((route) => pathname.startsWith(route))
-  if (isBypass) {
+  if (bypassRoutes.some((route) => pathname.startsWith(route))) {
     return supabaseResponse
   }
 
-  // 2. Protected App Routes
-  const protectedRoutes = [
-    '/home',
-    '/feed',
-    '/inbox',
-    '/explore',
-    '/community',
-    '/pulse',
-    '/projects',
-    '/ventures',
-    '/messages',
-    '/notifications',
-    '/profile',
-    '/settings',
-    '/onboarding',
-  ]
-
-  // 3. Auth pages
   const authRoutes = ['/login', '/signup']
-
-  const isProtected = protectedRoutes.some((route) => pathname.startsWith(route))
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
+  const isPublicRoot = pathname === '/'
 
-  // Unauthenticated user attempting to access protected route
-  if (!user && isProtected) {
+  // 2. Unauthenticated user trying to access app pages -> redirect to login
+  if (!user && !isAuthRoute && !isPublicRoot) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    
+    // Copy cookies to redirect response so session state is preserved
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value)
+    })
+    return redirectResponse
   }
 
-  // Authenticated user attempting to access /login or /signup
+  // 3. Authenticated user trying to access /login or /signup -> redirect to /home
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/home'
-    return NextResponse.redirect(url)
+    const redirectResponse = NextResponse.redirect(url)
+    
+    // Copy cookies to redirect response
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value)
+    })
+    return redirectResponse
   }
 
   return supabaseResponse
