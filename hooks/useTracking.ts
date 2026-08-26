@@ -74,3 +74,62 @@ export function usePostDwellTracker(postId: string, tags: string[] = []) {
 
   return ref
 }
+
+/**
+ * useViewTracking — fires a callback once when the element becomes visible.
+ * Safe no-op if IntersectionObserver isn't available.
+ */
+export function useViewTracking(
+  onView: () => void,
+  options: { threshold?: number; enabled?: boolean } = {}
+) {
+  const ref = useRef<HTMLElement | null>(null)
+  const fired = useRef(false)
+
+  useEffect(() => {
+    if (options.enabled === false) return
+    if (!ref.current || fired.current) return
+    if (typeof IntersectionObserver === 'undefined') return
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && !fired.current) {
+            fired.current = true
+            try { onView() } catch {}
+            obs.disconnect()
+          }
+        }
+      },
+      { threshold: options.threshold ?? 0.5 }
+    )
+    obs.observe(ref.current)
+    return () => obs.disconnect()
+  }, [onView, options.enabled, options.threshold])
+
+  return ref
+}
+
+/**
+ * useHoverTracking — fires a callback the first time the user hovers the element.
+ */
+export function useHoverTracking(onHover: () => void, enabled = true) {
+  const ref = useRef<HTMLElement | null>(null)
+  const fired = useRef(false)
+
+  useEffect(() => {
+    if (!enabled) return
+    const el = ref.current
+    if (!el) return
+    const handler = () => {
+      if (fired.current) return
+      fired.current = true
+      try { onHover() } catch {}
+      el.removeEventListener('mouseenter', handler)
+    }
+    el.addEventListener('mouseenter', handler)
+    return () => el.removeEventListener('mouseenter', handler)
+  }, [onHover, enabled])
+
+  return ref
+}
