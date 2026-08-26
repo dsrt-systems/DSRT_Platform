@@ -1,6 +1,7 @@
 'use client'
 
-import { CheckCircle, Clock, MapPin, Users, CalendarBlank, PaperPlaneTilt } from '@phosphor-icons/react'
+import { CheckCircle, Clock, MapPin, Users, CalendarBlank } from '@phosphor-icons/react'
+import { SmartApplyButton } from '@/components/looking-for/application-studio/SmartApplyButton'
 
 interface Props {
   opportunity: any
@@ -11,7 +12,7 @@ interface Props {
 }
 
 export function OpportunitySidebar({
-  opportunity, isOwner, isClosed, hasApplied, onApply,
+  opportunity, isOwner, isClosed,
 }: Props) {
   const comp = formatCompensation(opportunity)
 
@@ -37,34 +38,11 @@ export function OpportunitySidebar({
 
       {/* Apply CTA */}
       <div className="p-5 space-y-3">
-        {isOwner ? (
-          <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 text-center">
-            <p className="text-[12.5px] text-zinc-400">This is your opportunity</p>
-          </div>
-        ) : hasApplied ? (
-          <button
-            disabled
-            className="w-full h-11 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[13.5px] font-bold cursor-default inline-flex items-center justify-center gap-2"
-          >
-            <CheckCircle size={14} weight="fill" />
-            Application submitted
-          </button>
-        ) : isClosed ? (
-          <button
-            disabled
-            className="w-full h-11 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 text-[13.5px] font-semibold cursor-not-allowed"
-          >
-            Applications closed
-          </button>
-        ) : (
-          <button
-            onClick={onApply}
-            className="w-full h-11 rounded-md bg-white text-black hover:bg-zinc-200 text-[13.5px] font-bold transition-all shadow-[0_4px_16px_rgba(255,255,255,0.15)] inline-flex items-center justify-center gap-2"
-          >
-            <PaperPlaneTilt size={14} weight="fill" />
-            Apply Now
-          </button>
-        )}
+        <SmartApplyButton
+          opportunity={opportunity}
+          isOwner={isOwner}
+          isClosed={isClosed}
+        />
 
         <div className="text-[11.5px] text-zinc-500 text-center">
           {opportunity.application_count || 0} {opportunity.application_count === 1 ? 'applicant' : 'applicants'} so far
@@ -108,7 +86,7 @@ export function OpportunitySidebar({
 
       {/* Requirements */}
       {(opportunity.require_resume || opportunity.require_portfolio ||
-        opportunity.require_github || opportunity.require_cover_letter) && (
+        opportunity.require_github || opportunity.require_cover_letter || opportunity.require_website) && (
         <div className="border-t border-zinc-800 p-5">
           <h3 className="text-[10.5px] font-bold uppercase tracking-wider text-zinc-500 mb-3">
             Application requires

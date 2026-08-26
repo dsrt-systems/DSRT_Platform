@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ])
 
     // Check if current user saved / applied
-    let isSaved = false
+        let isSaved = false
     let hasApplied = false
     let applicationData = null
     if (user) {
@@ -57,8 +57,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           .select('id, pipeline_stage, status, created_at').eq('applicant_id', user.id).eq('opportunity_id', opportunity.id).maybeSingle(),
       ])
       isSaved = !!saveRes.data
-      hasApplied = !!appRes.data
-      applicationData = appRes.data
+      applicationData = appRes.data || null
+      // They are only considered "applied" if they passed the draft stage
+      hasApplied = !!appRes.data && appRes.data.pipeline_stage !== 'draft'
     }
 
     const isOwner = user?.id === opportunity.poster_user_id

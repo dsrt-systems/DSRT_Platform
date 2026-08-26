@@ -8,7 +8,6 @@ import { OpportunityHeader } from './OpportunityHeader'
 import { OpportunityBody } from './OpportunityBody'
 import { OpportunitySidebar } from './OpportunitySidebar'
 import { PosterCard } from './PosterCard'
-import { ApplyModal } from './ApplyModal'
 import { ShareModal } from './ShareModal'
 import { ReportModal } from './ReportModal'
 
@@ -25,7 +24,6 @@ export function OpportunityDetailPage({ id }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('opportunity')
 
-  const [showApply, setShowApply] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showReport, setShowReport] = useState(false)
 
@@ -63,7 +61,6 @@ export function OpportunityDetailPage({ id }: Props) {
         })())
       : undefined
 
-    // Initial view ping
     fetch(`/api/opportunities/${data.id}/view`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -75,7 +72,6 @@ export function OpportunityDetailPage({ id }: Props) {
       }),
     }).catch(() => {})
 
-    // Send dwell time on unmount
     return () => {
       const dwell = Date.now() - enter
       if (dwell > 2000 && typeof navigator !== 'undefined' && navigator.sendBeacon) {
@@ -168,7 +164,7 @@ export function OpportunityDetailPage({ id }: Props) {
         isOwner={isOwner}
         isClosed={isClosed}
         hasApplied={hasApplied}
-        onApply={() => setShowApply(true)}
+        onApply={() => router.push(`/looking-for/${data.id}/apply`)}
         onSave={handleSave}
         onShare={() => setShowShare(true)}
         onReport={() => setShowReport(true)}
@@ -185,7 +181,7 @@ export function OpportunityDetailPage({ id }: Props) {
                 <OpportunityBody opportunity={data} />
               </div>
 
-                            {/* Right: Sidebar */}
+              {/* Right: Sidebar */}
               <aside className="min-w-0">
                 <div className="space-y-4 lg:sticky lg:top-[100px]">
                   <OpportunitySidebar
@@ -193,7 +189,7 @@ export function OpportunityDetailPage({ id }: Props) {
                     isOwner={isOwner}
                     isClosed={isClosed}
                     hasApplied={hasApplied}
-                    onApply={() => setShowApply(true)}
+                    onApply={() => router.push(`/looking-for/${data.id}/apply`)}
                   />
                   <PosterCard opportunity={data} />
                 </div>
@@ -206,16 +202,6 @@ export function OpportunityDetailPage({ id }: Props) {
       </main>
 
       {/* Modals */}
-      {showApply && (
-        <ApplyModal
-          opportunity={data}
-          onClose={() => setShowApply(false)}
-          onSuccess={() => {
-            setShowApply(false)
-            setData((d: any) => d ? { ...d, has_applied: true } : d)
-          }}
-        />
-      )}
       {showShare && (
         <ShareModal
           opportunity={data}
@@ -232,7 +218,6 @@ export function OpportunityDetailPage({ id }: Props) {
   )
 }
 
-// ─── Poster About view (Tab 2) ───
 function PosterAboutView({ opportunity }: { opportunity: any }) {
   const poster = opportunity.poster
   if (!poster) {

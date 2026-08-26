@@ -1,10 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import {
   ArrowLeft, BookmarkSimple, ShareNetwork, Flag,
-  PencilSimple, CheckCircle, PaperPlaneTilt,
 } from '@phosphor-icons/react'
+import { SmartApplyButton } from '@/components/looking-for/application-studio/SmartApplyButton'
 
 interface Props {
   opportunity: any
@@ -22,7 +21,7 @@ interface Props {
 
 export function OpportunityHeader({
   opportunity, tab, onTabChange,
-  isOwner, isClosed, hasApplied, onApply,
+  isOwner, isClosed,
   onSave, onShare, onReport, onBack,
 }: Props) {
   return (
@@ -46,35 +45,14 @@ export function OpportunityHeader({
           <IconAction Icon={ShareNetwork} label="Share" onClick={onShare} />
           <IconAction Icon={Flag} label="Report" onClick={onReport} />
 
-          {isOwner ? (
-            <Link
-              href={`/looking-for/create?edit=${opportunity.id}`}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-zinc-800 hover:border-zinc-600 text-[12.5px] font-medium text-zinc-200 transition-colors"
-            >
-              <PencilSimple size={12} weight="regular" />
-              Edit
-            </Link>
-          ) : hasApplied ? (
-            <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 text-[12.5px] font-semibold">
-              <CheckCircle size={12} weight="fill" />
-              Applied
-            </span>
-          ) : isClosed ? (
-            <button
-              disabled
-              className="h-8 px-3 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 text-[12.5px] font-semibold cursor-not-allowed"
-            >
-              Applications closed
-            </button>
-          ) : (
-            <button
-              onClick={onApply}
-              className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md bg-white text-black hover:bg-zinc-200 text-[12.5px] font-bold transition-all shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
-            >
-              <PaperPlaneTilt size={12} weight="fill" />
-              Apply Now
-            </button>
-          )}
+          <div className="w-[150px]">
+            <SmartApplyButton
+              opportunity={opportunity}
+              isOwner={isOwner}
+              isClosed={isClosed}
+              className="w-full h-8 text-[12px] px-3 shadow-none rounded-lg"
+            />
+          </div>
         </div>
       </div>
 
