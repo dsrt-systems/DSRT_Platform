@@ -1,75 +1,130 @@
 'use client'
 
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { Sparkle, Rocket, Users } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 
-const BANNERS = [
+const SLIDES = [
   {
-    title: 'Post an opportunity',
-    subtitle: 'Find your next teammate',
-    href: '/looking-for/create',
-    Icon: Rocket,
-    gradient: 'from-blue-500/[0.15] via-indigo-500/[0.08] to-transparent',
-    accent: 'border-blue-500/20',
-    iconColor: 'text-blue-400',
-  },
-  {
-    title: 'Featured builders',
-    subtitle: 'Discover top talent',
+    id: 1,
+    image: '/banners/team-up-1.png',
+    title: 'Find your next teammate',
     href: '/looking-for?tab=people',
-    Icon: Users,
-    gradient: 'from-purple-500/[0.15] via-fuchsia-500/[0.08] to-transparent',
-    accent: 'border-purple-500/20',
-    iconColor: 'text-purple-400',
   },
   {
-    title: 'Suggested for you',
-    subtitle: 'Personalized picks',
+    id: 2,
+    image: '/banners/team-up-2.png',
+    title: 'Post what you need',
+    href: '/looking-for/create',
+  },
+  {
+    id: 3,
+    image: '/banners/team-up-3.png',
+    title: 'Discover connections',
     href: '/looking-for?tab=suggested',
-    Icon: Sparkle,
-    gradient: 'from-emerald-500/[0.15] via-teal-500/[0.08] to-transparent',
-    accent: 'border-emerald-500/20',
-    iconColor: 'text-emerald-400',
   },
 ]
 
-export function CompactBanners() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-      {BANNERS.map(b => (
-        <Link
-          key={b.href}
-          href={b.href}
-          className={
-            'group relative overflow-hidden rounded-xl border bg-zinc-950/50 p-4 h-[76px] flex items-center gap-3 transition-all ' +
-            'hover:border-zinc-700 hover:-translate-y-[1px] ' +
-            'shadow-[0_2px_8px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.03)] ' +
-            'hover:shadow-[0_4px_16px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)] ' +
-            b.accent
-          }
-        >
-          {/* Gradient overlay */}
-          <div className={'absolute inset-0 bg-gradient-to-br ' + b.gradient + ' opacity-70 pointer-events-none'} />
+const AUTO_SLIDE_INTERVAL = 5000 // 5 seconds
 
-          {/* Content */}
-          <div className="relative z-10 flex items-center gap-3 w-full">
-            <div className={
-              'w-10 h-10 rounded-lg bg-zinc-900/80 backdrop-blur border border-zinc-800/80 flex items-center justify-center shrink-0 ' +
-              'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_2px_6px_rgba(0,0,0,0.3)]'
-            }>
-              <b.Icon size={16} weight="regular" className={b.iconColor} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-[13.5px] font-bold text-white leading-tight truncate">
-                {b.title}
-              </h3>
-              <p className="text-[11.5px] text-zinc-400 mt-0.5 truncate">
-                {b.subtitle}
-              </p>
-            </div>
-          </div>
-        </Link>
-      ))}
+export function CompactBanners() {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isHovered, setIsHovered] = useState(false)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  const nextSlide = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % SLIDES.length)
+  }, [])
+
+  const prevSlide = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + SLIDES.length) % SLIDES.length)
+  }, [])
+
+  useEffect(() => {
+    if (isHovered) return
+
+    timerRef.current = setInterval(() => {
+      nextSlide()
+    }, AUTO_SLIDE_INTERVAL)
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [isHovered, nextSlide])
+
+  return (
+    <div
+      className="relative w-full overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950 shadow-[0_4px_24px_rgba(0,0,0,0.5)] group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Slider Track */}
+      <div
+        className="flex transition-transform duration-700 ease-out w-full"
+        style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+      >
+        {SLIDES.map((slide) => (
+          <Link
+            key={slide.id}
+            href={slide.href}
+            className="relative w-full shrink-0 block aspect-[1920/350] min-h-[140px] sm:min-h-[180px] md:min-h-[220px]"
+          >
+            <img
+              src={slide.image}
+              alt={slide.title}
+              className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.01]"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          </Link>
+        ))}
+      </div>
+
+      {/* Navigation Arrows */}
+      <button
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          prevSlide()
+        }}
+        aria-label="Previous slide"
+        className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 border border-white/10 text-white backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+      >
+        <CaretLeft size={16} weight="bold" />
+      </button>
+
+      <button
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          nextSlide()
+        }}
+        aria-label="Next slide"
+        className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 border border-white/10 text-white backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+      >
+        <CaretRight size={16} weight="bold" />
+      </button>
+
+      {/* Slide Dots */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+        {SLIDES.map((_, idx) => (
+          <button
+            key={idx}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setCurrentIndex(idx)
+            }}
+            aria-label={`Go to slide ${idx + 1}`}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              currentIndex === idx
+                ? 'w-6 bg-white'
+                : 'w-1.5 bg-white/40 hover:bg-white/70'
+            }`}
+          />
+        ))}
+      </div>
     </div>
   )
 }

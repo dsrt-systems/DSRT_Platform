@@ -3,9 +3,8 @@
 import Link from 'next/link'
 import {
   ArrowLeft, BookmarkSimple, ShareNetwork, Flag,
-  PencilSimple, CheckCircle,
+  PencilSimple, CheckCircle, PaperPlaneTilt,
 } from '@phosphor-icons/react'
-import { ConnectButton } from '@/components/shared/ConnectButton'
 
 interface Props {
   opportunity: any
@@ -14,6 +13,7 @@ interface Props {
   isOwner: boolean
   isClosed: boolean
   hasApplied: boolean
+  onApply: () => void
   onSave: () => void
   onShare: () => void
   onReport: () => void
@@ -22,7 +22,7 @@ interface Props {
 
 export function OpportunityHeader({
   opportunity, tab, onTabChange,
-  isOwner, isClosed, hasApplied,
+  isOwner, isClosed, hasApplied, onApply,
   onSave, onShare, onReport, onBack,
 }: Props) {
   return (
@@ -67,17 +67,13 @@ export function OpportunityHeader({
               Applications closed
             </button>
           ) : (
-            <ConnectButton 
-              entityType="opportunity" 
-              entityId={opportunity.id} 
-              entityName={opportunity.title} 
-              entitySlug={opportunity.id} 
-              sourceType="application"
-              label="Apply Now"
-              variant="primary"
-              icon={true}
-              size="sm"
-            />
+            <button
+              onClick={onApply}
+              className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md bg-white text-black hover:bg-zinc-200 text-[12.5px] font-bold transition-all shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
+            >
+              <PaperPlaneTilt size={12} weight="fill" />
+              Apply Now
+            </button>
           )}
         </div>
       </div>

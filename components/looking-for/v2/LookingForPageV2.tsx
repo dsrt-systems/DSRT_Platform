@@ -8,10 +8,7 @@ import { LookingForTabs, type TabId } from './LookingForTabs'
 import { FiltersPanel, type FilterState } from './FiltersPanel'
 import { OpportunityFeed } from './OpportunityFeed'
 import { SortDropdown } from './SortDropdown'
-import { MyCategoriesPanel } from './MyCategoriesPanel'
-import { RecommendedChips } from './RecommendedChips'
 import { CompactBanners } from './CompactBanners'
-import { MyOpportunitiesTab } from './tabs/MyOpportunitiesTab'
 import { ApplicationsTab } from './tabs/ApplicationsTab'
 import { SavedTab } from './tabs/SavedTab'
 import { SuggestedTab } from './tabs/SuggestedTab'
@@ -21,25 +18,20 @@ import { CategoriesTab } from './tabs/CategoriesTab'
 export function LookingForPageV2() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const tabParam = (searchParams.get('tab') as TabId) || 'explore'
-
-  const [activeTab, setActiveTab] = useState<TabId>(tabParam)
+  // Default to explore if the URL had 'my-opportunities' left over from old links
+  const initialTab = searchParams.get('tab') as TabId
+  const validTab = ['explore', 'applications', 'saved', 'suggested', 'people', 'categories'].includes(initialTab) ? initialTab : 'explore'
+  
+  const [activeTab, setActiveTab] = useState<TabId>(validTab)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('recommended')
+  const [totalCount, setTotalCount] = useState<number | null>(null)
+  const [feedLoading, setFeedLoading] = useState(true)
+
   const [filters, setFilters] = useState<FilterState>({
-    category: null,
-    subcategory: null,
-    type: null,
-    experience: null,
-    compensation: null,
-    work_mode: null,
-    location: null,
-    time_commitment: null,
-    project_length: null,
-    post_age: null,
-    skills: [],
-    min_budget: null,
-    max_budget: null,
+    category: null, subcategory: null, type: null, experience: null,
+    compensation: null, work_mode: null, location: null, time_commitment: null,
+    project_length: null, post_age: null, skills: [], min_budget: null, max_budget: null,
   })
 
   const handleTabChange = useCallback((tab: TabId) => {
@@ -50,72 +42,41 @@ export function LookingForPageV2() {
   }, [router, searchParams])
 
   const goCreate = useCallback(() => router.push('/looking-for/create'), [router])
+  const handleCountChange = useCallback((count: number, isLoading: boolean) => {
+    setTotalCount(count); setFeedLoading(isLoading)
+  }, [])
 
   const isExplore = activeTab === 'explore'
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-5 md:py-6">
-
-        {/* Header */}
         <LookingForHeader onCreate={goCreate} />
 
-        {/* Compact banners */}
-        <div className="mt-5">
-          <CompactBanners />
-        </div>
-
-        {/* Search */}
-        <div className="mt-4">
-          <SearchBar value={query} onChange={setQuery} />
-        </div>
-
-        {/* Tabs */}
+        <div className="mt-5"><CompactBanners /></div>
+        <div className="mt-4"><SearchBar value={query} onChange={setQuery} /></div>
+        
         <div className="mt-5">
           <LookingForTabs active={activeTab} onChange={handleTabChange} />
         </div>
 
-        {/* Main layout */}
         {isExplore ? (
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_280px] gap-6">
-            {/* Left: Filters */}
-            <aside className="lg:sticky lg:top-6 h-fit order-2 lg:order-1">
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
+            <aside className="lg:sticky lg:top-6 h-fit">
               <FiltersPanel filters={filters} onChange={setFilters} />
             </aside>
-
-            {/* Center: Feed */}
-            <main className="min-w-0 order-1 lg:order-2">
+            <main className="min-w-0 w-full">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-[13px] text-zinc-400 font-medium">
-                  Loading opportunities...
+                  {feedLoading ? 'Loading opportunities...' : totalCount !== null ? `${totalCount.toLocaleString()} ${totalCount === 1 ? 'opportunity' : 'opportunities'} found` : 'Opportunities'}
                 </div>
                 <SortDropdown value={sort} onChange={setSort} />
               </div>
-
-              <OpportunityFeed
-                query={query}
-                filters={filters}
-                sort={sort}
-                tab={activeTab}
-              />
+              <OpportunityFeed query={query} filters={filters} sort={sort} tab={activeTab} onCountChange={handleCountChange} />
             </main>
-
-            {/* Right: My Categories + Recommended */}
-            <aside className="lg:sticky lg:top-6 h-fit order-3 space-y-4">
-              <MyCategoriesPanel
-                onCategorySelect={(catSlug) => setFilters(f => ({ ...f, category: catSlug }))}
-              />
-              <RecommendedChips
-                onChipSelect={(skill) => setFilters(f => ({
-                  ...f,
-                  skills: f.skills.includes(skill) ? f.skills : [...f.skills, skill]
-                }))}
-              />
-            </aside>
           </div>
         ) : (
           <div className="mt-6">
-            {activeTab === 'my-opportunities' && <MyOpportunitiesTab onCreate={goCreate} />}
             {activeTab === 'applications' && <ApplicationsTab />}
             {activeTab === 'saved' && <SavedTab />}
             {activeTab === 'suggested' && <SuggestedTab />}

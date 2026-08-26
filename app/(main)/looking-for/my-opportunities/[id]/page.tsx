@@ -1,8 +1,9 @@
-import { ApplicantsWorkspace } from '@/components/looking-for/v2/manage/ApplicantsWorkspace'
+// app/(main)/looking-for/my-opportunities/[id]/page.tsx
+import { WorkspaceShell } from '@/components/looking-for/my-opps/workspace/WorkspaceShell'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  return <ApplicantsWorkspace opportunityId={id} />
+  return <WorkspaceShell opportunityId={id} />
 }

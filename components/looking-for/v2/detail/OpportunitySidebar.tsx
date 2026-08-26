@@ -1,7 +1,6 @@
 'use client'
 
-import { CheckCircle, Clock, MapPin, Users, CalendarBlank } from '@phosphor-icons/react'
-import { ConnectButton } from '@/components/shared/ConnectButton'
+import { CheckCircle, Clock, MapPin, Users, CalendarBlank, PaperPlaneTilt } from '@phosphor-icons/react'
 
 interface Props {
   opportunity: any
@@ -15,11 +14,6 @@ export function OpportunitySidebar({
   opportunity, isOwner, isClosed, hasApplied, onApply,
 }: Props) {
   const comp = formatCompensation(opportunity)
-
-  // Opportunity records usually join the poster profile data, if available.
-  const posterId = opportunity.poster_user_id
-  const posterName = opportunity.profiles?.full_name || opportunity.poster_name || 'Opportunity Creator'
-  const posterSlug = opportunity.profiles?.username || opportunity.poster_username || ''
 
   return (
     <div className={
@@ -63,18 +57,13 @@ export function OpportunitySidebar({
             Applications closed
           </button>
         ) : (
-          <ConnectButton
-            entityType="user"
-            entityId={posterId}
-            entityName={posterName}
-            entitySlug={posterSlug}
-            sourceType="application"
-            variant="primary"
-            label="Apply via DSRT Mail"
-            size="lg"
-            className="w-full shadow-[0_4px_16px_rgba(255,255,255,0.15)]"
-            icon={true}
-          />
+          <button
+            onClick={onApply}
+            className="w-full h-11 rounded-md bg-white text-black hover:bg-zinc-200 text-[13.5px] font-bold transition-all shadow-[0_4px_16px_rgba(255,255,255,0.15)] inline-flex items-center justify-center gap-2"
+          >
+            <PaperPlaneTilt size={14} weight="fill" />
+            Apply Now
+          </button>
         )}
 
         <div className="text-[11.5px] text-zinc-500 text-center">

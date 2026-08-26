@@ -4,8 +4,56 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 
 /**
+ * Server-side HTML sanitization.
+ * Strips Word/Google Docs junk, scripts, event handlers.
+ */
+function sanitizeHTML(html: string): string {
+  if (!html) return ''
+  return html
+    .replace(/<\?xml[^>]*>/gi, '')
+    .replace(/<\/?o:[^>]*>/gi, '')
+    .replace(/<\/?w:[^>]*>/gi, '')
+    .replace(/<\/?meta[^>]*>/gi, '')
+    .replace(/<\/?link[^>]*>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/\s+style="[^"]*"/gi, '')
+    .replace(/\s+style='[^']*'/gi, '')
+    .replace(/\s+class="[^"]*"/gi, '')
+    .replace(/\s+id="[^"]*"/gi, '')
+    .replace(/\s+data-[a-z-]+="[^"]*"/gi, '')
+    .replace(/\s+lang="[^"]*"/gi, '')
+    .replace(/\s+xml:lang="[^"]*"/gi, '')
+    .replace(/\s+dir="[^"]*"/gi, '')
+    .replace(/<span[^>]*>/gi, '<span>')
+    .replace(/<\/?font[^>]*>/gi, '')
+    .replace(/\s+on\w+="[^"]*"/gi, '')
+    .replace(/\s+on\w+='[^']*'/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+/**
+ * Extract plain text from HTML for search indexing.
+ */
+function extractPlainText(html: string): string {
+  if (!html) return ''
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+/**
  * POST /api/home/posts
- * Creates a new post with publisher identity (person or venture)
+ * Creates a new post with publisher identity (person, venture, project, community).
  */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -47,11 +95,16 @@ export async function POST(req: NextRequest) {
     location,
     scheduled_at,
     is_draft = false,
-    draft_id, // if publishing from a draft, upgrade it
+    draft_id,
   } = body
 
+  // Sanitize incoming HTML
+  const rawHTML = content || content_text || ''
+  const cleanHTML = sanitizeHTML(rawHTML)
+  const plainText = extractPlainText(cleanHTML)
+
   // Validation
-  const hasText = (content || content_text || '').trim().length > 0
+  const hasText = plainText.trim().length > 0
   const hasMedia = (media_urls?.length || 0) > 0 || (image_urls?.length || 0) > 0 || !!video_url
   if (!hasText && !hasMedia && !is_draft) {
     return NextResponse.json({ error: 'Post must have text or media' }, { status: 400 })
@@ -59,7 +112,7 @@ export async function POST(req: NextRequest) {
 
   const effectivePublisherId = publisher_id || user.id
 
-  // Permission check via fn_can_publish_as
+  // Permission check
   const { data: canPublish, error: permErr } = await supabase.rpc('fn_can_publish_as', {
     p_user_id: user.id,
     p_publisher_type: publisher_type,
@@ -80,9 +133,9 @@ export async function POST(req: NextRequest) {
       publisher_id: effectivePublisherId,
       type,
       title: title?.trim() || null,
-      content: (content || content_text || '').trim() || null,
-      content_text: content_text?.trim() || null,
-      content_html: content_html || null,
+      content: cleanHTML || '',                  // ✅ Sanitized HTML — NEVER null
+      content_text: plainText || '',              // ✅ Plain text for search
+      content_html: cleanHTML || null,
       content_blocks: content_blocks || [],
       media_urls: media_urls.length ? media_urls : null,
       image_urls: image_urls.length ? image_urls : null,
@@ -111,7 +164,6 @@ export async function POST(req: NextRequest) {
       is_published_at: (is_draft || scheduled_at) ? null : new Date().toISOString(),
     }
 
-    // Wire venture_id / project_id for backward compat
     if (publisher_type === 'venture') {
       insertData.venture_id = effectivePublisherId
     } else if (publisher_type === 'project') {
@@ -120,7 +172,6 @@ export async function POST(req: NextRequest) {
 
     let post: any
     if (draft_id) {
-      // Upgrade existing draft to published
       const { data: updated } = await supabase
         .from('posts')
         .select('id, user_id')

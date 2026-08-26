@@ -1,42 +1,19 @@
-import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server"
+import { NextResponse } from "next/server"
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"
 
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ ok: false }, { status: 401 });
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const body = await request.json();
-  const { signal_type, entity_type, entity_id, metadata } = body;
+  if (!user) return NextResponse.json({ ok: false }, { status: 401 })
+
+  const body = await request.json().catch(() => ({}))
+  const { signal_type, entity_type, entity_id, metadata } = body
 
   if (!signal_type || !entity_type || !entity_id) {
-    return NextResponse.json(
-      { ok: false, error: "Missing fields" },
-      { status: 400 },
-    );
-  }
-
-  // 🎯 For 'visit' - one per user per community (ever)
-  if (signal_type === "visit" && entity_type === "community") {
-    // Check if user already visited this community
-    const { data: existing } = await supabase
-      .from("user_activity_signals")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("entity_id", entity_id)
-      .eq("entity_type", "community")
-      .eq("signal_type", "visit")
-      .limit(1)
-      .maybeSingle();
-
-    if (existing) {
-      // Already visited - skip
-      return NextResponse.json({ ok: true, deduped: true });
-    }
+    return NextResponse.json({ ok: false, error: "Missing fields" }, { status: 400 })
   }
 
   try {
@@ -46,10 +23,10 @@ export async function POST(request: Request) {
       p_entity_type: entity_type,
       p_entity_id: entity_id,
       p_metadata: metadata || {},
-    });
-  } catch (e) {
-    // Silent fail
+    })
+  } catch (e: any) {
+    console.error("Signal tracking error:", e)
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true })
 }

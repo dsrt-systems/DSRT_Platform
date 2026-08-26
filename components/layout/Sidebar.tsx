@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import {
   Home, FolderKanban, Rocket, Compass, Trophy,
   CalendarDays, Search, Sparkles, BookOpen, User, Settings,
-  Zap, Building2, UsersRound, Network, Inbox,
+  Zap, Building2, UsersRound, Network, Inbox, Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ const mainNav = [
   { name: 'Ventures', href: '/ventures', icon: Rocket },
   { name: 'Looking For', href: '/looking-for', icon: Search },
   { name: 'DSRT Mail', href: '/inbox', icon: Inbox, badge: 'inbox' },
+  { name: 'COCO', href: '/coco', icon: Bot },
 ]
 
 const communityNav = [
@@ -135,7 +136,8 @@ export function Sidebar({ user }: SidebarProps) {
   }
 
   return (
-    <aside className="hidden md:flex flex-col fixed left-0 top-14 bottom-0 w-56 border-r border-white/[0.06] bg-[#0a0a0f]">
+    // Changed top-14 to top-[76px] to perfectly sit under the new taller Navbar
+    <aside className="hidden md:flex flex-col fixed left-0 top-[76px] bottom-0 w-56 border-r border-white/[0.06] bg-[#0a0a0f]">
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-hide">
 
         {/* USER PROFILE CARD */}
@@ -208,7 +210,7 @@ export function Sidebar({ user }: SidebarProps) {
           {personalNav.map(item => renderItem(item, 'personal'))}
         </div>
 
-        {/* UPGRADE — cleaned up */}
+        {/* UPGRADE */}
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">

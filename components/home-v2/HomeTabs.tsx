@@ -1,6 +1,6 @@
 'use client'
 
-export type HomeTab = 'for-you' | 'following' | 'ventures' | 'trending' | 'latest'
+export type HomeTab = 'for-you' | 'latest' | 'ventures' | 'projects'
 
 interface Props {
   active: HomeTab
@@ -8,11 +8,10 @@ interface Props {
 }
 
 const TABS: { id: HomeTab; label: string }[] = [
-  { id: 'for-you', label: 'For You' },
-  { id: 'following', label: 'Following' },
+  { id: 'for-you',  label: 'For You' },
+  { id: 'latest',   label: 'Latest' },
   { id: 'ventures', label: 'Ventures' },
-  { id: 'trending', label: 'Trending' },
-  { id: 'latest', label: 'Latest' },
+  { id: 'projects', label: 'Projects' },
 ]
 
 export function HomeTabs({ active, onChange }: Props) {

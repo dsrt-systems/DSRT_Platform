@@ -10,9 +10,10 @@ interface Props {
   filters: FilterState
   sort: string
   tab: TabId
+  onCountChange?: (count: number, isLoading: boolean) => void
 }
 
-export function OpportunityFeed({ query, filters, sort, tab }: Props) {
+export function OpportunityFeed({ query, filters, sort, tab, onCountChange }: Props) {
   const [items, setItems] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
@@ -21,6 +22,11 @@ export function OpportunityFeed({ query, filters, sort, tab }: Props) {
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const observerRef = useRef<HTMLDivElement>(null)
+
+  // Notify parent about count + loading state
+  useEffect(() => {
+    if (onCountChange) onCountChange(total, loading)
+  }, [total, loading, onCountChange])
 
   const buildQueryString = useCallback((currentOffset: number) => {
     const params = new URLSearchParams()
@@ -71,13 +77,11 @@ export function OpportunityFeed({ query, filters, sort, tab }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildQueryString])
 
-  // Initial + filter change
   useEffect(() => {
     load(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, filters, sort])
 
-  // Infinite scroll
   useEffect(() => {
     const el = observerRef.current
     if (!el || !hasMore || loading || loadingMore) return
@@ -93,7 +97,6 @@ export function OpportunityFeed({ query, filters, sort, tab }: Props) {
     return () => observer.disconnect()
   }, [hasMore, loading, loadingMore, load])
 
-  // Save/unsave optimistic
   const handleSave = async (id: string, currentlySaved: boolean) => {
     setItems(prev => prev.map(i => i.id === id ? { ...i, is_saved: !currentlySaved } : i))
     try {
@@ -107,7 +110,6 @@ export function OpportunityFeed({ query, filters, sort, tab }: Props) {
         })
       }
     } catch {
-      // Revert on error
       setItems(prev => prev.map(i => i.id === id ? { ...i, is_saved: currentlySaved } : i))
     }
   }

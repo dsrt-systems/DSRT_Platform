@@ -1,29 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserIntelligenceProfile } from '@/lib/algorithm/intelligence-profile'
+import { scoreOpportunityForUser, applyOpportunityDiversity } from '@/lib/algorithm/opportunity-matching'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * GET /api/opportunities
- * Query params:
- *   type              - hire | freelance | team-up | mentorship | etc
- *   category          - category slug
- *   subcategory       - subcategory slug
- *   experience        - entry | intermediate | expert | ...
- *   compensation      - hourly | fixed-price | equity | unpaid | ...
- *   work_mode         - remote | hybrid | on-site
- *   location          - text search
- *   skills            - comma-separated
- *   time_commitment   - less-than-5 | 5-10 | etc
- *   project_length    - one-off | 1-3-months | etc
- *   min_budget        - number
- *   max_budget        - number
- *   post_age          - today | last-3-days | last-week | last-month
- *   q                 - search query
- *   sort              - recommended | newest | recently-updated | most-active | ending-soon | fewest-applications
- *   limit             - default 24, max 60
- *   offset            - default 0
- */
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -42,30 +23,50 @@ export async function GET(req: NextRequest) {
   const minBudget = searchParams.get('min_budget')
   const maxBudget = searchParams.get('max_budget')
   const postAge = searchParams.get('post_age')
+  const savedOnly = searchParams.get('saved') === 'true'
   const q = searchParams.get('q')?.trim()
-  const sort = searchParams.get('sort') || 'newest'
+  const sort = searchParams.get('sort') || 'recommended'
   const limit = Math.min(parseInt(searchParams.get('limit') || '24'), 60)
   const offset = Math.max(parseInt(searchParams.get('offset') || '0'), 0)
 
   try {
+    let savedOppIds: string[] = []
+    if (savedOnly) {
+      if (!user) {
+        return NextResponse.json({ opportunities: [], total: 0, limit, offset, hasMore: false })
+      }
+      const { data: saves } = await supabase
+        .from('opportunity_saves')
+        .select('opportunity_id')
+        .eq('user_id', user.id)
+
+      savedOppIds = (saves || []).map((s: any) => s.opportunity_id)
+      if (savedOppIds.length === 0) {
+        return NextResponse.json({ opportunities: [], total: 0, limit, offset, hasMore: false })
+      }
+    }
+
     let query = supabase
       .from('opportunities')
       .select('*', { count: 'exact' })
       .eq('visibility', 'public')
-      .in('status', ['active', 'closing-soon'])
 
-    // Type filter
+    if (savedOnly) {
+      query = query.in('id', savedOppIds)
+    } else {
+      query = query.in('status', ['active', 'closing-soon'])
+    }
+
     if (type && type !== 'all') {
       query = query.eq('opportunity_type', type)
     }
 
-    // Category filter (resolve slug → id)
     if (categorySlug && categorySlug !== 'all') {
       const { data: cat } = await supabase
         .from('opportunity_categories')
         .select('id')
         .eq('slug', categorySlug)
-        .single()
+        .maybeSingle()
       if (cat) {
         query = query.or(`primary_category_id.eq.${cat.id},subcategory_id.eq.${cat.id}`)
       }
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
         .from('opportunity_categories')
         .select('id')
         .eq('slug', subcategorySlug)
-        .single()
+        .maybeSingle()
       if (sub) {
         query = query.eq('subcategory_id', sub.id)
       }
@@ -122,61 +123,63 @@ export async function GET(req: NextRequest) {
     }
 
     if (postAge) {
-      const ageMap: Record<string, string> = {
-        'today': '1 day',
-        'last-3-days': '3 days',
-        'last-week': '7 days',
-        'last-month': '30 days',
+      const ageDaysMap: Record<string, number> = {
+        'today': 1,
+        'last-3-days': 3,
+        'last-week': 7,
+        'last-month': 30,
       }
-      const interval = ageMap[postAge]
-      if (interval) {
-        const cutoff = new Date(Date.now() - parseInt(interval) * 24 * 60 * 60 * 1000).toISOString()
+      const days = ageDaysMap[postAge]
+      if (days) {
+        const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
         query = query.gte('published_at', cutoff)
       }
     }
 
-    // Text search via search_vector
     if (q && q.length >= 2) {
-      // Use PostgREST websearch for user-friendly search
-      query = query.textSearch('search_vector', q, { type: 'websearch', config: 'english' })
+      query = query.or(`title.ilike.%${q}%,description.ilike.%${q}%,content_text.ilike.%${q}%`)
     }
 
-    // Sort
-    switch (sort) {
-      case 'newest':
-        query = query.order('published_at', { ascending: false, nullsFirst: false })
-        break
-      case 'recently-updated':
-        query = query.order('last_activity_at', { ascending: false, nullsFirst: false })
-        break
-      case 'most-active':
-        query = query.order('application_count', { ascending: false })
-        break
-      case 'ending-soon':
-        query = query.order('application_deadline', { ascending: true, nullsFirst: false })
-        break
-      case 'fewest-applications':
-        query = query.order('application_count', { ascending: true })
-        break
-      case 'highest-budget':
-        query = query.order('compensation_max', { ascending: false, nullsFirst: false })
-        break
-      case 'lowest-budget':
-        query = query.order('compensation_min', { ascending: true, nullsFirst: false })
-        break
-      case 'recommended':
-      default:
-        query = query.order('is_featured', { ascending: false })
-                     .order('published_at', { ascending: false, nullsFirst: false })
-        break
+    if (sort === 'newest') {
+      query = query.order('published_at', { ascending: false, nullsFirst: false })
+    } else if (sort === 'recently-updated') {
+      query = query.order('last_activity_at', { ascending: false, nullsFirst: false })
+    } else if (sort === 'most-active') {
+      query = query.order('application_count', { ascending: false })
+    } else if (sort === 'ending-soon') {
+      query = query.order('application_deadline', { ascending: true, nullsFirst: false })
+    } else if (sort === 'highest-budget') {
+      query = query.order('compensation_max', { ascending: false, nullsFirst: false })
+    } else if (sort === 'lowest-budget') {
+      query = query.order('compensation_min', { ascending: true, nullsFirst: false })
+    } else {
+      query = query.order('published_at', { ascending: false, nullsFirst: false })
     }
 
-    const { data: opportunities, count, error } = await query.range(offset, offset + limit - 1)
+    const fetchLimit = (sort === 'recommended' && user) ? 120 : limit
+    const { data: opportunities, count, error } = await query.range(offset, offset + fetchLimit - 1)
     if (error) throw error
 
-    const items = opportunities || []
+    let items = opportunities || []
 
-    // Enrich with poster + context (project/venture)
+    // 🧠 MULTI-STAGE PERSONALIZATION & DIVERSITY RE-RANKING
+    if (sort === 'recommended' && user && items.length > 0) {
+      const userProfile = await getUserIntelligenceProfile(supabase, user.id)
+
+      const scoredItems = items.map(opp => ({
+        opp,
+        matchScore: scoreOpportunityForUser(opp, userProfile),
+      }))
+
+      scoredItems.sort((a, b) => b.matchScore - a.matchScore)
+
+      // Apply Anti-Echo-Chamber Diversity Filter
+      items = applyOpportunityDiversity(scoredItems, limit)
+    } else if (items.length > limit) {
+      items = items.slice(0, limit)
+    }
+
+    // Hydration (Poster, Project, Venture, Category)
     const posterIds = [...new Set(items.map(i => i.poster_user_id).filter(Boolean))]
     const projectIds = [...new Set(items.map(i => i.project_id).filter(Boolean))]
     const ventureIds = [...new Set(items.map(i => i.venture_id).filter(Boolean))]
@@ -194,7 +197,6 @@ export async function GET(req: NextRequest) {
     const ventureMap = new Map((venturesRes.data || []).map((v: any) => [v.id, v]))
     const categoryMap = new Map((categoriesRes.data || []).map((c: any) => [c.id, c]))
 
-    // If user is authenticated, check which they've saved
     let savedSet = new Set<string>()
     let appliedSet = new Set<string>()
     if (user && items.length > 0) {
@@ -234,128 +236,5 @@ export async function GET(req: NextRequest) {
   } catch (e: any) {
     console.error('Opportunities list error:', e)
     return NextResponse.json({ error: e?.message, opportunities: [], total: 0 }, { status: 500 })
-  }
-}
-
-/**
- * POST /api/opportunities
- * Create a new opportunity (draft or published)
- */
-export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const body = await req.json().catch(() => ({}))
-
-  const {
-    poster_context = 'personal',
-    project_id, venture_id, organization_id, community_id,
-    opportunity_type = 'hire',
-    title, subtitle, description,
-    content_blocks, content_html, content_text,
-    primary_category_id, subcategory_id,
-    required_skills = [], preferred_skills = [],
-    experience_level,
-    compensation_type = 'unpaid',
-    compensation_min, compensation_max,
-    compensation_currency = 'USD', compensation_period,
-    equity_min, equity_max,
-    compensation_hidden = false, compensation_negotiable = false,
-    project_length, time_commitment,
-    hours_per_week, duration,
-    start_date, application_deadline,
-    work_mode = 'remote', location, timezone,
-    team_context, role_purpose = [],
-    positions_open = 1,
-    allow_multiple_applications = false, allow_withdrawal = true,
-    max_applications, auto_close_after_deadline = true,
-    require_resume = false, require_portfolio = false,
-    require_github = false, require_website = false,
-    require_cover_letter = true,
-    custom_questions = [],
-    visibility = 'public',
-    show_applicant_count = true, show_poster_identity = true,
-    show_compensation = true, show_location = true,
-    cover_image_url,
-    status = 'draft',
-    urgency = 'normal',
-  } = body
-
-  if (!title || !title.trim()) {
-    return NextResponse.json({ error: 'Title is required' }, { status: 400 })
-  }
-
-  // Verify context ownership
-  if (poster_context === 'project' && project_id) {
-    const { data: proj } = await supabase.from('projects')
-      .select('founder_id, user_id').eq('id', project_id).single()
-    if (!proj || (proj.founder_id !== user.id && proj.user_id !== user.id)) {
-      return NextResponse.json({ error: 'Not authorized to post for this project' }, { status: 403 })
-    }
-  }
-  if (poster_context === 'venture' && venture_id) {
-    const { data: vent } = await supabase.from('ventures')
-      .select('founder_id, user_id').eq('id', venture_id).single()
-    if (!vent || (vent.founder_id !== user.id && vent.user_id !== user.id)) {
-      return NextResponse.json({ error: 'Not authorized to post for this venture' }, { status: 403 })
-    }
-  }
-
-  try {
-    const insertData: any = {
-      poster_user_id: user.id,
-      poster_context,
-      project_id: poster_context === 'project' ? project_id : null,
-      venture_id: poster_context === 'venture' ? venture_id : null,
-      organization_id: poster_context === 'organization' ? organization_id : null,
-      community_id: poster_context === 'community' ? community_id : null,
-      opportunity_type,
-      title: title.trim().slice(0, 250),
-      subtitle: subtitle?.trim().slice(0, 500) || null,
-      description: description?.trim() || null,
-      content_blocks: content_blocks || [],
-      content_html: content_html || null,
-      content_text: content_text || null,
-      primary_category_id, subcategory_id,
-      required_skills, preferred_skills,
-      experience_level,
-      compensation_type,
-      compensation_min, compensation_max,
-      compensation_currency, compensation_period,
-      equity_min, equity_max,
-      compensation_hidden, compensation_negotiable,
-      project_length, time_commitment,
-      hours_per_week, duration,
-      start_date, application_deadline,
-      work_mode, location, timezone,
-      team_context, role_purpose,
-      positions_open,
-      allow_multiple_applications, allow_withdrawal,
-      max_applications, auto_close_after_deadline,
-      require_resume, require_portfolio,
-      require_github, require_website, require_cover_letter,
-      custom_questions,
-      visibility,
-      show_applicant_count, show_poster_identity,
-      show_compensation, show_location,
-      cover_image_url,
-      status,
-      urgency,
-      published_at: status === 'active' ? new Date().toISOString() : null,
-    }
-
-    const { data: opportunity, error } = await supabase
-      .from('opportunities')
-      .insert(insertData)
-      .select()
-      .single()
-
-    if (error) throw error
-
-    return NextResponse.json({ opportunity }, { status: 201 })
-  } catch (e: any) {
-    console.error('Create opportunity error:', e)
-    return NextResponse.json({ error: e?.message }, { status: 500 })
   }
 }

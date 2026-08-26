@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import {
-  Eye, Play, Pause, CheckCircle, Archive, Copy, Trash,
-  PencilSimple, ArrowUpRight,
+  Eye, Play, Pause, CheckCircle, Archive, Trash,
+  PencilSimple, Link as LinkIcon, ShareNetwork,
+  ChartLine, Copy, Clock,
 } from '@phosphor-icons/react'
 
 interface Props {
@@ -14,23 +15,67 @@ interface Props {
 }
 
 export function OpportunityStatusActions({ opportunity, onClose, onRefresh, onView }: Props) {
-  const updateStatus = async (status: string) => {
+  const updateStatus = async (status: string, action?: string) => {
+    // Optimistic parent refresh after server confirms
     try {
       await fetch(`/api/opportunities/${opportunity.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
+      // Fire audit-ish event
+      await fetch(`/api/opportunities/${opportunity.id}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_type: action || `opportunity_${status}`,
+          source: 'my_opportunities',
+        }),
+      }).catch(() => {})
       onRefresh()
-    } catch { }
+    } catch {}
   }
+
+  const copyLink = async () => {
+    const url = `${window.location.origin}/looking-for/${opportunity.slug || opportunity.id}`
+    await navigator.clipboard.writeText(url)
+    onClose()
+  }
+
+  const share = async () => {
+    const url = `${window.location.origin}/looking-for/${opportunity.slug || opportunity.id}`
+    if (navigator.share) {
+      await navigator.share({ title: opportunity.title, url }).catch(() => {})
+    } else {
+      await navigator.clipboard.writeText(url)
+    }
+    await fetch(`/api/opportunities/${opportunity.id}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type: 'opportunity_shared', source: 'my_opportunities' }),
+    }).catch(() => {})
+    onClose()
+  }
+
+  const duplicate = async () => {
+  try {
+    const res = await fetch(`/api/opportunities/${opportunity.id}/duplicate`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data?.error || 'Duplicate failed')
+    onClose()
+    // Open the editor for the new draft
+    window.location.href = `/looking-for/create?edit=${data.opportunity?.id}`
+  } catch (e: any) {
+    alert(e?.message || 'Duplicate failed')
+  }
+}
 
   const deleteOpportunity = async () => {
     if (!confirm('Delete this opportunity permanently? This cannot be undone.')) return
     try {
       await fetch(`/api/opportunities/${opportunity.id}`, { method: 'DELETE' })
       onRefresh()
-    } catch { }
+    } catch {}
   }
 
   const status = opportunity.status
@@ -42,31 +87,51 @@ export function OpportunityStatusActions({ opportunity, onClose, onRefresh, onVi
   return (
     <div
       onClick={(e) => e.stopPropagation()}
-      className="absolute right-0 top-full mt-1 w-56 rounded-md border border-zinc-800 bg-[#0f0f0f] shadow-[0_8px_24px_rgba(0,0,0,0.6)] z-40 py-1"
+      className="absolute right-0 top-full mt-1 w-60 rounded-xl border border-zinc-800 bg-[#0c0c0e] shadow-[0_12px_40px_rgba(0,0,0,0.7)] z-40 py-1.5 overflow-hidden"
     >
-      <MenuItem onClick={onView} Icon={Eye}>View public page</MenuItem>
-      <MenuItem
-        href={`/looking-for/create?edit=${opportunity.id}`}
-        Icon={PencilSimple}
-      >
-        Edit
-      </MenuItem>
+      <MenuItem onClick={() => { onView(); onClose() }} Icon={Eye}>Preview public page</MenuItem>
+      <MenuItem href={`/looking-for/create?edit=${opportunity.id}`} Icon={PencilSimple}>Edit</MenuItem>
+      <MenuItem href={`/looking-for/my-opportunities/${opportunity.id}?tab=analytics`} Icon={ChartLine}>View analytics</MenuItem>
 
-      <div className="my-1 border-t border-zinc-800" />
+      <Divider />
+
+      <MenuItem onClick={copyLink} Icon={LinkIcon}>Copy link</MenuItem>
+      <MenuItem onClick={share} Icon={ShareNetwork}>Share</MenuItem>
+      <MenuItem onClick={duplicate} Icon={Copy}>Duplicate</MenuItem>
+
+      <Divider />
 
       {isDraft && (
-        <MenuItem onClick={() => { updateStatus('active'); onClose() }} Icon={Play}>
+        <MenuItem onClick={() => { updateStatus('active', 'opportunity_published'); onClose() }} Icon={Play}>
           Publish
         </MenuItem>
       )}
       {isActive && (
-        <MenuItem onClick={() => { updateStatus('paused'); onClose() }} Icon={Pause}>
-          Pause
+        <MenuItem onClick={() => { updateStatus('paused', 'opportunity_paused'); onClose() }} Icon={Pause}>
+          Pause applications
         </MenuItem>
       )}
       {isPaused && (
-        <MenuItem onClick={() => { updateStatus('active'); onClose() }} Icon={Play}>
+        <MenuItem onClick={() => { updateStatus('active', 'opportunity_resumed'); onClose() }} Icon={Play}>
           Resume
+        </MenuItem>
+      )}
+      {!isClosed && opportunity.application_deadline && (
+        <MenuItem
+          onClick={async () => {
+            const d = new Date(opportunity.application_deadline)
+            d.setDate(d.getDate() + 7)
+            await fetch(`/api/opportunities/${opportunity.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ application_deadline: d.toISOString() }),
+            })
+            onRefresh()
+            onClose()
+          }}
+          Icon={Clock}
+        >
+          Extend deadline +7d
         </MenuItem>
       )}
       {!isClosed && (
@@ -75,8 +140,8 @@ export function OpportunityStatusActions({ opportunity, onClose, onRefresh, onVi
         </MenuItem>
       )}
       {!isClosed && (
-        <MenuItem onClick={() => { updateStatus('closed'); onClose() }} Icon={Archive}>
-          Close
+        <MenuItem onClick={() => { updateStatus('closed', 'opportunity_closed'); onClose() }} Icon={Archive}>
+          Close opportunity
         </MenuItem>
       )}
       {status !== 'archived' && (
@@ -85,17 +150,17 @@ export function OpportunityStatusActions({ opportunity, onClose, onRefresh, onVi
         </MenuItem>
       )}
 
-      <div className="my-1 border-t border-zinc-800" />
+      <Divider />
 
-      <MenuItem
-        onClick={() => { deleteOpportunity(); onClose() }}
-        Icon={Trash}
-        destructive
-      >
+      <MenuItem onClick={() => { deleteOpportunity(); onClose() }} Icon={Trash} destructive>
         Delete
       </MenuItem>
     </div>
   )
+}
+
+function Divider() {
+  return <div className="my-1.5 border-t border-zinc-800/80" />
 }
 
 function MenuItem({
@@ -108,7 +173,7 @@ function MenuItem({
   destructive?: boolean
 }) {
   const cls =
-    'w-full flex items-center gap-2 px-3 py-2 text-[12px] transition-colors ' +
+    'w-full flex items-center gap-2.5 px-3.5 py-2 text-[12.5px] transition-colors ' +
     (destructive
       ? 'text-red-400 hover:bg-red-500/10'
       : 'text-zinc-300 hover:bg-zinc-900 hover:text-white')
@@ -116,14 +181,14 @@ function MenuItem({
   if (href) {
     return (
       <Link href={href} className={cls}>
-        <Icon size={12} weight="regular" />
+        <Icon size={13} weight="regular" />
         {children}
       </Link>
     )
   }
   return (
     <button type="button" onClick={onClick} className={cls}>
-      <Icon size={12} weight="regular" />
+      <Icon size={13} weight="regular" />
       {children}
     </button>
   )

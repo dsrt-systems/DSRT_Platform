@@ -10,12 +10,17 @@ interface Props {
 
 export function HomeComposerBar({ currentUser }: Props) {
   const [open, setOpen] = useState(false)
+  const [initialType, setInitialType] = useState('update')
+
+  const handleOpen = (type: string = 'update') => {
+    setInitialType(type)
+    setOpen(true)
+  }
 
   return (
     <>
       <div
-        id="home-composer-bar"
-        onClick={() => setOpen(true)}
+        onClick={() => handleOpen('update')}
         className={
           'group rounded-xl border border-zinc-800/60 cursor-text transition-all ' +
           'bg-gradient-to-b from-zinc-900/60 via-zinc-900/40 to-zinc-950/60 ' +
@@ -40,15 +45,15 @@ export function HomeComposerBar({ currentUser }: Props) {
 
         <div className="px-3 pb-3 pt-2 border-t border-zinc-800/50 flex items-center justify-between gap-2">
           <div className="flex items-center gap-0.5 flex-wrap">
-            <QuickAction Icon={ImageIcon} label="Image" onClick={() => setOpen(true)} />
-            <QuickAction Icon={VideoCamera} label="Video" onClick={() => setOpen(true)} />
-            <QuickAction Icon={ArticleNyTimes} label="Article" onClick={() => setOpen(true)} />
-            <QuickAction Icon={ChartBar} label="Poll" onClick={() => setOpen(true)} />
-            <QuickAction Icon={Code} label="Code" onClick={() => setOpen(true)} />
+            <QuickAction Icon={ImageIcon} label="Image" onClick={() => handleOpen('update')} />
+            <QuickAction Icon={VideoCamera} label="Video" onClick={() => handleOpen('update')} />
+            <QuickAction Icon={ArticleNyTimes} label="Article" onClick={() => handleOpen('discussion')} />
+            <QuickAction Icon={ChartBar} label="Poll" onClick={() => handleOpen('question')} />
+            <QuickAction Icon={Code} label="Code" onClick={() => handleOpen('build_log')} />
           </div>
 
           <button
-            onClick={(e) => { e.stopPropagation(); setOpen(true) }}
+            onClick={(e) => { e.stopPropagation(); handleOpen('update') }}
             className={
               'inline-flex items-center h-9 px-5 rounded-lg ' +
               'bg-white text-black hover:bg-zinc-100 ' +
@@ -61,7 +66,14 @@ export function HomeComposerBar({ currentUser }: Props) {
         </div>
       </div>
 
-      <HomeComposerModal open={open} onClose={() => setOpen(false)} currentUser={currentUser} />
+      {open && (
+        <HomeComposerModal 
+          open={open} 
+          onClose={() => setOpen(false)} 
+          currentUser={currentUser} 
+          initialType={initialType} 
+        />
+      )}
     </>
   )
 }

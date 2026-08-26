@@ -47,7 +47,7 @@ export function ApplicantCard({ application, compact, onClick }: Props) {
           </div>
           <span className="text-[11.5px] font-semibold text-white truncate flex-1">{name}</span>
           {application.is_starred && (
-            <Star size={9} weight="fill" className="text-amber-400 shrink-0" />
+            <Star size={10} weight="fill" className="text-amber-400 shrink-0" />
           )}
         </div>
         {message && (
@@ -113,7 +113,7 @@ export function ApplicantCard({ application, compact, onClick }: Props) {
         {application.internal_rating && (
           <>
             <span className="w-1 h-1 rounded-full bg-zinc-700" />
-            <span className="text-amber-400">
+            <span className="text-amber-400 font-bold">
               {'★'.repeat(application.internal_rating)}
             </span>
           </>

@@ -72,8 +72,9 @@ export function HomeFeed({ tab, currentUser }: Props) {
     return () => observer.disconnect()
   }, [hasMore, cursor, loading, loadingMore, loadPosts])
 
-  // Real-time: count NEW posts arriving above current top
+  // Real-time: count NEW posts arriving above current top (only on Latest tab)
   useEffect(() => {
+    if (tab !== 'latest' && tab !== 'for-you') return
     if (posts.length === 0) return
     const topCreatedAt = posts[0]?.created_at
     if (!topCreatedAt) return
@@ -92,7 +93,7 @@ export function HomeFeed({ tab, currentUser }: Props) {
           const newPost = payload.new
           if (!newPost) return
           if (newPost.is_draft) return
-          if (newPost.user_id === currentUser?.id) return // don't count our own
+          if (newPost.user_id === currentUser?.id) return
 
           const newTs = new Date(newPost.created_at).getTime()
           const topTs = new Date(topCreatedAt).getTime()
@@ -107,7 +108,7 @@ export function HomeFeed({ tab, currentUser }: Props) {
       supabase.removeChannel(channel)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posts, currentUser])
+  }, [posts, currentUser, tab])
 
   const loadNewPosts = () => {
     setNewPostsCount(0)
@@ -140,15 +141,18 @@ export function HomeFeed({ tab, currentUser }: Props) {
   }
 
   if (posts.length === 0) {
+    const emptyMessage = {
+      'for-you': "Your personalized feed is being prepared. Interact with a few posts to help us understand what you like.",
+      'latest': "No posts yet. Be the first to post something.",
+      'ventures': "No venture updates right now. Follow ventures to see their posts here.",
+      'projects': "No project updates right now. Follow projects to see their posts here.",
+    }[tab] || "Nothing here yet."
+
     return (
       <div className="rounded-xl border border-dashed border-zinc-800 p-12 text-center">
         <p className="text-[14px] font-semibold text-white mb-1.5">Nothing here yet</p>
         <p className="text-[12.5px] text-zinc-500 max-w-md mx-auto">
-          {tab === 'following'
-            ? "Follow people and ventures to see their posts here."
-            : tab === 'ventures'
-            ? "No venture posts to show right now."
-            : "Be the first to post something."}
+          {emptyMessage}
         </p>
       </div>
     )
@@ -156,7 +160,6 @@ export function HomeFeed({ tab, currentUser }: Props) {
 
   return (
     <>
-      {/* Floating "N new posts" bar */}
       {newPostsCount > 0 && (
         <div className="sticky top-[80px] z-20 flex justify-center pointer-events-none">
           <button

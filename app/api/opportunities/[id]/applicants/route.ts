@@ -5,71 +5,68 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/opportunities/[id]/applicants
- * Poster views all applicants for their opportunity
- * Query params: ?stage=submitted|viewed|shortlisted|... &limit=&offset=
+ * Returns all applicants for an opportunity (owner only)
  */
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { searchParams } = new URL(req.url)
-  const stage = searchParams.get('stage')
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
-  const offset = Math.max(parseInt(searchParams.get('offset') || '0'), 0)
-
   try {
-    // Verify owner
-    const { data: opp } = await supabase.from('opportunities')
-      .select('poster_user_id').eq('id', id).single()
+    // Check ownership of the opportunity
+    const { data: opp } = await supabase
+      .from('opportunities')
+      .select('poster_user_id')
+      .eq('id', id)
+      .single()
 
-    if (!opp || opp.poster_user_id !== user.id) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+    if (!opp) return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 })
+    if (opp.poster_user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    let query = supabase.from('opportunity_applications')
-      .select('*', { count: 'exact' })
+    // Fetch all applications
+    const { data: apps, error } = await supabase
+      .from('opportunity_applications')
+      .select('*')
       .eq('opportunity_id', id)
+      .order('created_at', { ascending: false })
 
-    if (stage && stage !== 'all') {
-      query = query.eq('pipeline_stage', stage)
-    }
-
-    query = query.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
-
-    const { data: applications, count, error } = await query
     if (error) throw error
 
-    const items = applications || []
+    const items = apps || []
+    const applicantIds = [...new Set(items.map(a => a.applicant_id).filter(Boolean))]
 
-    // Enrich with applicant profile
-    const applicantIds = [...new Set(items.map(i => i.applicant_id))]
-    const { data: applicants } = applicantIds.length
-      ? await supabase.from('users').select('id, username, full_name, avatar_url, tagline, bio, is_verified, location').in('id', applicantIds)
+    // Enrich with user profile data
+    const { data: users } = applicantIds.length
+      ? await supabase
+          .from('users')
+          .select('id, username, full_name, avatar_url, tagline, is_verified, location')
+          .in('id', applicantIds)
       : { data: [] }
-    const applicantMap = new Map((applicants || []).map((a: any) => [a.id, a]))
 
-    // Stats
-    const { data: allApps } = await supabase.from('opportunity_applications')
-      .select('pipeline_stage').eq('opportunity_id', id)
-    const stats: Record<string, number> = { total: allApps?.length || 0 }
-    for (const a of allApps || []) {
-      stats[a.pipeline_stage] = (stats[a.pipeline_stage] || 0) + 1
+    const userMap = new Map((users || []).map((u: any) => [u.id, u]))
+
+    // Calculate stage stats
+    const stats: Record<string, number> = { total: items.length }
+    for (const a of items) {
+      const stage = a.pipeline_stage || 'submitted'
+      stats[stage] = (stats[stage] || 0) + 1
     }
 
-    return NextResponse.json({
-      applications: items.map(app => ({
-        ...app,
-        applicant: applicantMap.get(app.applicant_id) || null,
-      })),
-      stats,
-      total: count || 0,
-      limit,
-      offset,
-    })
+    const enriched = items.map(a => ({
+      ...a,
+      applicant: userMap.get(a.applicant_id) || a.applicant_snapshot || null,
+    }))
+
+    return NextResponse.json({ applications: enriched, stats })
   } catch (e: any) {
-    console.error('Applicants list error:', e)
-    return NextResponse.json({ error: e?.message }, { status: 500 })
+    console.error('List applicants error:', e)
+    return NextResponse.json({ error: e?.message, applications: [], stats: {} }, { status: 500 })
   }
 }

@@ -15,24 +15,32 @@ interface Props {
   open: boolean
   onClose: () => void
   currentUser?: any
+  initialType?: string
 }
 
-export function HomeComposerModal({ open, onClose, currentUser }: Props) {
+export function HomeComposerModal({ open, onClose, currentUser, initialType = 'update' }: Props) {
   if (!open) return null
 
   return (
     <ComposerProvider>
-      <ComposerInner onClose={onClose} currentUser={currentUser} />
+      <ComposerInner onClose={onClose} currentUser={currentUser} initialType={initialType} />
     </ComposerProvider>
   )
 }
 
-function ComposerInner({ onClose, currentUser }: { onClose: () => void; currentUser?: any }) {
+function ComposerInner({ onClose, currentUser, initialType }: { onClose: () => void; currentUser?: any, initialType: string }) {
   const router = useRouter()
   const composer = useComposer()
   const { status: autosaveStatus } = useComposerAutosave(true)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
+  
+  // Set initial post type based on what Quick Action button was clicked
+  useEffect(() => {
+    if (initialType && composer.postType === 'update') {
+      composer.setPostType(initialType)
+    }
+  }, [initialType])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -52,7 +60,6 @@ function ComposerInner({ onClose, currentUser }: { onClose: () => void; currentU
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publishing])
 
   const handleClose = () => {
@@ -107,14 +114,10 @@ function ComposerInner({ onClose, currentUser }: { onClose: () => void; currentU
     }
   }
 
-  const canPublish = !!composer.publisher &&
-    (composer.content.trim().length > 0 || composer.media.length > 0)
+  const canPublish = !!composer.publisher && (composer.content.trim().length > 0 || composer.media.length > 0)
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={handleClose}
-    >
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={handleClose}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
       <div

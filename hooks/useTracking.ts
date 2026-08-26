@@ -1,66 +1,33 @@
-"use client";
+"use client"
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react"
 
-type SignalType =
-  | "view" // Removed auto-tracking
-  | "hover"
-  | "click"
-  | "visit" // 🎯 NEW - when user enters community page
+export type SignalType =
+  | "view"
   | "long_view"
+  | "click"
+  | "visit"
+  | "like"
+  | "comment"
   | "save"
-  | "join"
-  | "engage"
   | "share"
   | "dismiss"
-  | "leave";
+  | "hide"
 
-type EntityType = "community" | "project" | "user" | "post";
+export type EntityType = "community" | "project" | "user" | "post" | "venture"
 
-// Session-based tracking - prevent duplicates
-const trackedSignals = new Map<string, Set<string>>();
+const trackedSessionKeys = new Set<string>()
 
-function getTrackedKey(entity_type: EntityType, entity_id: string) {
-  return `${entity_type}:${entity_id}`;
-}
-
-function hasTrackedInSession(
-  signal_type: SignalType,
-  entity_type: EntityType,
-  entity_id: string,
-): boolean {
-  const key = getTrackedKey(entity_type, entity_id);
-  const signals = trackedSignals.get(key);
-  return signals?.has(signal_type) || false;
-}
-
-function markTracked(
-  signal_type: SignalType,
-  entity_type: EntityType,
-  entity_id: string,
-) {
-  const key = getTrackedKey(entity_type, entity_id);
-  if (!trackedSignals.has(key)) {
-    trackedSignals.set(key, new Set());
-  }
-  trackedSignals.get(key)!.add(signal_type);
-}
-
-/**
- * Track a user action (fire and forget)
- */
 export async function trackSignal(
   signal_type: SignalType,
   entity_type: EntityType,
   entity_id: string,
-  metadata?: Record<string, any>,
+  metadata?: Record<string, any>
 ) {
-  // Prevent duplicate 'visit' in same session
-  if (signal_type === "visit") {
-    if (hasTrackedInSession(signal_type, entity_type, entity_id)) {
-      return;
-    }
-    markTracked(signal_type, entity_type, entity_id);
+  const key = `${signal_type}:${entity_type}:${entity_id}`
+  if (signal_type === "visit" || signal_type === "view") {
+    if (trackedSessionKeys.has(key)) return
+    trackedSessionKeys.add(key)
   }
 
   try {
@@ -68,61 +35,42 @@ export async function trackSignal(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ signal_type, entity_type, entity_id, metadata }),
-    });
-  } catch (e) {
-    // Silent fail
-  }
+    })
+  } catch {}
 }
 
 /**
- * 🎯 Hook: Track community VISIT (when user enters community page)
- * Only counts as view when someone actually visits the community
+ * Auto-tracks dwell time on feed post cards.
+ * Fires 'long_view' if visible for >= 4 seconds.
  */
-export function useVisitTracking(
-  entity_type: EntityType,
-  entity_id: string,
-  enabled: boolean = true,
-) {
-  const trackedRef = useRef(false);
+export function usePostDwellTracker(postId: string, tags: string[] = []) {
+  const ref = useRef<HTMLDivElement>(null)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  if (
-    typeof window !== "undefined" &&
-    enabled &&
-    !trackedRef.current &&
-    entity_id
-  ) {
-    trackedRef.current = true;
-    // Track visit immediately when component mounts
-    setTimeout(() => {
-      trackSignal("visit", entity_type, entity_id);
-    }, 500);
-  }
-}
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !postId) return
 
-/**
- * ❌ REMOVED: useViewTracking (auto-track on card visibility)
- * ❌ REMOVED: useHoverTracking (auto-track on hover)
- */
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry.isIntersecting) {
+          timerRef.current = setTimeout(() => {
+            trackSignal("long_view", "post", postId, { tags })
+          }, 4000)
+        } else {
+          if (timerRef.current) clearTimeout(timerRef.current)
+        }
+      },
+      { threshold: 0.6 }
+    )
 
-// Empty exports for backwards compatibility (won't do anything)
-export function useViewTracking(
-  _entity_type: EntityType,
-  _entity_id: string,
-  _enabled: boolean = true,
-) {
-  return useRef(null);
-}
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [postId, tags])
 
-export function useHoverTracking(_entity_type: EntityType, _entity_id: string) {
-  return {
-    onMouseEnter: () => {},
-    onMouseLeave: () => {},
-  };
-}
-
-/**
- * Clear session tracking (call on logout)
- */
-export function clearTrackingSession() {
-  trackedSignals.clear();
+  return ref
 }
