@@ -1,26 +1,45 @@
-﻿import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
   const supabase = await createClient()
-  const { searchParams } = new URL(request.url)
-  const q = (searchParams.get('q') || '').trim()
-  const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 25)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (q.length < 2) return NextResponse.json({ users: [] })
+  const sp = new URL(req.url).searchParams
+  const rawQ = sp.get('q') || ''
+  const q = rawQ.trim().replace(/^@/, '').replace(/[%_\\]/g, '')
+  const limit = Math.min(parseInt(sp.get('limit') || '8', 10), 20)
+
+  if (!q) return NextResponse.json({ users: [] })
 
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, full_name, username, avatar_url, is_verified, tagline')
-      .or('full_name.ilike.%' + q + '%,username.ilike.%' + q + '%')
-      .limit(limit)
+    const pattern = `%${q}%`
 
-    if (error) throw error
-    return NextResponse.json({ users: data || [] })
+    // Run parallel queries for username and full_name to guarantee instant PostgREST matches
+    const [byUsername, byFullName] = await Promise.all([
+      supabase
+        .from('users')
+        .select('id, username, full_name, avatar_url, is_verified, tagline')
+        .ilike('username', pattern)
+        .limit(limit),
+      supabase
+        .from('users')
+        .select('id, username, full_name, avatar_url, is_verified, tagline')
+        .ilike('full_name', pattern)
+        .limit(limit),
+    ])
+
+    const map = new Map<string, any>()
+    for (const u of (byUsername.data || [])) map.set(u.id, u)
+    for (const u of (byFullName.data || [])) map.set(u.id, u)
+
+    const users = Array.from(map.values()).slice(0, limit)
+    return NextResponse.json({ users })
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message, users: [] }, { status: 500 })
+    console.error('User search error:', e)
+    return NextResponse.json({ error: e?.message || 'Search failed', users: [] }, { status: 500 })
   }
 }

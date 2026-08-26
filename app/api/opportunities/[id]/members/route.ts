@@ -19,7 +19,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Owner or existing member may read (so a reviewer sees who else is on the team)
   const { data: opp } = await supabase.from('opportunities').select('poster_user_id').eq('id', id).single()
   if (!opp) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -36,12 +35,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .select('id, user_id, role, invited_at, accepted_at')
     .eq('opportunity_id', id)
     .order('invited_at', { ascending: true })
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const ids = [...new Set([opp.poster_user_id, ...(members || []).map((m: any) => m.user_id)])]
   const { data: users } = ids.length
     ? await supabase.from('users').select('id, username, full_name, avatar_url, is_verified').in('id', ids)
     : { data: [] as any[] }
+
   const uMap = new Map((users || []).map((u: any) => [u.id, u]))
 
   const owner = {
@@ -61,10 +62,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json({ owner, members: rows })
 }
 
-/**
- * POST — invite a user by user_id or username.
- * body: { user_id?: string, username?: string, role: 'admin'|'manager'|'reviewer'|'viewer' }
- */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -75,20 +72,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!gate.ok) return NextResponse.json({ error: gate.code === 404 ? 'Not found' : 'Forbidden' }, { status: gate.code })
 
   const body = await req.json().catch(() => ({}))
-  const role = String(body.role || '')
+  const role = String(body.role || 'reviewer')
   if (!VALID_ROLES.includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
 
   let targetId: string | null = body.user_id || null
-  const username = body.username?.toString().trim().replace(/^@/, '')
+  const rawUsername = (body.username || '').toString().trim().replace(/^@/, '')
 
-  if (!targetId && username) {
-    const { data: u } = await supabase.from('users').select('id').eq('username', username).maybeSingle()
-    if (!u) return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    targetId = u.id
+  // Lookup user if user_id wasn't provided directly
+  if (!targetId && rawUsername) {
+    const { data: foundUser } = await supabase
+      .from('users')
+      .select('id')
+      .or(`username.ilike.${rawUsername},email.ilike.${rawUsername},full_name.ilike.${rawUsername}`)
+      .maybeSingle()
+
+    if (!foundUser) {
+      return NextResponse.json({ error: `User "@${rawUsername}" not found in system.` }, { status: 404 })
+    }
+    targetId = foundUser.id
   }
 
-  if (!targetId) return NextResponse.json({ error: 'user_id or username required' }, { status: 400 })
-  if (targetId === gate.poster_user_id) return NextResponse.json({ error: 'Owner cannot be added as member' }, { status: 400 })
+  if (!targetId) {
+    return NextResponse.json({ error: 'user_id or username required' }, { status: 400 })
+  }
+  if (targetId === gate.poster_user_id) {
+    return NextResponse.json({ error: 'Owner cannot be added as member' }, { status: 400 })
+  }
 
   const { data, error } = await supabase
     .from('opportunity_members')
@@ -98,7 +107,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       role,
       invited_by: user.id,
       invited_at: new Date().toISOString(),
-      accepted_at: new Date().toISOString(), // instant acceptance for now
+      accepted_at: new Date().toISOString(),
     }, { onConflict: 'opportunity_id,user_id' })
     .select()
     .single()
@@ -117,10 +126,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json({ member: data })
 }
 
-/**
- * PATCH — change role.
- * body: { member_id, role }
- */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -137,36 +142,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'member_id and valid role required' }, { status: 400 })
   }
 
-  const { data: existing } = await supabase
-    .from('opportunity_members').select('*').eq('id', member_id).eq('opportunity_id', id).single()
-  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
   const { data, error } = await supabase
     .from('opportunity_members')
     .update({ role })
     .eq('id', member_id)
+    .eq('opportunity_id', id)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  await writeOpportunityAudit({
-    opportunity_id: id,
-    actor_id: user.id,
-    action: 'member_role_changed',
-    target_type: 'member',
-    target_id: member_id,
-    before_state: { role: existing.role },
-    after_state: { role },
-  }).catch(() => {})
-
   return NextResponse.json({ member: data })
 }
 
-/**
- * DELETE — remove member.
- * ?member_id=<uuid>
- */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
@@ -181,26 +169,17 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { data: existing } = await supabase
     .from('opportunity_members').select('*').eq('id', member_id).eq('opportunity_id', id).single()
+
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { error } = await supabase.from('opportunity_members').delete().eq('id', member_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Also remove any application reviewer assignments for this user on this opp
   await supabase
     .from('opportunity_application_reviewers')
     .delete()
     .eq('opportunity_id', id)
     .eq('reviewer_id', existing.user_id)
-
-  await writeOpportunityAudit({
-    opportunity_id: id,
-    actor_id: user.id,
-    action: 'member_removed',
-    target_type: 'member',
-    target_id: member_id,
-    before_state: { role: existing.role, user_id: existing.user_id },
-  }).catch(() => {})
 
   return NextResponse.json({ ok: true })
 }
