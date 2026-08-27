@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/process-outbox?secret=${CRON_SECRET}",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/cleanup-auth?secret=${CRON_SECRET}",
-      "schedule": "0 * * * *"
+      "schedule": "0 1 * * *"
     }
   ]
 }
