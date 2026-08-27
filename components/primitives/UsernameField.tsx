@@ -21,7 +21,6 @@ export function UsernameField({
   value, 
   onChange, 
   onValidityChange,
-  currentUserId,
   autoFocus,
   className 
 }: Props) {
@@ -63,7 +62,7 @@ export function UsernameField({
         setErrorMessage(data.reason || 'Username is not available')
         onValidityChange?.(false)
       }
-    } catch (err) {
+    } catch {
       if (checkId === activeCheckId) {
         setState('ERROR')
         setErrorMessage('Could not check availability')
@@ -107,11 +106,10 @@ export function UsernameField({
     onChange(cleaned)
   }
 
-  const dsrtAddress = value ? `${value}@dsrt.com` : 'username@dsrt.com'
+  const dsrtAddress = value ? `${value}@dsrtai.com` : 'username@dsrtai.com'
 
   return (
     <div className={cn("w-full space-y-3", className)}>
-      {/* Username Input */}
       <div>
         <div className={cn(
           "flex items-center rounded-md border transition-all overflow-hidden bg-[#050505]",
@@ -139,12 +137,9 @@ export function UsernameField({
           </div>
         </div>
 
-        {/* Status Message */}
         <div className="min-h-[18px] mt-1.5 px-0.5">
           {state === 'AVAILABLE' && (
-            <p className="text-[11px] text-emerald-400 font-medium">
-              Available
-            </p>
+            <p className="text-[11px] text-emerald-400 font-medium">Available</p>
           )}
           {(state === 'TAKEN' || state === 'INVALID' || state === 'ERROR') && (
             <p className="text-[11px] text-red-400">{errorMessage}</p>
@@ -155,7 +150,6 @@ export function UsernameField({
         </div>
       </div>
 
-      {/* DSRT Address Preview */}
       <div className="rounded-md border border-white/[0.06] bg-[#0A0A0C] p-3">
         <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase mb-1.5">
           Your DSRT workspace address
