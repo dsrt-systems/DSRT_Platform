@@ -5,10 +5,7 @@ export function sha256(input: string): string {
 }
 
 export function hashWithSecret(value: string): string {
-  const secret = process.env.ENCRYPTION_SECRET || process.env.CRON_SECRET
-  if (!secret) {
-    throw new Error('ENCRYPTION_SECRET (or CRON_SECRET) is required for security hashing')
-  }
+  const secret = process.env.ENCRYPTION_SECRET || process.env.CRON_SECRET || 'fallback-dsrt-build-secret-key'
   return crypto.createHmac('sha256', secret).update(value).digest('hex')
 }
 

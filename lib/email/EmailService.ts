@@ -1,22 +1,17 @@
 import { Resend } from 'resend'
 
-function getResend() {
-  const key = process.env.RESEND_API_KEY
-  if (!key) {
-    throw new Error('RESEND_API_KEY is required in production')
-  }
-  return new Resend(key)
-}
-
-function fromAddress() {
-  const email = process.env.EMAIL_FROM || 'verify@dsrtai.com'
-  const name = process.env.EMAIL_FROM_NAME || 'DSRT Security'
-  return `${name} <${email}>`
-}
-
 export class EmailService {
   static async sendVerificationOtp(to: string, otp: string): Promise<{ ok: boolean; error?: string }> {
-    const resend = getResend()
+    const key = process.env.RESEND_API_KEY
+    if (!key) {
+      console.error('[EmailService Error]: RESEND_API_KEY environment variable is not defined.')
+      return { ok: false, error: 'RESEND_API_KEY_MISSING' }
+    }
+
+    const resend = new Resend(key)
+    const email = process.env.EMAIL_FROM || 'verify@dsrtai.com'
+    const name = process.env.EMAIL_FROM_NAME || 'DSRT Security'
+    const fromAddress = `${name} <${email}>`
     const subject = `${otp} is your DSRT Connect verification code`
 
     const html = `
@@ -32,17 +27,22 @@ export class EmailService {
 </body>
 </html>`
 
-    const { error } = await resend.emails.send({
-      from: fromAddress(),
-      to: [to],
-      subject,
-      html,
-    })
+    try {
+      const { error } = await resend.emails.send({
+        from: fromAddress,
+        to: [to],
+        subject,
+        html,
+      })
 
-    if (error) {
-      console.error('[EmailService] delivery failed')
-      return { ok: false, error: 'EMAIL_DELIVERY_FAILED' }
+      if (error) {
+        console.error('[EmailService] delivery failed:', error)
+        return { ok: false, error: 'EMAIL_DELIVERY_FAILED' }
+      }
+      return { ok: true }
+    } catch (err: any) {
+      console.error('[EmailService Exception]:', err)
+      return { ok: false, error: err.message || 'EMAIL_DISPATCH_EXCEPTION' }
     }
-    return { ok: true }
   }
 }
