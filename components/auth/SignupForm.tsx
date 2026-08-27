@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { At, User, CircleNotch, ArrowRight, Calendar } from '@phosphor-icons/react'
+import { Loader2 } from 'lucide-react'
+import { At, User, ArrowRight, Calendar } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
 import { AuthInput } from './AuthInput'
 import { PasswordInput } from './PasswordInput'
@@ -57,11 +58,10 @@ export function SignUpForm({ onSwitchView }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Signup failed')
 
-      // Sign in immediately to establish session
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) throw signInError
 
-      toast.success('Account created! Let\'s claim your DSRT identity.')
+      toast.success("Account created! Let's claim your DSRT identity.")
       router.push('/auth/username')
       router.refresh()
     } catch (err: any) {
@@ -94,8 +94,7 @@ export function SignUpForm({ onSwitchView }: Props) {
           name="fullName"
           autoComplete="name"
           autoFocus
-          placeholder="Jisu Mondal"
-          leading={<User className="w-4 h-4" weight="bold" />}
+          placeholder="Alex Doe"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
         />
@@ -105,8 +104,7 @@ export function SignUpForm({ onSwitchView }: Props) {
           type="email"
           name="email"
           autoComplete="email"
-          placeholder="you@example.com"
-          leading={<At className="w-4 h-4" weight="bold" />}
+          placeholder="alex@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -123,14 +121,11 @@ export function SignUpForm({ onSwitchView }: Props) {
         <div className="space-y-1.5">
           <label className="text-[12px] font-semibold text-white/70 pl-1">Date of Birth (optional)</label>
           <div className="relative">
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40">
-              <Calendar className="w-4 h-4" weight="bold" />
-            </div>
             <input
               type="date"
               value={dob}
               onChange={(e) => setDob(e.target.value)}
-              className="w-full h-11 pl-10 pr-3 rounded-lg bg-[#0A0D14] border border-white/10 text-white text-sm focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF] transition-all"
+              className="w-full h-9 px-3 rounded-md bg-transparent border border-white/15 text-white text-[14px] focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF] transition-all"
             />
           </div>
         </div>
@@ -139,29 +134,24 @@ export function SignUpForm({ onSwitchView }: Props) {
           type="submit"
           disabled={loading}
           className={cn(
-            "w-full h-11 rounded-lg mt-2 flex items-center justify-center gap-2",
-            "bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14px] font-bold",
-            "shadow-[0_4px_20px_rgba(79,124,255,0.3)] transition-all",
-            "disabled:opacity-70 disabled:cursor-not-allowed"
+            "w-full h-9 rounded-md mt-2 flex items-center justify-center transition-colors",
+            "bg-white text-black text-[14px] font-semibold hover:bg-white/90",
+            "disabled:opacity-50 disabled:cursor-not-allowed"
           )}
         >
           {loading ? (
-            <CircleNotch className="w-5 h-5 animate-spin" weight="bold" />
+            <Loader2 className="w-4 h-4 animate-spin text-black" />
           ) : (
-            <>Create account <ArrowRight className="w-4 h-4" weight="bold" /></>
+            'Create account'
           )}
         </button>
       </form>
 
       <p className="text-center text-[13px] text-white/50 font-medium mt-6">
         Already have an account?{' '}
-        <button onClick={() => onSwitchView('signin')} className="text-[#4F7CFF] hover:text-[#7093FF] font-semibold transition-colors">
+        <button onClick={() => onSwitchView('signin')} className="text-white hover:underline transition-colors font-medium">
           Sign in
         </button>
-      </p>
-
-      <p className="text-center text-[10px] text-white/30 mt-3">
-        By continuing, you agree to DSRT's Terms and Privacy Policy.
       </p>
     </div>
   )

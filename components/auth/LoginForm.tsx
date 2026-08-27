@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { toast } from 'sonner'
-import { At, CircleNotch, ArrowRight } from '@phosphor-icons/react'
+import { Loader2 } from 'lucide-react'
+import { At, ArrowRight } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
 import { AuthInput } from './AuthInput'
 import { PasswordInput } from './PasswordInput'
@@ -54,20 +54,15 @@ export function LoginForm({ onSwitchView }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Login failed')
 
-      // Restore client session
       const clean = identifier.trim().toLowerCase()
       let loginEmail = clean
       if (!clean.includes('@')) {
-        // Client-side we don't have email; use API's implicit session cookie
-        // Force a page refresh to sync state
         router.refresh()
         router.push(data.next || '/home')
         return
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
-      if (signInError) throw signInError
-
+      await supabase.auth.signInWithPassword({ email: loginEmail, password })
       router.push(data.next || '/home')
       router.refresh()
     } catch (err: any) {
@@ -77,13 +72,13 @@ export function LoginForm({ onSwitchView }: Props) {
   }
 
   return (
-    <div>
-      <div className="text-center mb-6">
-        <h1 className="text-[22px] font-semibold text-white tracking-tight">Welcome back</h1>
-        <p className="text-[13px] text-white/50 mt-1">Sign in to continue building on DSRT.</p>
+    <div className="w-full">
+      <div className="mb-6">
+        <h1 className="text-[24px] font-semibold text-white tracking-tight">Welcome back</h1>
+        <p className="text-[14px] text-white/60 mt-1.5">Sign in to your DSRT account.</p>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 mb-6">
         <OAuthButton provider="google" onClick={() => handleOAuth('google')} loading={oauthLoading === 'google'} disabled={!!oauthLoading} icon={<GoogleIcon />}>
           Continue with Google
         </OAuthButton>
@@ -92,56 +87,56 @@ export function LoginForm({ onSwitchView }: Props) {
         </OAuthButton>
       </div>
 
-      <AuthDivider label="or with password" />
+      <AuthDivider label="or continue with email" />
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <AuthInput
           label="Email or username"
           type="text"
           name="identifier"
           autoComplete="username"
           autoFocus
-          placeholder="you@example.com or @jisu"
-          leading={<At className="w-4 h-4" weight="regular" />}
+          placeholder="alex@example.com or username"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
         />
 
-        <PasswordInput
-          label="Password"
-          name="password"
-          autoComplete="current-password"
-          placeholder="Enter your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => onSwitchView('forgot')}
-            className="text-[12px] text-white/50 hover:text-white/80 transition-colors"
-          >
-            Forgot password?
-          </button>
+        <div className="space-y-1">
+          <PasswordInput
+            label="Password"
+            name="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onSwitchView('forgot')}
+              className="text-[12px] text-white/50 hover:text-white transition-colors"
+            >
+              Forgot password?
+            </button>
+          </div>
         </div>
 
         <button
           type="submit"
           disabled={loading}
           className={cn(
-            "w-full h-10 rounded-md mt-1 flex items-center justify-center gap-2",
-            "bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[13px] font-semibold",
-            "transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            "w-full h-9 rounded-md mt-2 flex items-center justify-center transition-colors",
+            "bg-white text-black text-[14px] font-semibold hover:bg-white/90",
+            "disabled:opacity-50 disabled:cursor-not-allowed"
           )}
         >
-          {loading ? <CircleNotch className="w-4 h-4 animate-spin" /> : <>Sign in <ArrowRight className="w-3.5 h-3.5" weight="bold" /></>}
+          {loading ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : 'Sign in'}
         </button>
       </form>
 
-      <p className="text-center text-[13px] text-white/50 mt-6">
+      <p className="text-[13px] text-white/60 mt-6">
         New to DSRT?{' '}
-        <button onClick={() => onSwitchView('signup')} className="text-[#4F7CFF] hover:text-[#7093FF] font-medium transition-colors">
+        <button onClick={() => onSwitchView('signup')} className="text-white hover:underline transition-colors font-medium">
           Create account
         </button>
       </p>

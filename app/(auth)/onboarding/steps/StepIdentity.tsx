@@ -3,10 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useOnboardingStore } from '@/stores/onboardingStore'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export function StepIdentity() {
   const supabase = createClient()
@@ -19,7 +17,6 @@ export function StepIdentity() {
   const [usernameError, setUsernameError] = useState('')
   const [checking, setChecking] = useState(false)
 
-  // Load existing data from user record
   useEffect(() => {
     const loadExistingData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -60,12 +57,12 @@ export function StepIdentity() {
       .select('id')
       .eq('username', value.toLowerCase())
       .neq('id', user?.id || '')
-      .single()
+      .maybeSingle()
 
     setChecking(false)
 
     if (existing) {
-      setUsernameError('Username is already taken')
+      setUsernameError('This username is already taken')
       return false
     }
 
@@ -93,75 +90,93 @@ export function StepIdentity() {
   const canProceed = fullName.length >= 2 && username.length >= 3 && !usernameError && !checking
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="full_name">Full Name *</Label>
-        <Input
-          id="full_name"
+    <div className="space-y-5">
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-medium text-white/90 flex items-center gap-1.5">
+          Full Name <span className="text-red-400">*</span>
+        </label>
+        <input
+          type="text"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          placeholder="Jisu Mondal"
+          placeholder="Enter your first and last name"
+          className="w-full h-10 px-3 rounded-md bg-transparent border border-white/15 text-white text-[14px] placeholder:text-white/30 focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF] transition-all"
         />
+        <p className="text-[11px] text-white/40">This appears on your public profile.</p>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="username">Username *</Label>
-        <div className="flex items-center">
-          <span className="px-3 py-2 bg-muted border border-r-0 rounded-l-md text-sm text-muted-foreground">
-            dsrt.app/
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-medium text-white/90 flex items-center gap-1.5">
+          Username <span className="text-red-400">*</span>
+        </label>
+        <div className="flex items-center border border-white/15 rounded-md focus-within:border-[#4F7CFF] focus-within:ring-1 focus-within:ring-[#4F7CFF] transition-all overflow-hidden">
+          <span className="px-3 h-10 flex items-center bg-white/[0.03] text-white/40 text-[13px] font-mono border-r border-white/10">
+            dsrtai.com/
           </span>
-          <Input
-            id="username"
+          <input
+            type="text"
             value={username}
             onChange={(e) => {
               setUsername(e.target.value)
               setUsernameError('')
             }}
             onBlur={() => username && checkUsername(username)}
-            placeholder="jisumondal"
-            className="rounded-l-none"
+            placeholder="Choose a unique handle"
+            className="flex-1 h-10 px-3 bg-transparent text-white text-[14px] placeholder:text-white/30 font-mono focus:outline-none"
           />
+          {checking && (
+            <div className="pr-3">
+              <Loader2 className="w-4 h-4 text-white/40 animate-spin" />
+            </div>
+          )}
         </div>
-        {usernameError && (
-          <p className="text-xs text-destructive">{usernameError}</p>
-        )}
-        {checking && (
-          <p className="text-xs text-muted-foreground">Checking availability...</p>
+        {usernameError ? (
+          <p className="text-[11px] text-red-400">{usernameError}</p>
+        ) : (
+          <p className="text-[11px] text-white/40">Letters, numbers, and underscores only.</p>
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="tagline">Tagline</Label>
-        <Input
-          id="tagline"
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-medium text-white/90">Tagline</label>
+        <input
+          type="text"
           value={tagline}
           onChange={(e) => setTagline(e.target.value)}
-          placeholder="Building the future of startup collaboration"
+          placeholder="One line that describes what you do or believe in"
           maxLength={100}
+          className="w-full h-10 px-3 rounded-md bg-transparent border border-white/15 text-white text-[14px] placeholder:text-white/30 focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF] transition-all"
         />
-        <p className="text-xs text-muted-foreground text-right">
-          {tagline.length}/100
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-white/40">Great taglines are short, bold, and specific.</p>
+          <p className="text-[11px] text-white/40 font-mono">{tagline.length}/100</p>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="location">Location</Label>
-        <Input
-          id="location"
+      <div className="space-y-1.5">
+        <label className="text-[13px] font-medium text-white/90">Location</label>
+        <input
+          type="text"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          placeholder="Cooch Behar, West Bengal"
+          placeholder="City, Region — where you are based"
+          className="w-full h-10 px-3 rounded-md bg-transparent border border-white/15 text-white text-[14px] placeholder:text-white/30 focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF] transition-all"
         />
+        <p className="text-[11px] text-white/40">Helps you match with nearby builders and local events.</p>
       </div>
 
-      <div className="flex gap-3 pt-4">
-        <Button
+      <div className="pt-4">
+        <button
           onClick={handleNext}
           disabled={!canProceed}
-          className="flex-1"
+          className={cn(
+            "w-full h-10 rounded-md flex items-center justify-center transition-colors",
+            "bg-white text-black text-[14px] font-semibold hover:bg-white/90",
+            "disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+          )}
         >
           Continue
-        </Button>
+        </button>
       </div>
     </div>
   )
