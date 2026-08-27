@@ -4,8 +4,8 @@ export class EmailService {
   static async sendVerificationOtp(to: string, otp: string): Promise<{ ok: boolean; error?: string }> {
     const key = process.env.RESEND_API_KEY
     if (!key) {
-      console.error('[EmailService Error]: RESEND_API_KEY environment variable is not defined.')
-      return { ok: false, error: 'RESEND_API_KEY_MISSING' }
+      console.error('[EmailService Error]: RESEND_API_KEY is not defined in environment variables.')
+      return { ok: false, error: 'RESEND_API_KEY is missing in server configuration.' }
     }
 
     const resend = new Resend(key)
@@ -28,7 +28,7 @@ export class EmailService {
 </html>`
 
     try {
-      const { error } = await resend.emails.send({
+      const { data, error } = await resend.emails.send({
         from: fromAddress,
         to: [to],
         subject,
@@ -36,13 +36,15 @@ export class EmailService {
       })
 
       if (error) {
-        console.error('[EmailService] delivery failed:', error)
-        return { ok: false, error: 'EMAIL_DELIVERY_FAILED' }
+        console.error('[EmailService Error]: Resend API error:', error)
+        return { ok: false, error: error.message || 'Email delivery failed' }
       }
+
+      console.log(`[EmailService Success]: OTP email sent to ${to} (ID: ${data?.id})`)
       return { ok: true }
     } catch (err: any) {
       console.error('[EmailService Exception]:', err)
-      return { ok: false, error: err.message || 'EMAIL_DISPATCH_EXCEPTION' }
+      return { ok: false, error: err.message || 'Email service exception' }
     }
   }
 }

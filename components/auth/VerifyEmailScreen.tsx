@@ -10,7 +10,7 @@ export function VerifyEmailScreen({ email }: { email: string }) {
   const [otp, setOtp] = useState<string[]>(Array(6).fill(''))
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
-  const [cooldown, setCooldown] = useState(60)
+  const [cooldown, setCooldown] = useState(0)
   const inputsRef = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
@@ -81,11 +81,16 @@ export function VerifyEmailScreen({ email }: { email: string }) {
     setResending(true)
     try {
       const res = await fetch('/api/auth/resend-verification', { method: 'POST' })
-      if (!res.ok) throw new Error('Failed to resend code')
-      toast.success('New verification code sent!')
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to resend code')
+      }
+
+      toast.success('New 6-digit verification code sent!')
       setCooldown(60)
     } catch (err: any) {
-      toast.error(err.message)
+      toast.error(err.message || 'Failed to resend code')
     } finally {
       setResending(false)
     }
