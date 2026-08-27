@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const pathname = request.nextUrl.pathname
 
-  // Bypass system routes
+  // Bypass API, callback, static assets
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/callback') ||
@@ -53,31 +53,41 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  // Authenticated user - fetch identity state
-  const { data: dsrtUser } = await supabase
+  // Authenticated: fetch state machine
+  const { data: profile } = await supabase
     .from('users')
-    .select('account_state, account_status, onboarding_complete, username, normalized_username')
+    .select('onboarding_state, onboarding_complete, account_status, normalized_username')
     .eq('id', user.id)
     .maybeSingle()
 
-  const state = dsrtUser?.account_state || 'USERNAME_REQUIRED'
-  const isOnboarded = !!dsrtUser?.onboarding_complete
-  const hasRealUsername = !!(dsrtUser?.normalized_username && !dsrtUser.normalized_username.startsWith('pending_'))
+  const state = profile?.onboarding_state || 'USERNAME_REQUIRED'
+  const isOnboarded = !!profile?.onboarding_complete
+  const status = profile?.account_status || 'ACTIVE'
 
-  // ADAPTIVE FLOW: NO email verification wall
-  // User needs username → force to username selection
+  // Suspended / locked
+  if (status === 'SUSPENDED' || status === 'LOCKED') {
+    if (pathname !== '/account-locked') {
+      return NextResponse.redirect(new URL('/account-locked', request.url))
+    }
+    return supabaseResponse
+  }
+
+  const hasRealUsername = !!(profile?.normalized_username && !profile.normalized_username.startsWith('pending_'))
+
+  // ADAPTIVE FLOW
   if (!hasRealUsername && !pathname.startsWith('/auth/username')) {
     return NextResponse.redirect(new URL('/auth/username', request.url))
   }
 
-  // User has username but no onboarding → force to onboarding
   if (hasRealUsername && !isOnboarded && !pathname.startsWith('/onboarding')) {
     return NextResponse.redirect(new URL('/onboarding', request.url))
   }
 
-  // Fully onboarded user hitting auth pages → redirect home
-  if (hasRealUsername && isOnboarded && (isPublicAuth || pathname.startsWith('/auth/') || pathname.startsWith('/onboarding'))) {
-    return NextResponse.redirect(new URL('/home', request.url))
+  // Completed users → block auth & onboarding, but ALLOW /welcome
+  if (hasRealUsername && isOnboarded) {
+    if (isPublicAuth || pathname.startsWith('/onboarding')) {
+      return NextResponse.redirect(new URL('/home', request.url))
+    }
   }
 
   return supabaseResponse
