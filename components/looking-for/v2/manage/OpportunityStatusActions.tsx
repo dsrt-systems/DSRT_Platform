@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import {
   Eye, Play, Pause, CheckCircle, Archive, Trash,
   PencilSimple, Link as LinkIcon, ShareNetwork,
   ChartLine, Copy, Clock,
 } from '@phosphor-icons/react'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 
 interface Props {
   opportunity: any
@@ -15,15 +17,16 @@ interface Props {
 }
 
 export function OpportunityStatusActions({ opportunity, onClose, onRefresh, onView }: Props) {
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const updateStatus = async (status: string, action?: string) => {
-    // Optimistic parent refresh after server confirms
     try {
       await fetch(`/api/opportunities/${opportunity.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      // Fire audit-ish event
       await fetch(`/api/opportunities/${opportunity.id}/events`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,24 +61,29 @@ export function OpportunityStatusActions({ opportunity, onClose, onRefresh, onVi
   }
 
   const duplicate = async () => {
-  try {
-    const res = await fetch(`/api/opportunities/${opportunity.id}/duplicate`, { method: 'POST' })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data?.error || 'Duplicate failed')
-    onClose()
-    // Open the editor for the new draft
-    window.location.href = `/looking-for/create?edit=${data.opportunity?.id}`
-  } catch (e: any) {
-    alert(e?.message || 'Duplicate failed')
+    try {
+      const res = await fetch(`/api/opportunities/${opportunity.id}/duplicate`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || 'Duplicate failed')
+      onClose()
+      window.location.href = `/looking-for/create-v2/${data.opportunity?.id}`
+    } catch (e: any) {
+      alert(e?.message || 'Duplicate failed')
+    }
   }
-}
 
-  const deleteOpportunity = async () => {
-    if (!confirm('Delete this opportunity permanently? This cannot be undone.')) return
+  const executeDelete = async () => {
+    setIsDeleting(true)
     try {
       await fetch(`/api/opportunities/${opportunity.id}`, { method: 'DELETE' })
       onRefresh()
-    } catch {}
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setIsDeleting(false)
+      setShowConfirm(false)
+      onClose()
+    }
   }
 
   const status = opportunity.status
@@ -85,77 +93,99 @@ export function OpportunityStatusActions({ opportunity, onClose, onRefresh, onVi
   const isClosed = ['closed', 'filled', 'archived', 'expired'].includes(status)
 
   return (
-    <div
-      onClick={(e) => e.stopPropagation()}
-      className="absolute right-0 top-full mt-1 w-60 rounded-xl border border-zinc-800 bg-[#0c0c0e] shadow-[0_12px_40px_rgba(0,0,0,0.7)] z-40 py-1.5 overflow-hidden"
-    >
-      <MenuItem onClick={() => { onView(); onClose() }} Icon={Eye}>Preview public page</MenuItem>
-      <MenuItem href={`/looking-for/create?edit=${opportunity.id}`} Icon={PencilSimple}>Edit</MenuItem>
-      <MenuItem href={`/looking-for/my-opportunities/${opportunity.id}?tab=analytics`} Icon={ChartLine}>View analytics</MenuItem>
+    <>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="absolute right-0 top-full mt-2 w-60 rounded-xl border border-zinc-800 bg-[#0c0c0e] shadow-[0_16px_48px_rgba(0,0,0,0.8)] z-40 py-1.5 overflow-hidden"
+      >
+        <MenuItem onClick={() => { onView(); onClose() }} Icon={Eye}>Preview public page</MenuItem>
+        <MenuItem href={`/looking-for/create-v2/${opportunity.id}`} Icon={PencilSimple}>Edit</MenuItem>
+        <MenuItem href={`/looking-for/my-opportunities/${opportunity.id}?tab=analytics`} Icon={ChartLine}>View analytics</MenuItem>
 
-      <Divider />
+        <Divider />
 
-      <MenuItem onClick={copyLink} Icon={LinkIcon}>Copy link</MenuItem>
-      <MenuItem onClick={share} Icon={ShareNetwork}>Share</MenuItem>
-      <MenuItem onClick={duplicate} Icon={Copy}>Duplicate</MenuItem>
+        <MenuItem onClick={copyLink} Icon={LinkIcon}>Copy link</MenuItem>
+        <MenuItem onClick={share} Icon={ShareNetwork}>Share</MenuItem>
+        <MenuItem onClick={duplicate} Icon={Copy}>Duplicate</MenuItem>
 
-      <Divider />
+        <Divider />
 
-      {isDraft && (
-        <MenuItem onClick={() => { updateStatus('active', 'opportunity_published'); onClose() }} Icon={Play}>
-          Publish
-        </MenuItem>
-      )}
-      {isActive && (
-        <MenuItem onClick={() => { updateStatus('paused', 'opportunity_paused'); onClose() }} Icon={Pause}>
-          Pause applications
-        </MenuItem>
-      )}
-      {isPaused && (
-        <MenuItem onClick={() => { updateStatus('active', 'opportunity_resumed'); onClose() }} Icon={Play}>
-          Resume
-        </MenuItem>
-      )}
-      {!isClosed && opportunity.application_deadline && (
-        <MenuItem
-          onClick={async () => {
-            const d = new Date(opportunity.application_deadline)
-            d.setDate(d.getDate() + 7)
-            await fetch(`/api/opportunities/${opportunity.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ application_deadline: d.toISOString() }),
-            })
-            onRefresh()
-            onClose()
-          }}
-          Icon={Clock}
+        {isDraft && (
+          <MenuItem onClick={() => { updateStatus('active', 'opportunity_published'); onClose() }} Icon={Play}>
+            Publish
+          </MenuItem>
+        )}
+        {isActive && (
+          <MenuItem onClick={() => { updateStatus('paused', 'opportunity_paused'); onClose() }} Icon={Pause}>
+            Pause applications
+          </MenuItem>
+        )}
+        {isPaused && (
+          <MenuItem onClick={() => { updateStatus('active', 'opportunity_resumed'); onClose() }} Icon={Play}>
+            Resume
+          </MenuItem>
+        )}
+        {!isClosed && opportunity.application_deadline && (
+          <MenuItem
+            onClick={async () => {
+              const d = new Date(opportunity.application_deadline)
+              d.setDate(d.getDate() + 7)
+              await fetch(`/api/opportunities/${opportunity.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ application_deadline: d.toISOString() }),
+              })
+              onRefresh()
+              onClose()
+            }}
+            Icon={Clock}
+          >
+            Extend deadline +7d
+          </MenuItem>
+        )}
+        {!isClosed && (
+          <MenuItem onClick={() => { updateStatus('filled'); onClose() }} Icon={CheckCircle}>
+            Mark as filled
+          </MenuItem>
+        )}
+        {!isClosed && (
+          <MenuItem onClick={() => { updateStatus('closed', 'opportunity_closed'); onClose() }} Icon={Archive}>
+            Close opportunity
+          </MenuItem>
+        )}
+        {status !== 'archived' && (
+          <MenuItem onClick={() => { updateStatus('archived'); onClose() }} Icon={Archive}>
+            Archive
+          </MenuItem>
+        )}
+
+        <Divider />
+
+        {/* Instead of native confirm, we open our custom modal */}
+        <MenuItem 
+          onClick={() => setShowConfirm(true)} 
+          Icon={Trash} 
+          destructive
         >
-          Extend deadline +7d
+          Delete
         </MenuItem>
-      )}
-      {!isClosed && (
-        <MenuItem onClick={() => { updateStatus('filled'); onClose() }} Icon={CheckCircle}>
-          Mark as filled
-        </MenuItem>
-      )}
-      {!isClosed && (
-        <MenuItem onClick={() => { updateStatus('closed', 'opportunity_closed'); onClose() }} Icon={Archive}>
-          Close opportunity
-        </MenuItem>
-      )}
-      {status !== 'archived' && (
-        <MenuItem onClick={() => { updateStatus('archived'); onClose() }} Icon={Archive}>
-          Archive
-        </MenuItem>
-      )}
+      </div>
 
-      <Divider />
-
-      <MenuItem onClick={() => { deleteOpportunity(); onClose() }} Icon={Trash} destructive>
-        Delete
-      </MenuItem>
-    </div>
+      {/* DSRT Custom Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showConfirm}
+        title="Delete Opportunity"
+        message={`Are you sure you want to permanently delete "${opportunity.title}"? All associated applications, data, and analytics will be destroyed.`}
+        confirmText="Yes, delete it"
+        isDestructive={true}
+        isLoading={isDeleting}
+        onConfirm={executeDelete}
+        onCancel={() => {
+          setShowConfirm(false)
+          onClose()
+        }}
+      />
+    </>
   )
 }
 
@@ -173,7 +203,7 @@ function MenuItem({
   destructive?: boolean
 }) {
   const cls =
-    'w-full flex items-center gap-2.5 px-3.5 py-2 text-[12.5px] transition-colors ' +
+    'w-full flex items-center gap-3 px-4 py-2.5 text-[12.5px] font-medium transition-colors ' +
     (destructive
       ? 'text-red-400 hover:bg-red-500/10'
       : 'text-zinc-300 hover:bg-zinc-900 hover:text-white')
@@ -181,14 +211,14 @@ function MenuItem({
   if (href) {
     return (
       <Link href={href} className={cls}>
-        <Icon size={13} weight="regular" />
+        <Icon size={14} weight="regular" />
         {children}
       </Link>
     )
   }
   return (
     <button type="button" onClick={onClick} className={cls}>
-      <Icon size={13} weight="regular" />
+      <Icon size={14} weight="regular" />
       {children}
     </button>
   )

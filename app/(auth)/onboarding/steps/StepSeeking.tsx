@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOnboardingStore } from '@/stores/onboardingStore'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -27,7 +26,6 @@ const availabilityOptions = [
 
 export function StepSeeking() {
   const router = useRouter()
-  const supabase = createClient()
   const { data, updateData, prevStep, reset } = useOnboardingStore()
 
   const [selected, setSelected] = useState<string[]>(data.seeking || [])
@@ -42,142 +40,41 @@ export function StepSeeking() {
   }
 
   const finish = async () => {
-  setLoading(true)
-  setError(null)
+    setLoading(true)
+    setError(null)
 
-  try {
-    const finalData = {
-      ...data,
-      seeking: selected,
-      availability,
-    }
-    updateData({ seeking: selected, availability })
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      router.push('/login')
-      return
-    }
-
-    // 1. Update user profile
-    const { error: userError } = await supabase
-      .from('users')
-      .update({
-        full_name: finalData.full_name,
-        username: finalData.username,
-        tagline: finalData.tagline || null,
-        location: finalData.location || null,
-        brings: finalData.brings || [],
+    try {
+      const finalData = {
+        ...data,
         seeking: selected,
-        interest_topics: finalData.interest_topics || [],
-        availability: availability || null,
-        onboarding_complete: true,
-        last_active: new Date().toISOString(),
-      })
-      .eq('id', user.id)
+        availability,
+      }
+      updateData({ seeking: selected, availability })
 
-    if (userError) {
-      console.error('User update error:', userError)
-      setError('Failed to save profile. Please try again.')
+      // Call our secure server endpoint (handles atomic DB update + system welcome mail)
+      const res = await fetch('/api/auth/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalData),
+      })
+
+      const result = await res.json()
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Failed to complete onboarding')
+      }
+
+      // Reset local store state and navigate into active app
+      reset()
+      router.refresh()
+      router.push('/home')
+    } catch (err: any) {
+      console.error('Onboarding completion error:', err)
+      setError(err.message || 'Something went wrong. Please try again.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    // 2. Add education
-    if (finalData.institution_id || finalData.institution_name) {
-      await supabase.from('user_education').insert({
-        user_id: user.id,
-        institution_id: finalData.institution_id || null,
-        institution_name: finalData.institution_name || null,
-        degree: finalData.degree || null,
-        field: finalData.field || null,
-        start_year: finalData.start_year || null,
-        end_year: finalData.is_current ? null : finalData.end_year || null,
-        is_current: finalData.is_current ?? false,
-      })
-
-      // 3. Auto-join institution community
-      if (finalData.institution_id) {
-        const { data: instCommunity } = await supabase
-          .from('communities')
-          .select('id')
-          .eq('institution_id', finalData.institution_id)
-          .single()
-
-        if (instCommunity) {
-          await supabase.from('community_members').insert({
-            community_id: instCommunity.id,
-            user_id: user.id,
-            role: 'member',
-          })
-        }
-      }
-    }
-
-    // 4. Auto-join domain communities matching interests
-    if (finalData.interest_topics && finalData.interest_topics.length > 0) {
-      const interestSlugMap: Record<string, string> = {
-        'ai': 'ai-ml',
-        'saas': 'ai-ml',
-        'fintech': 'fintech',
-        'healthtech': 'healthtech',
-        'edtech': 'edtech',
-        'agritech': 'agritech',
-        'cleantech': 'climatetech',
-        'robotics': 'robotics-iot',
-        'iot': 'robotics-iot',
-        'blockchain': 'web3-blockchain',
-        'cybersecurity': 'cybersecurity',
-        'gaming': 'gaming',
-        'ecommerce': 'ecommerce-retail',
-        'arvr': 'gaming',
-        'space': 'defense-aerospace',
-        'climate': 'climatetech',
-      }
-
-      const targetSlugs = finalData.interest_topics
-        .map((t: string) => interestSlugMap[t])
-        .filter(Boolean)
-
-      if (targetSlugs.length > 0) {
-        const { data: matchingCommunities } = await supabase
-          .from('communities')
-          .select('id')
-          .in('slug', targetSlugs)
-
-        if (matchingCommunities && matchingCommunities.length > 0) {
-          const memberships = matchingCommunities.map((c: any) => ({
-            community_id: c.id,
-            user_id: user.id,
-            role: 'member',
-          }))
-
-          await supabase.from('community_members').insert(memberships)
-        }
-      }
-    }
-
-    // 5. Add skills
-    if (finalData.skill_ids && finalData.skill_ids.length > 0) {
-      await supabase.from('user_skills').insert(
-        finalData.skill_ids.map((skill_id: string) => ({
-          user_id: user.id,
-          skill_id,
-          level: 'intermediate',
-        }))
-      )
-    }
-
-    // 6. Reset store and redirect
-    reset()
-    router.refresh()
-    router.push('/')
-  } catch (err) {
-    console.error('Onboarding error:', err)
-    setError('Something went wrong. Please try again.')
-    setLoading(false)
   }
-}
 
   return (
     <div className="space-y-6">
@@ -186,13 +83,13 @@ export function StepSeeking() {
       </p>
 
       {error && (
-        <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+        <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium">
           {error}
         </div>
       )}
 
       <div>
-        <h3 className="font-semibold text-sm mb-3">I am looking for:</h3>
+        <h3 className="font-semibold text-sm mb-3 text-white">I am looking for:</h3>
         <div className="grid grid-cols-2 gap-3">
           {seekingOptions.map((option) => {
             const isSelected = selected.includes(option.id)
@@ -204,14 +101,14 @@ export function StepSeeking() {
                 className={cn(
                   'p-3 rounded-xl border-2 text-left transition-all',
                   isSelected
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/30'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-white/10 bg-[#0A0D14] hover:border-white/20'
                 )}
               >
                 <div className="flex items-center gap-3">
                   <span className="text-xl">{option.icon}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{option.label}</p>
+                    <p className="font-medium text-sm text-white">{option.label}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {option.desc}
                     </p>
@@ -229,7 +126,7 @@ export function StepSeeking() {
       </div>
 
       <div>
-        <h3 className="font-semibold text-sm mb-3">My availability:</h3>
+        <h3 className="font-semibold text-sm mb-3 text-white">My availability:</h3>
         <div className="grid grid-cols-2 gap-2">
           {availabilityOptions.map((opt) => (
             <button
@@ -237,10 +134,10 @@ export function StepSeeking() {
               type="button"
               onClick={() => setAvailability(opt.id)}
               className={cn(
-                'p-3 rounded-lg border-2 text-sm font-medium transition-all',
+                'p-3 rounded-lg border-2 text-sm font-medium transition-all text-white',
                 availability === opt.id
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/30'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-white/10 bg-[#0A0D14] hover:border-white/20'
               )}
             >
               {opt.label}
@@ -256,9 +153,9 @@ export function StepSeeking() {
         <Button
           onClick={finish}
           disabled={selected.length === 0 || !availability || loading}
-          className="flex-1"
+          className="flex-1 bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white font-bold"
         >
-          {loading ? 'Setting up your profile...' : 'Start building →'}
+          {loading ? 'Finalizing your identity...' : 'Start building →'}
         </Button>
       </div>
     </div>

@@ -14,6 +14,7 @@ import {
   type EvidenceLevel,
 } from '@/lib/opportunities/requirement-evidence'
 import { ReviewersControl } from './parts/ReviewersControl'
+import { TeamInvitationStatus } from '@/components/looking-for/team-invitations/TeamInvitationStatus'
 
 const STAGE_ORDER = [
   'submitted',
@@ -349,6 +350,15 @@ export function ApplicantSidePanel({
             </p>
           </Section>
         )}
+
+        {/* Team Invitation Status (visible when applicant is selected) */}
+        <TeamInvitationStatus
+          applicationId={app.id}
+          opportunityId={opp.id}
+          applicantName={applicant.full_name || applicant.username || 'Applicant'}
+          pipelineStage={app.pipeline_stage}
+          onRefresh={load}
+        />
 
         {/* Reviewers */}
         <ReviewersControl

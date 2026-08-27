@@ -1,34 +1,34 @@
 import { createClient } from '@/lib/supabase/server'
 import { SecurityDashboard } from '@/components/security/SecurityDashboard'
+import { redirect } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 
 export default async function SecurityPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  if (!user) redirect('/login')
+
+  // Fetch security footprint concurrently
   const [
     { data: profile },
-    { data: auditLogs },
-    { data: loginHistory },
+    { data: securityEvents },
     { data: twoFA },
-    { data: deletionRequest },
-    { data: encryptedDocs },
+    { data: deletionRequest }
   ] = await Promise.all([
-    supabase.from('users').select('*').eq('id', user!.id).single(),
-    supabase.from('audit_logs').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(20),
-    supabase.from('login_history').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(10),
-    supabase.from('user_2fa').select('*').eq('user_id', user!.id).single(),
-    supabase.from('account_deletion_requests').select('*').eq('user_id', user!.id).is('cancelled_at', null).is('completed_at', null).single(),
-    supabase.from('encrypted_docs').select('id').eq('owner_id', user!.id),
+    supabase.from('users').select('*').eq('id', user.id).single(),
+    supabase.from('security_events').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(15),
+    supabase.from('user_2fa').select('is_enabled').eq('user_id', user.id).maybeSingle(),
+    supabase.from('account_deletion_requests').select('*').eq('user_id', user.id).is('cancelled_at', null).is('completed_at', null).maybeSingle()
   ])
 
   return (
     <SecurityDashboard
       profile={profile}
-      auditLogs={auditLogs || []}
-      loginHistory={loginHistory || []}
-      twoFA={twoFA}
+      securityEvents={securityEvents || []}
+      initialMfaState={!!twoFA?.is_enabled}
       deletionRequest={deletionRequest}
-      encryptedDocsCount={encryptedDocs?.length || 0}
     />
   )
 }

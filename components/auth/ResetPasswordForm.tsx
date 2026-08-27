@@ -7,7 +7,6 @@ import { CircleNotch, LockKey, CheckCircle } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
 import { PasswordInput } from './PasswordInput'
 import { DsrtLogo } from '@/components/ui/DsrtLogo'
-import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
 export function ResetPasswordForm() {
@@ -21,29 +20,16 @@ export function ResetPasswordForm() {
   const [invalid, setInvalid] = useState(false)
 
   useEffect(() => {
-    // Supabase sets session from the recovery link hash/query
-    const check = async () => {
+    const verifySession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         setReady(true)
       } else {
-        // Give auth listener a moment for hash tokens
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-          if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
-            setReady(true)
-          }
-        })
-        setTimeout(() => {
-          supabase.auth.getSession().then(({ data }) => {
-            if (!data.session) setInvalid(true)
-            else setReady(true)
-          })
-        }, 1500)
-        return () => subscription.unsubscribe()
+        setInvalid(true)
       }
     }
-    check()
-  }, [supabase.auth])
+    verifySession()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,58 +38,53 @@ export function ResetPasswordForm() {
 
     setLoading(true)
     try {
-      const { error } = await supabase.auth.updateUser({ password })
-      if (error) throw error
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      })
+      const data = await res.json()
+
+      if (!res.ok) throw new Error(data.error)
+
       setDone(true)
-      toast.success('Password updated')
+      toast.success('Password updated successfully')
       setTimeout(() => router.push('/login'), 2000)
     } catch (err: any) {
       toast.error(err.message || 'Failed to update password')
+    } finally {
       setLoading(false)
     }
   }
 
   if (invalid) {
     return (
-      <div className="w-full max-w-[420px] rounded-2xl border border-white/[0.08] bg-[rgba(10,14,24,0.72)] backdrop-blur-2xl p-8 text-center">
+      <div className="text-center p-8">
         <DsrtLogo size={36} showText={false} className="justify-center mb-5" />
         <h1 className="text-[20px] font-bold text-white mb-2">Link expired</h1>
-        <p className="text-[13px] text-white/50 mb-6">
-          This reset link is invalid or has expired. Request a new one.
-        </p>
-        <Link
-          href="/login"
-          className="inline-flex h-11 px-6 items-center justify-center rounded-lg bg-[#4F7CFF] text-white text-[13px] font-bold"
-        >
-          Back to sign in
-        </Link>
+        <p className="text-[13px] text-white/50 mb-6">This password reset link is invalid or has expired.</p>
+        <Link href="/login" className="inline-flex h-11 px-6 items-center justify-center rounded-lg bg-[#4F7CFF] text-white text-[13px] font-bold">Back to sign in</Link>
       </div>
     )
   }
 
   if (!ready) {
-    return (
-      <div className="w-full max-w-[420px] rounded-2xl border border-white/[0.08] bg-[rgba(10,14,24,0.72)] backdrop-blur-2xl p-12 flex items-center justify-center">
-        <CircleNotch className="w-6 h-6 animate-spin text-white/50" />
-      </div>
-    )
+    return <div className="p-12 flex items-center justify-center"><CircleNotch className="w-6 h-6 animate-spin text-white/50" /></div>
   }
 
   if (done) {
     return (
-      <div className="w-full max-w-[420px] rounded-2xl border border-white/[0.08] bg-[rgba(10,14,24,0.72)] backdrop-blur-2xl p-8 text-center">
+      <div className="text-center p-8">
         <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-4" weight="fill" />
         <h1 className="text-[20px] font-bold text-white mb-2">Password updated</h1>
-        <p className="text-[13px] text-white/50">Redirecting you to sign in…</p>
+        <p className="text-[13px] text-white/50">Redirecting you to sign in...</p>
       </div>
     )
   }
 
   return (
-    <div className="w-full max-w-[420px] rounded-2xl border border-white/[0.08] bg-[rgba(10,14,24,0.72)] backdrop-blur-2xl p-8">
-      <div className="flex justify-center mb-6">
-        <DsrtLogo size={36} showText={false} />
-      </div>
+    <div className="p-8 text-left">
+      <div className="flex justify-center mb-6"><DsrtLogo size={36} showText={false} /></div>
       <div className="text-center mb-6">
         <div className="w-12 h-12 rounded-full bg-[#4F7CFF]/10 border border-[#4F7CFF]/25 flex items-center justify-center mx-auto mb-4">
           <LockKey className="w-5 h-5 text-[#4F7CFF]" weight="bold" />
@@ -113,32 +94,9 @@ export function ResetPasswordForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <PasswordInput
-          label="New password"
-          name="password"
-          autoComplete="new-password"
-          autoFocus
-          placeholder="Minimum 8 characters"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <PasswordInput
-          label="Confirm password"
-          name="confirm"
-          autoComplete="new-password"
-          placeholder="Repeat password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className={cn(
-            'w-full h-11 rounded-lg flex items-center justify-center gap-2',
-            'bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14px] font-bold',
-            'disabled:opacity-70'
-          )}
-        >
+        <PasswordInput label="New password" name="password" autoFocus placeholder="Minimum 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput label="Confirm password" name="confirm" placeholder="Repeat password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        <button type="submit" disabled={loading || !password || !confirm} className="w-full h-11 rounded-lg bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14px] font-bold disabled:opacity-50 flex items-center justify-center">
           {loading ? <CircleNotch className="w-5 h-5 animate-spin" /> : 'Update password'}
         </button>
       </form>

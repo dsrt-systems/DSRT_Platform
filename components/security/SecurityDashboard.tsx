@@ -2,335 +2,184 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Shield, Key, Lock, History, AlertTriangle, Download, Trash2, Smartphone, CheckCircle2, XCircle, Activity, FileLock } from 'lucide-react'
+import { ShieldCheck, Smartphone, Download, Loader2, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { formatDistanceToNow, format } from 'date-fns'
-import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 
-interface SecurityDashboardProps {
-  profile: any
-  auditLogs: any[]
-  loginHistory: any[]
-  twoFA: any
-  deletionRequest: any
-  encryptedDocsCount: number
-}
-
-export function SecurityDashboard({ 
-  profile, 
-  auditLogs, 
-  loginHistory, 
-  twoFA,
-  deletionRequest,
-  encryptedDocsCount,
-}: SecurityDashboardProps) {
+export function SecurityDashboard({ profile, securityEvents, initialMfaState }: any) {
   const router = useRouter()
   const supabase = createClient()
-  const [downloadingData, setDownloadingData] = useState(false)
-  const [deletingAccount, setDeletingAccount] = useState(false)
 
-  const handleDataExport = async () => {
-    setDownloadingData(true)
+  // MFA State
+  const [mfaEnabled, setMfaEnabled] = useState(initialMfaState)
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [factorId, setFactorId] = useState<string | null>(null)
+  const [code, setCode] = useState('')
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  // 1. Start MFA via Supabase Client
+  const handleStartEnrollment = async () => {
+    setLoading(true)
     try {
-      const res = await fetch('/api/user/export-data')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `dsrt-data-${profile.username}-${Date.now()}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success('Your data has been downloaded')
-    } catch (err) {
-      toast.error('Failed to export data')
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: 'DSRT Connect', friendlyName: profile.username })
+      if (error) throw error
+
+      setQrCode(data.totp.qr_code)
+      setFactorId(data.id)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to initialize 2FA')
     } finally {
-      setDownloadingData(false)
+      setLoading(false)
     }
   }
 
-  const handleAccountDeletion = async () => {
-    const confirmed = confirm(
-      'Are you sure you want to delete your account? This will be scheduled for 30 days from now. You can cancel anytime before then.'
-    )
-    if (!confirmed) return
+  // 2. Verify MFA Code & Finalize
+  const handleVerifyEnrollment = async () => {
+    if (!code || code.length !== 6 || !factorId) return toast.error('Enter a valid 6-digit code')
+    setLoading(true)
 
-    setDeletingAccount(true)
     try {
-      const res = await fetch('/api/user/delete-account', { method: 'POST' })
-      if (!res.ok) throw new Error('Failed')
-      toast.success('Account deletion scheduled for 30 days from now')
+      const challenge = await supabase.auth.mfa.challenge({ factorId })
+      if (challenge.error) throw challenge.error
+
+      const verify = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.data.id, code })
+      if (verify.error) throw verify.error
+
+      // Finalize on our backend to generate recovery codes
+      const res = await fetch('/api/auth/mfa/finalize', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+
+      setMfaEnabled(true)
+      setRecoveryCodes(data.recoveryCodes)
+      setQrCode(null)
+      toast.success('Two-factor authentication enabled successfully!')
       router.refresh()
-    } catch (err) {
-      toast.error('Failed to schedule deletion')
+    } catch (err: any) {
+      toast.error(err.message || 'Verification failed')
     } finally {
-      setDeletingAccount(false)
+      setLoading(false)
     }
   }
 
-  const handleCancelDeletion = async () => {
-    const res = await fetch('/api/user/delete-account', { method: 'DELETE' })
-    if (res.ok) {
-      toast.success('Account deletion cancelled')
-      router.refresh()
-    }
+  const downloadRecoveryCodes = () => {
+    if (!recoveryCodes) return
+    const blob = new Blob([`DSRT CONNECT EMERGENCY RECOVERY CODES\nAccount: @${profile.username}\n\n${recoveryCodes.join('\n')}\n\nKeep these codes safe. Each code can be used once.`], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `dsrt-recovery-codes-${profile.username}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleGlobalSignOut = async () => {
+    toast.loading('Signing out of all sessions...')
+    await supabase.auth.signOut({ scope: 'global' })
+    window.location.href = '/login'
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="max-w-4xl mx-auto p-6 space-y-6 text-white animate-in fade-in duration-500">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Security & Privacy</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Control your account security, privacy, and data
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">Security & Identity</h1>
+        <p className="text-sm text-white/50 mt-1">Manage authentication factors, recovery options, and monitor your account.</p>
       </div>
 
-      {/* Deletion Warning */}
-      {deletionRequest && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-red-500">Account Deletion Scheduled</p>
-            <p className="text-xs text-muted-foreground">
-              Your account will be permanently deleted on{' '}
-              {format(new Date(deletionRequest.scheduled_for), 'PPP')}
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleCancelDeletion}>
-            Cancel Deletion
-          </Button>
-        </div>
-      )}
-
-      {/* Security Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SecurityCard
-          icon={Shield}
-          label="Account Status"
-          value={profile.is_verified ? 'Verified' : 'Standard'}
-          color={profile.is_verified ? 'text-blue-500' : 'text-muted-foreground'}
-        />
-        <SecurityCard
-          icon={Smartphone}
-          label="2FA"
-          value={twoFA?.is_enabled ? 'Enabled' : 'Disabled'}
-          color={twoFA?.is_enabled ? 'text-green-500' : 'text-orange-500'}
-        />
-        <SecurityCard
-          icon={FileLock}
-          label="Encrypted Docs"
-          value={String(encryptedDocsCount)}
-          color="text-purple-500"
-        />
-        <SecurityCard
-          icon={Activity}
-          label="Active Sessions"
-          value="1"
-          color="text-cyan-500"
-        />
-      </div>
-
-      {/* Two-Factor Authentication */}
-      <div className="bg-card border rounded-2xl overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-            <Smartphone className="w-5 h-5 text-green-500" />
+      {/* MFA Setup Card */}
+      <div className="bg-[#0A0D14] border border-white/10 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-[#4F7CFF]/10 border border-[#4F7CFF]/30 flex items-center justify-center">
+            <Smartphone className="w-6 h-6 text-[#4F7CFF]" />
           </div>
           <div className="flex-1">
-            <p className="font-semibold">Two-Factor Authentication</p>
-            <p className="text-xs text-muted-foreground">
-              Add an extra layer of security to your account
-            </p>
+            <h3 className="font-bold text-base">Two-Factor Authentication (TOTP)</h3>
+            <p className="text-xs text-white/50">Protect your DSRT account using Google Authenticator, 1Password, or Authy.</p>
           </div>
-          {twoFA?.is_enabled ? (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] px-2 py-1 bg-green-500/10 text-green-500 rounded-md font-bold uppercase">
-                Enabled
-              </span>
-              <Button variant="outline" size="sm">
-                Manage
-              </Button>
-            </div>
+          {mfaEnabled ? (
+            <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-bold uppercase tracking-wider">Active</span>
           ) : (
-            <Button size="sm">Enable 2FA</Button>
+            <Button onClick={handleStartEnrollment} disabled={loading || !!qrCode} className="bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white">
+              {loading && !qrCode ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Set up 2FA'}
+            </Button>
           )}
         </div>
+
+        {/* QR Code Scan Area */}
+        {qrCode && !mfaEnabled && (
+          <div className="p-6 bg-[#05070D] border border-white/10 rounded-xl flex flex-col items-center space-y-4 animate-in zoom-in-95">
+            <p className="text-sm text-white/70 text-center max-w-md">Scan this QR code with your authenticator app, then enter the 6-digit verification code below.</p>
+            <div className="p-3 bg-white rounded-xl">
+              <Image src={qrCode} alt="QR Code" width={160} height={160} />
+            </div>
+            <div className="flex gap-2 w-full max-w-xs">
+              <input
+                type="text"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                className="w-full h-11 text-center text-lg font-mono font-bold bg-[#0A0D14] border border-white/20 rounded-lg text-white focus:border-[#4F7CFF] outline-none"
+              />
+              <Button onClick={handleVerifyEnrollment} disabled={loading || code.length !== 6} className="h-11 bg-[#4F7CFF]">Verify</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Recovery Codes Display (Shown only once) */}
+        {recoveryCodes && (
+          <div className="p-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-4 animate-in slide-in-from-top-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-emerald-400 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Save Your Recovery Codes</span>
+              <Button size="sm" variant="outline" onClick={downloadRecoveryCodes} className="bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 gap-2">
+                <Download className="w-4 h-4" /> Download (.txt)
+              </Button>
+            </div>
+            <p className="text-xs text-emerald-400/80">If you lose your device, these codes are the ONLY way to recover your account. This is the only time they will be shown.</p>
+            <div className="grid grid-cols-2 gap-3 font-mono text-xs text-white bg-black/40 p-4 rounded-lg border border-emerald-500/20">
+              {recoveryCodes.map((c, i) => <div key={i}>{i + 1}. {c}</div>)}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* End-to-End Encryption */}
-      <div className="bg-card border rounded-2xl overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-            <Lock className="w-5 h-5 text-purple-500" />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold">End-to-End Encryption</p>
-            <p className="text-xs text-muted-foreground">
-              Sensitive notes and documents encrypted on your device
-            </p>
-          </div>
-          <Link href="/vault">
-            <Button variant="outline" size="sm">
-              Open Vault
-            </Button>
-          </Link>
+      {/* Session Management */}
+      <div className="bg-[#0A0D14] border border-white/10 rounded-2xl p-6 flex items-center justify-between">
+        <div>
+          <h3 className="font-bold text-base">Active Sessions</h3>
+          <p className="text-xs text-white/50">Log out of all other devices and browsers.</p>
         </div>
-        <div className="p-4 bg-muted/20 text-xs text-muted-foreground">
-          <p>
-            🔒 Your encryption key is stored only on your device. DSRT staff cannot 
-            read your encrypted documents. Make sure to back up your key.
-          </p>
-        </div>
+        <Button variant="outline" onClick={handleGlobalSignOut} className="border-white/20 hover:bg-white/10 text-white">Sign out all sessions</Button>
       </div>
 
-      {/* Recent Login Activity */}
-      <div className="bg-card border rounded-2xl overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-            <History className="w-5 h-5 text-blue-500" />
-          </div>
-          <div>
-            <p className="font-semibold">Recent Login Activity</p>
-            <p className="text-xs text-muted-foreground">
-              Last 10 login attempts
-            </p>
-          </div>
+      {/* Security Audit Log */}
+      <div className="bg-[#0A0D14] border border-white/10 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="w-5 h-5 text-white/50" />
+          <h3 className="font-bold text-base">Security Audit Trail</h3>
         </div>
-        {loginHistory.length === 0 ? (
-          <div className="p-6 text-center">
-            <p className="text-sm text-muted-foreground">No login history yet</p>
-          </div>
+        {securityEvents.length === 0 ? (
+          <p className="text-sm text-white/40 text-center py-4">No security events logged recently.</p>
         ) : (
-          <div className="divide-y">
-            {loginHistory.map((log: any) => (
-              <div key={log.id} className="p-4 flex items-center gap-3">
-                {log.successful ? (
-                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                ) : (
-                  <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">
-                    {log.successful ? 'Successful login' : 'Failed login attempt'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {log.browser || 'Unknown browser'} · {log.location || log.ip_address || 'Unknown location'}
-                  </p>
+          <div className="divide-y divide-white/5 max-h-[300px] overflow-y-auto pr-2">
+            {securityEvents.map((evt: any) => (
+              <div key={evt.id} className="py-3 flex items-center justify-between text-sm">
+                <div>
+                  <span className="font-medium text-white/90">{evt.event_type.replace(/_/g, ' ')}</span>
+                  <span className="block text-[11px] text-white/40 mt-0.5">{new Date(evt.created_at).toLocaleString()}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
-                </p>
+                <span className={cn('text-xs font-bold uppercase tracking-wider', evt.success ? 'text-emerald-400' : 'text-rose-500')}>
+                  {evt.success ? 'Success' : 'Failed'}
+                </span>
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* Audit Log */}
-      <div className="bg-card border rounded-2xl overflow-hidden">
-        <div className="p-4 border-b flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-            <Activity className="w-5 h-5 text-cyan-500" />
-          </div>
-          <div>
-            <p className="font-semibold">Activity Audit Log</p>
-            <p className="text-xs text-muted-foreground">
-              Track all access to your data
-            </p>
-          </div>
-        </div>
-        {auditLogs.length === 0 ? (
-          <div className="p-6 text-center">
-            <p className="text-sm text-muted-foreground">No activity logged yet</p>
-          </div>
-        ) : (
-          <div className="divide-y max-h-64 overflow-y-auto">
-            {auditLogs.map((log: any) => (
-              <div key={log.id} className="p-3 flex items-center gap-3 text-xs">
-                <div className={cn(
-                  'w-6 h-6 rounded flex items-center justify-center flex-shrink-0',
-                  log.severity === 'critical' && 'bg-red-500/10 text-red-500',
-                  log.severity === 'warning' && 'bg-orange-500/10 text-orange-500',
-                  log.severity === 'info' && 'bg-muted text-muted-foreground'
-                )}>
-                  <span className="text-[10px] font-bold">{log.action[0].toUpperCase()}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium capitalize">
-                    {log.action.replace(/_/g, ' ')}
-                  </p>
-                  {log.resource_type && (
-                    <p className="text-muted-foreground">
-                      on {log.resource_type}
-                    </p>
-                  )}
-                </div>
-                <p className="text-muted-foreground">
-                  {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Data Export */}
-      <div className="bg-card border rounded-2xl p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-          <Download className="w-5 h-5 text-blue-500" />
-        </div>
-        <div className="flex-1">
-          <p className="font-semibold">Export Your Data</p>
-          <p className="text-xs text-muted-foreground">
-            Download all your data in JSON format (GDPR compliant)
-          </p>
-        </div>
-        <Button 
-          variant="outline" 
-          onClick={handleDataExport}
-          disabled={downloadingData}
-        >
-          {downloadingData ? 'Preparing...' : 'Download'}
-        </Button>
-      </div>
-
-      {/* Account Deletion */}
-      <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-          <Trash2 className="w-5 h-5 text-red-500" />
-        </div>
-        <div className="flex-1">
-          <p className="font-semibold text-red-500">Delete Account</p>
-          <p className="text-xs text-muted-foreground">
-            Permanently delete your account and all associated data (30 day grace period)
-          </p>
-        </div>
-        {!deletionRequest && (
-          <Button 
-            variant="destructive"
-            onClick={handleAccountDeletion}
-            disabled={deletingAccount}
-          >
-            {deletingAccount ? 'Processing...' : 'Delete Account'}
-          </Button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function SecurityCard({ icon: Icon, label, value, color }: any) {
-  return (
-    <div className="bg-card border rounded-xl p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className={cn('w-4 h-4', color)} strokeWidth={2.5} />
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-          {label}
-        </p>
-      </div>
-      <p className="text-lg font-bold">{value}</p>
     </div>
   )
 }
