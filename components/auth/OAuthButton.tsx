@@ -13,25 +13,25 @@ interface Props {
   icon: ReactNode
 }
 
-export function OAuthButton({ provider, onClick, loading, disabled, children, icon }: Props) {
+export function OAuthButton({ onClick, loading, disabled, children, icon }: Props) {
   return (
     <button
       onClick={onClick}
       disabled={loading || disabled}
       className={cn(
-        "w-full h-11 flex items-center justify-center gap-3 rounded-lg",
-        "border border-white/[0.1] bg-[#0d121e] hover:bg-[#141a28] hover:border-white/[0.15]",
-        "text-[13.5px] font-semibold text-white transition-all",
+        "w-full h-10 flex items-center justify-center gap-2.5 rounded-md",
+        "border border-white/10 bg-[#0F1420] hover:bg-[#141a28] hover:border-white/15",
+        "text-[13px] font-medium text-white/90 transition-all",
         "disabled:opacity-50 disabled:cursor-not-allowed"
       )}
     >
       {loading ? (
-        <CircleNotch className="w-4 h-4 animate-spin text-white/70" weight="bold" />
+        <CircleNotch className="w-4 h-4 animate-spin text-white/60" weight="bold" />
       ) : (
-        <span className="flex items-center gap-3">
+        <>
           {icon}
           <span>{children}</span>
-        </span>
+        </>
       )}
     </button>
   )

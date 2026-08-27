@@ -1,76 +1,83 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { adminClient } from '@/lib/supabase/admin'
 import { RateLimitService } from '@/lib/auth/RateLimitService'
+import { SessionTracker } from '@/lib/auth/SessionTracker'
 import { hashWithSecret } from '@/lib/auth/hash'
 
 export async function POST(request: Request) {
   try {
     const supabase = createClient()
-    const { email, password } = await request.json()
-    const identifier = String(email || '').trim().toLowerCase()
-    const pwd = String(password || '')
+    const { identifier, password } = await request.json()
+    const clean = String(identifier || '').trim().toLowerCase()
 
-    if (!identifier || !pwd) {
-      return NextResponse.json({ error: 'Email and password required', code: 'VALIDATION_ERROR' }, { status: 400 })
+    if (!clean || !password) {
+      return NextResponse.json({ error: 'Email or username and password required' }, { status: 400 })
     }
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '0.0.0.0'
-    const rl = new RateLimitService(supabase)
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1'
+    const ua = request.headers.get('user-agent') || ''
 
-    const ipLimit = await rl.check(`LOGIN:IP:${hashWithSecret(ip)}`, 10, 900)
-    if (!ipLimit.allowed) {
-      return NextResponse.json({ error: 'Too many attempts. Please wait before trying again.', code: 'RATE_LIMITED' }, { status: 429 })
+    // Rate limit
+    if (process.env.NODE_ENV === 'production') {
+      const rl = new RateLimitService(adminClient)
+      const limit = await rl.check(`LOGIN:IP:${hashWithSecret(ip)}`, 30, 900)
+      if (!limit.allowed) {
+        return NextResponse.json({ error: 'Too many login attempts. Please try again later.' }, { status: 429 })
+      }
     }
 
+    // Resolve identifier to email
+    let loginEmail = clean
+    if (!clean.includes('@')) {
+      const { data: profile } = await adminClient
+        .from('users')
+        .select('email')
+        .eq('normalized_username', clean)
+        .maybeSingle()
+
+      if (!profile?.email) {
+        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+      }
+      loginEmail = profile.email
+    }
+
+    // Attempt sign in
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: identifier,
-      password: pwd,
+      email: loginEmail,
+      password
     })
 
-    if (error || !data.user) {
-      await supabase.from('security_events').insert({
-        event_type: 'LOGIN_FAILED',
-        success: false,
-        ip_hash: hashWithSecret(ip),
-        metadata: { identifier_hash: hashWithSecret(identifier) },
-      })
-      return NextResponse.json({ error: 'Invalid credentials', code: 'AUTH_INVALID_CREDENTIALS' }, { status: 401 })
+    if (error || !data.user || !data.session) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
-    const userId = data.user.id
-    const { data: profile } = await supabase
+    // Track session (fire-and-forget, don't block response)
+    SessionTracker.track({
+      userId: data.user.id,
+      accessToken: data.session.access_token,
+      userAgent: ua,
+      ip
+    }).catch(() => {})
+
+    // Get identity state to determine next route
+    const { data: identity } = await adminClient
       .from('users')
-      .select('account_state, onboarding_complete, email_verified_at')
-      .eq('id', userId)
+      .select('normalized_username, onboarding_complete, account_status')
+      .eq('id', data.user.id)
       .single()
 
-    await supabase
-      .from('users')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', userId)
+    if (identity?.account_status === 'SUSPENDED' || identity?.account_status === 'LOCKED') {
+      return NextResponse.json({ error: 'Your account has been suspended' }, { status: 403 })
+    }
 
-    await supabase.from('security_events').insert({
-      user_id: userId,
-      event_type: 'LOGIN_SUCCESS',
-      success: true,
-      ip_hash: hashWithSecret(ip),
-    })
+    const hasRealUsername = !!(identity?.normalized_username && !identity.normalized_username.startsWith('pending_'))
+    let next = '/home'
+    if (!hasRealUsername) next = '/auth/username'
+    else if (!identity?.onboarding_complete) next = '/onboarding'
 
-    const state = profile?.account_state || 'EMAIL_VERIFICATION_REQUIRED'
-
-    let next =
-      state === 'EMAIL_VERIFICATION_REQUIRED' ? '/auth/verify-email' :
-      state === 'USERNAME_REQUIRED' ? '/auth/username' :
-      state === 'ONBOARDING_REQUIRED' || !profile?.onboarding_complete ? '/onboarding' :
-      state === 'SUSPENDED' || state === 'LOCKED' ? '/account-locked' :
-      '/home'
-
-    return NextResponse.json({
-      success: true,
-      account_state: state,
-      next,
-    })
-  } catch {
-    return NextResponse.json({ error: 'Something went wrong. Please try again.', code: 'INTERNAL' }, { status: 500 })
+    return NextResponse.json({ success: true, next })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Login failed' }, { status: 500 })
   }
 }

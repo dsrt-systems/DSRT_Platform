@@ -1,12 +1,20 @@
 {
   "crons": [
     {
-      "path": "/api/cron/process-outbox?secret=${CRON_SECRET}",
+      "path": "/api/cron/dispatch-emails?secret=${CRON_SECRET}",
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/cleanup-auth?secret=${CRON_SECRET}",
-      "schedule": "0 1 * * *"
+      "path": "/api/cron/compute-trust?secret=${CRON_SECRET}",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/verification-scheduler?secret=${CRON_SECRET}",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/process-deletions?secret=${CRON_SECRET}",
+      "schedule": "0 5 * * *"
     }
   ]
 }

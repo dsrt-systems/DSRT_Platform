@@ -1,55 +1,141 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShieldCheck, Smartphone, Download, Loader2, Activity } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import Image from 'next/image'
+import { formatDistanceToNow } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import {
+  ShieldCheck,
+  DeviceMobile,
+  Desktop,
+  DeviceTablet,
+  Key,
+  EnvelopeSimple,
+  SignOut,
+  ArrowRight,
+  CheckCircle,
+  Warning,
+  Circle
+} from '@phosphor-icons/react'
+
+interface SessionRow {
+  id: string
+  device_name: string
+  device_type: 'desktop' | 'mobile' | 'tablet' | 'unknown'
+  browser: string
+  os: string
+  city?: string
+  country?: string
+  is_current: boolean
+  last_active_at: string
+  created_at: string
+}
 
 export function SecurityDashboard({ profile, securityEvents, initialMfaState }: any) {
   const router = useRouter()
   const supabase = createClient()
-
-  // MFA State
+  const [sessions, setSessions] = useState<SessionRow[]>([])
+  const [loadingSessions, setLoadingSessions] = useState(true)
+  const [revoking, setRevoking] = useState(false)
+  const [requestingVerification, setRequestingVerification] = useState(false)
   const [mfaEnabled, setMfaEnabled] = useState(initialMfaState)
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [factorId, setFactorId] = useState<string | null>(null)
-  const [code, setCode] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [enrollingMfa, setEnrollingMfa] = useState(false)
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
-  const [loading, setLoading] = useState(false)
 
-  // 1. Start MFA via Supabase Client
-  const handleStartEnrollment = async () => {
-    setLoading(true)
+  useEffect(() => {
+    loadSessions()
+  }, [])
+
+  const loadSessions = async () => {
+    setLoadingSessions(true)
     try {
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: 'DSRT Connect', friendlyName: profile.username })
-      if (error) throw error
-
-      setQrCode(data.totp.qr_code)
-      setFactorId(data.id)
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to initialize 2FA')
+      const res = await fetch('/api/auth/sessions')
+      const data = await res.json()
+      setSessions(data.sessions || [])
+    } catch {
+      setSessions([])
     } finally {
-      setLoading(false)
+      setLoadingSessions(false)
     }
   }
 
-  // 2. Verify MFA Code & Finalize
-  const handleVerifyEnrollment = async () => {
-    if (!code || code.length !== 6 || !factorId) return toast.error('Enter a valid 6-digit code')
-    setLoading(true)
+  const revokeSession = async (id: string) => {
+    try {
+      const res = await fetch(`/api/auth/sessions?session_id=${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      toast.success('Session revoked')
+      loadSessions()
+    } catch {
+      toast.error('Failed to revoke session')
+    }
+  }
 
+  const revokeAllOthers = async () => {
+    setRevoking(true)
+    try {
+      const res = await fetch('/api/auth/sessions?scope=all_others', { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      toast.success('All other sessions revoked')
+      loadSessions()
+    } catch {
+      toast.error('Failed to revoke sessions')
+    } finally {
+      setRevoking(false)
+    }
+  }
+
+  const requestVerification = async () => {
+    setRequestingVerification(true)
+    try {
+      const res = await fetch('/api/auth/request-verification', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Verification email queued')
+      router.refresh()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to request verification')
+    } finally {
+      setRequestingVerification(false)
+    }
+  }
+
+  const startMfaEnrollment = async () => {
+    setEnrollingMfa(true)
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        issuer: 'DSRT Connect',
+        friendlyName: `DSRT · ${profile.username}`
+      })
+      if (error) throw error
+      setQrCode(data.totp.qr_code)
+      setFactorId(data.id)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to start MFA setup')
+    } finally {
+      setEnrollingMfa(false)
+    }
+  }
+
+  const verifyMfa = async () => {
+    if (!factorId || mfaCode.length !== 6) return toast.error('Enter a 6-digit code')
+    setEnrollingMfa(true)
     try {
       const challenge = await supabase.auth.mfa.challenge({ factorId })
       if (challenge.error) throw challenge.error
 
-      const verify = await supabase.auth.mfa.verify({ factorId, challengeId: challenge.data.id, code })
+      const verify = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId: challenge.data.id,
+        code: mfaCode
+      })
       if (verify.error) throw verify.error
 
-      // Finalize on our backend to generate recovery codes
       const res = await fetch('/api/auth/mfa/finalize', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -57,129 +143,259 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
       setMfaEnabled(true)
       setRecoveryCodes(data.recoveryCodes)
       setQrCode(null)
-      toast.success('Two-factor authentication enabled successfully!')
+      setMfaCode('')
+      toast.success('Two-factor authentication enabled')
       router.refresh()
     } catch (err: any) {
-      toast.error(err.message || 'Verification failed')
+      toast.error(err.message || 'MFA verification failed')
     } finally {
-      setLoading(false)
+      setEnrollingMfa(false)
     }
   }
 
-  const downloadRecoveryCodes = () => {
+  const downloadCodes = () => {
     if (!recoveryCodes) return
-    const blob = new Blob([`DSRT CONNECT EMERGENCY RECOVERY CODES\nAccount: @${profile.username}\n\n${recoveryCodes.join('\n')}\n\nKeep these codes safe. Each code can be used once.`], { type: 'text/plain' })
+    const content = `DSRT CONNECT RECOVERY CODES\n\nAccount: @${profile.username}\nGenerated: ${new Date().toLocaleString()}\n\n${recoveryCodes.join('\n')}\n\nKeep these codes secure. Each can be used once.`
+    const blob = new Blob([content], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `dsrt-recovery-codes-${profile.username}.txt`
+    a.download = `dsrt-recovery-${profile.username}.txt`
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  const handleGlobalSignOut = async () => {
-    toast.loading('Signing out of all sessions...')
-    await supabase.auth.signOut({ scope: 'global' })
-    window.location.href = '/login'
+  const isVerified = profile?.email_verification_status === 'VERIFIED'
+  const trustLevel = profile?.trust_level || 'NEW'
+  const trustScore = profile?.trust_score || 0
+
+  const deviceIcon = (type: string) => {
+    if (type === 'mobile') return DeviceMobile
+    if (type === 'tablet') return DeviceTablet
+    return Desktop
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6 text-white animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Security & Identity</h1>
-        <p className="text-sm text-white/50 mt-1">Manage authentication factors, recovery options, and monitor your account.</p>
+    <div className="max-w-3xl mx-auto p-6 text-white">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-[22px] font-semibold tracking-tight">Security</h1>
+        <p className="text-[13px] text-white/50 mt-1">Manage identity, trust, and access to your DSRT account.</p>
       </div>
 
-      {/* MFA Setup Card */}
-      <div className="bg-[#0A0D14] border border-white/10 rounded-2xl p-6 space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-[#4F7CFF]/10 border border-[#4F7CFF]/30 flex items-center justify-center">
-            <Smartphone className="w-6 h-6 text-[#4F7CFF]" />
+      {/* Trust Overview */}
+      <section className="border border-white/[0.06] bg-[#0A0D14] rounded-lg overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-white/40 font-semibold">Trust Level</p>
+            <p className="text-[18px] font-semibold mt-0.5">{trustLevel}</p>
           </div>
-          <div className="flex-1">
-            <h3 className="font-bold text-base">Two-Factor Authentication (TOTP)</h3>
-            <p className="text-xs text-white/50">Protect your DSRT account using Google Authenticator, 1Password, or Authy.</p>
+          <div className="text-right">
+            <p className="text-[11px] uppercase tracking-wider text-white/40 font-semibold">Score</p>
+            <p className="text-[18px] font-mono font-semibold mt-0.5 text-[#4F7CFF]">{trustScore}<span className="text-white/30 text-[12px]">/100</span></p>
           </div>
-          {mfaEnabled ? (
-            <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-bold uppercase tracking-wider">Active</span>
-          ) : (
-            <Button onClick={handleStartEnrollment} disabled={loading || !!qrCode} className="bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white">
-              {loading && !qrCode ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Set up 2FA'}
-            </Button>
+        </div>
+
+        <div className="px-5 py-4">
+          <div className="w-full h-1 bg-white/[0.04] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#4F7CFF] transition-all duration-500"
+              style={{ width: `${trustScore}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-2 text-[10px] text-white/30 uppercase tracking-wider font-semibold">
+            <span>New</span>
+            <span>Established</span>
+            <span>Verified</span>
+            <span>Trusted</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Email Verification */}
+      <section className="border border-white/[0.06] bg-[#0A0D14] rounded-lg overflow-hidden mb-6">
+        <div className="px-5 py-4 flex items-center gap-4">
+          <div className={cn(
+            "w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0",
+            isVerified ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-white/[0.03] border border-white/[0.06]"
+          )}>
+            {isVerified ? <CheckCircle className="w-4 h-4 text-emerald-400" weight="fill" /> : <EnvelopeSimple className="w-4 h-4 text-white/50" weight="regular" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-white">Email verification</p>
+            <p className="text-[12px] text-white/50 mt-0.5">
+              {isVerified ? `Verified · ${profile.email}` : `Not verified · ${profile.email}`}
+            </p>
+          </div>
+          {!isVerified && (
+            <button
+              onClick={requestVerification}
+              disabled={requestingVerification}
+              className="h-8 px-3 rounded-md bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[12px] font-semibold transition-all disabled:opacity-60"
+            >
+              {requestingVerification ? 'Sending...' : 'Verify'}
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* Two-Factor Authentication */}
+      <section className="border border-white/[0.06] bg-[#0A0D14] rounded-lg overflow-hidden mb-6">
+        <div className="px-5 py-4 flex items-center gap-4">
+          <div className={cn(
+            "w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0",
+            mfaEnabled ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-white/[0.03] border border-white/[0.06]"
+          )}>
+            <Key className={cn("w-4 h-4", mfaEnabled ? "text-emerald-400" : "text-white/50")} weight="regular" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-white">Two-factor authentication</p>
+            <p className="text-[12px] text-white/50 mt-0.5">
+              {mfaEnabled ? 'Enabled with authenticator app' : 'Adds an extra layer of security'}
+            </p>
+          </div>
+          {!mfaEnabled && !qrCode && (
+            <button
+              onClick={startMfaEnrollment}
+              disabled={enrollingMfa}
+              className="h-8 px-3 rounded-md bg-white/[0.06] hover:bg-white/[0.1] text-white text-[12px] font-semibold border border-white/[0.06] transition-all"
+            >
+              Enable
+            </button>
+          )}
+          {mfaEnabled && (
+            <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Active</span>
           )}
         </div>
 
-        {/* QR Code Scan Area */}
         {qrCode && !mfaEnabled && (
-          <div className="p-6 bg-[#05070D] border border-white/10 rounded-xl flex flex-col items-center space-y-4 animate-in zoom-in-95">
-            <p className="text-sm text-white/70 text-center max-w-md">Scan this QR code with your authenticator app, then enter the 6-digit verification code below.</p>
-            <div className="p-3 bg-white rounded-xl">
-              <Image src={qrCode} alt="QR Code" width={160} height={160} />
-            </div>
-            <div className="flex gap-2 w-full max-w-xs">
-              <input
-                type="text"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
-                className="w-full h-11 text-center text-lg font-mono font-bold bg-[#0A0D14] border border-white/20 rounded-lg text-white focus:border-[#4F7CFF] outline-none"
-              />
-              <Button onClick={handleVerifyEnrollment} disabled={loading || code.length !== 6} className="h-11 bg-[#4F7CFF]">Verify</Button>
-            </div>
-          </div>
-        )}
-
-        {/* Recovery Codes Display (Shown only once) */}
-        {recoveryCodes && (
-          <div className="p-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-4 animate-in slide-in-from-top-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-emerald-400 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Save Your Recovery Codes</span>
-              <Button size="sm" variant="outline" onClick={downloadRecoveryCodes} className="bg-transparent border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/20 gap-2">
-                <Download className="w-4 h-4" /> Download (.txt)
-              </Button>
-            </div>
-            <p className="text-xs text-emerald-400/80">If you lose your device, these codes are the ONLY way to recover your account. This is the only time they will be shown.</p>
-            <div className="grid grid-cols-2 gap-3 font-mono text-xs text-white bg-black/40 p-4 rounded-lg border border-emerald-500/20">
-              {recoveryCodes.map((c, i) => <div key={i}>{i + 1}. {c}</div>)}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Session Management */}
-      <div className="bg-[#0A0D14] border border-white/10 rounded-2xl p-6 flex items-center justify-between">
-        <div>
-          <h3 className="font-bold text-base">Active Sessions</h3>
-          <p className="text-xs text-white/50">Log out of all other devices and browsers.</p>
-        </div>
-        <Button variant="outline" onClick={handleGlobalSignOut} className="border-white/20 hover:bg-white/10 text-white">Sign out all sessions</Button>
-      </div>
-
-      {/* Security Audit Log */}
-      <div className="bg-[#0A0D14] border border-white/10 rounded-2xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Activity className="w-5 h-5 text-white/50" />
-          <h3 className="font-bold text-base">Security Audit Trail</h3>
-        </div>
-        {securityEvents.length === 0 ? (
-          <p className="text-sm text-white/40 text-center py-4">No security events logged recently.</p>
-        ) : (
-          <div className="divide-y divide-white/5 max-h-[300px] overflow-y-auto pr-2">
-            {securityEvents.map((evt: any) => (
-              <div key={evt.id} className="py-3 flex items-center justify-between text-sm">
-                <div>
-                  <span className="font-medium text-white/90">{evt.event_type.replace(/_/g, ' ')}</span>
-                  <span className="block text-[11px] text-white/40 mt-0.5">{new Date(evt.created_at).toLocaleString()}</span>
-                </div>
-                <span className={cn('text-xs font-bold uppercase tracking-wider', evt.success ? 'text-emerald-400' : 'text-rose-500')}>
-                  {evt.success ? 'Success' : 'Failed'}
-                </span>
+          <div className="border-t border-white/[0.04] px-5 py-5">
+            <p className="text-[12px] text-white/60 mb-4">Scan with Google Authenticator, 1Password, or Authy, then enter the 6-digit code.</p>
+            <div className="flex gap-5 items-start">
+              <div className="bg-white p-2 rounded-md flex-shrink-0">
+                <img src={qrCode} alt="MFA QR" className="w-32 h-32" />
               </div>
-            ))}
+              <div className="flex-1 flex flex-col gap-2">
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  className="h-10 px-3 rounded-md bg-[#0F1420] border border-white/10 text-white font-mono text-[15px] tracking-widest focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF]/40"
+                />
+                <button
+                  onClick={verifyMfa}
+                  disabled={enrollingMfa || mfaCode.length !== 6}
+                  className="h-10 rounded-md bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[13px] font-semibold disabled:opacity-50"
+                >
+                  {enrollingMfa ? 'Verifying...' : 'Verify & enable'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
-      </div>
+
+        {recoveryCodes && (
+          <div className="border-t border-white/[0.04] px-5 py-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[12px] font-semibold text-emerald-400">Save your recovery codes</p>
+              <button onClick={downloadCodes} className="text-[11px] text-white/50 hover:text-white transition-colors">Download .txt</button>
+            </div>
+            <p className="text-[11px] text-white/50 mb-3">Shown only once. Each can be used once if you lose your device.</p>
+            <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+              {recoveryCodes.map((c, i) => (
+                <div key={i} className="px-2.5 py-1.5 rounded bg-[#0F1420] border border-white/[0.04] text-white/80">
+                  {c}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Active Sessions */}
+      <section className="border border-white/[0.06] bg-[#0A0D14] rounded-lg overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
+          <div>
+            <p className="text-[13px] font-semibold text-white">Active sessions</p>
+            <p className="text-[11px] text-white/40 mt-0.5">Devices signed in to your DSRT account</p>
+          </div>
+          {sessions.filter(s => !s.is_current).length > 0 && (
+            <button
+              onClick={revokeAllOthers}
+              disabled={revoking}
+              className="h-7 px-2.5 rounded-md text-[11px] font-semibold text-red-400 hover:bg-red-500/10 border border-red-500/20 transition-all"
+            >
+              Sign out other sessions
+            </button>
+          )}
+        </div>
+
+        <div className="divide-y divide-white/[0.04]">
+          {loadingSessions ? (
+            <div className="px-5 py-6 text-[12px] text-white/40 text-center">Loading sessions...</div>
+          ) : sessions.length === 0 ? (
+            <div className="px-5 py-6 text-[12px] text-white/40 text-center">No sessions tracked yet</div>
+          ) : (
+            sessions.map((s) => {
+              const Icon = deviceIcon(s.device_type)
+              return (
+                <div key={s.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
+                  <Icon className="w-4 h-4 text-white/40 flex-shrink-0" weight="regular" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[13px] text-white/90 font-medium truncate">{s.device_name}</p>
+                      {s.is_current && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase tracking-wider font-semibold">
+                          Current
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-white/40 mt-0.5">
+                      {s.city && s.country ? `${s.city}, ${s.country} · ` : ''}
+                      Active {formatDistanceToNow(new Date(s.last_active_at), { addSuffix: true })}
+                    </p>
+                  </div>
+                  {!s.is_current && (
+                    <button
+                      onClick={() => revokeSession(s.id)}
+                      className="text-[11px] text-white/40 hover:text-red-400 transition-colors"
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      </section>
+
+      {/* Security Activity */}
+      <section className="border border-white/[0.06] bg-[#0A0D14] rounded-lg overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/[0.04]">
+          <p className="text-[13px] font-semibold text-white">Security activity</p>
+          <p className="text-[11px] text-white/40 mt-0.5">Recent events on your account</p>
+        </div>
+        <div className="divide-y divide-white/[0.04] max-h-72 overflow-y-auto">
+          {(!securityEvents || securityEvents.length === 0) ? (
+            <div className="px-5 py-6 text-[12px] text-white/40 text-center">No security events yet</div>
+          ) : (
+            securityEvents.slice(0, 15).map((e: any) => (
+              <div key={e.id} className="px-5 py-3 flex items-center gap-3 hover:bg-white/[0.02]">
+                <Circle className={cn("w-2 h-2 flex-shrink-0", e.success ? "text-emerald-400" : "text-red-400")} weight="fill" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] text-white/90 font-medium">{e.event_type.replace(/_/g, ' ').toLowerCase()}</p>
+                  <p className="text-[10px] text-white/40 mt-0.5">
+                    {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
     </div>
   )
 }

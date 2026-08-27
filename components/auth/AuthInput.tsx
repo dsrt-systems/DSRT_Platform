@@ -3,50 +3,44 @@
 import { forwardRef, InputHTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-interface Props extends InputHTMLAttributes<HTMLInputElement> {
+interface AuthInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string
-  error?: string
-  trailing?: ReactNode
   leading?: ReactNode
+  trailing?: ReactNode
+  error?: string
 }
 
-export const AuthInput = forwardRef<HTMLInputElement, Props>(
-  ({ label, error, trailing, leading, className, id, ...props }, ref) => {
-    const inputId = id || props.name
-
+export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
+  ({ label, leading, trailing, error, className, ...props }, ref) => {
     return (
       <div className="space-y-1.5">
-        <label 
-          htmlFor={inputId} 
-          className="text-[12px] font-semibold text-white/70 flex items-center justify-between"
-        >
-          <span>{label}</span>
-          {trailing}
-        </label>
+        <label className="text-[11px] font-semibold text-white/70 uppercase tracking-wider pl-0.5">{label}</label>
         <div className="relative">
           {leading && (
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">
               {leading}
             </div>
           )}
           <input
             ref={ref}
-            id={inputId}
+            {...props}
             className={cn(
-              "w-full h-11 rounded-lg bg-[#0a0e17] border text-white text-[14px] font-medium",
-              "placeholder:text-white/25 focus:outline-none transition-all duration-200",
-              leading ? "pl-10 pr-3.5" : "px-3.5",
-              error 
-                ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/30" 
-                : "border-white/[0.08] focus:border-[#4F7CFF]/60 focus:ring-1 focus:ring-[#4F7CFF]/30 focus:bg-[#0d121e]",
+              "w-full h-10 rounded-md bg-[#0F1420] border border-white/10 text-white text-[13px]",
+              "placeholder:text-white/30 focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF]/30",
+              "transition-all",
+              leading ? "pl-9" : "pl-3",
+              trailing ? "pr-9" : "pr-3",
+              error && "border-red-500/50 focus:border-red-500 focus:ring-red-500/30",
               className
             )}
-            {...props}
           />
+          {trailing && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {trailing}
+            </div>
+          )}
         </div>
-        {error && (
-          <p className="text-[11.5px] text-red-400 font-medium pl-1">{error}</p>
-        )}
+        {error && <p className="text-[11px] text-red-400 pl-0.5">{error}</p>}
       </div>
     )
   }

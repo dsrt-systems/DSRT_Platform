@@ -1,12 +1,10 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { ThemeProvider } from '@/components/theme-provider'
-import { Toaster } from '@/components/ui/sonner'
+import { AppProviders } from '@/components/providers/AppProviders'
 
 export const metadata: Metadata = {
   title: 'DSRT — Build with the right people',
-  description:
-    'The command center for builders. Where mission meets execution.',
+  description: 'The command center for builders. Where mission meets execution.',
 }
 
 export default function RootLayout({
@@ -16,16 +14,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="font-sans antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster />
-        </ThemeProvider>
+      <body className="font-sans antialiased bg-[#05070D] text-white selection:bg-[#4F7CFF]/30">
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   )

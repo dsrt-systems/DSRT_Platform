@@ -3,150 +3,148 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { GithubLogo, GoogleLogo, Spinner } from '@phosphor-icons/react'
+import { At, CircleNotch, ArrowRight } from '@phosphor-icons/react'
+import { createClient } from '@/lib/supabase/client'
+import { AuthInput } from './AuthInput'
+import { PasswordInput } from './PasswordInput'
+import { OAuthButton } from './OAuthButton'
+import { AuthDivider } from './AuthDivider'
+import { GoogleIcon, GithubIcon } from './ProviderIcons'
+import { cn } from '@/lib/utils'
+import type { AuthView } from './AuthShell'
 
-export function LoginForm() {
+interface Props {
+  onSwitchView: (view: AuthView) => void
+}
+
+export function LoginForm({ onSwitchView }: Props) {
   const router = useRouter()
   const supabase = createClient()
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<'google' | 'github' | null>(null)
-  
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
 
   const handleOAuth = async (provider: 'google' | 'github') => {
     setOauthLoading(provider)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: {
-          redirectTo: `${window.location.origin}/callback`
-        }
+        options: { redirectTo: `${window.location.origin}/callback` }
       })
       if (error) throw error
     } catch (err: any) {
-      toast.error(err.message || `Failed to connect to ${provider}`)
+      toast.error(err.message)
       setOauthLoading(null)
     }
   }
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password) return toast.error('Please enter email and password')
-    
+    if (!identifier || !password) return toast.error('Please enter your credentials')
+
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
-      if (!data.user) throw new Error('Login failed')
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Login failed')
 
-      const { data: profile } = await supabase.from('users').select('onboarding_complete').eq('id', data.user.id).single()
-      
+      // Restore client session
+      const clean = identifier.trim().toLowerCase()
+      let loginEmail = clean
+      if (!clean.includes('@')) {
+        // Client-side we don't have email; use API's implicit session cookie
+        // Force a page refresh to sync state
+        router.refresh()
+        router.push(data.next || '/home')
+        return
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
+      if (signInError) throw signInError
+
+      router.push(data.next || '/home')
       router.refresh()
-      if (!profile?.onboarding_complete) router.push('/onboarding')
-      else router.push('/home')
-      
     } catch (err: any) {
-      toast.error(err.message || 'Invalid login credentials')
+      toast.error(err.message || 'Login failed')
       setLoading(false)
     }
   }
 
-  const handleForgotPassword = () => {
-    if (!email) return toast.error('Please enter your email address first.')
-    toast.success('Password reset link sent to ' + email)
-    // Add real supabase reset logic here later
-  }
-
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="w-full max-w-[380px] flex flex-col"
-    >
-      <div className="mb-8">
-        <h1 className="text-[28px] font-bold text-white tracking-tight mb-2">Welcome back</h1>
-        <p className="text-[14px] text-white/50">Log in to DSRT to continue building.</p>
+    <div>
+      <div className="text-center mb-6">
+        <h1 className="text-[22px] font-semibold text-white tracking-tight">Welcome back</h1>
+        <p className="text-[13px] text-white/50 mt-1">Sign in to continue building on DSRT.</p>
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
-        <button 
-          onClick={() => handleOAuth('google')}
-          disabled={!!oauthLoading}
-          className="flex-1 flex items-center justify-center gap-2 h-11 rounded-lg border border-white/[0.1] hover:bg-white/[0.04] bg-white/[0.02] text-[13px] font-semibold text-white transition-all disabled:opacity-50"
-        >
-          {oauthLoading === 'google' ? <Spinner className="w-4 h-4 animate-spin" /> : <GoogleLogo className="w-4 h-4" weight="bold" />}
-          Google
-        </button>
-        <button 
-          onClick={() => handleOAuth('github')}
-          disabled={!!oauthLoading}
-          className="flex-1 flex items-center justify-center gap-2 h-11 rounded-lg border border-white/[0.1] hover:bg-white/[0.04] bg-white/[0.02] text-[13px] font-semibold text-white transition-all disabled:opacity-50"
-        >
-          {oauthLoading === 'github' ? <Spinner className="w-4 h-4 animate-spin" /> : <GithubLogo className="w-4 h-4" weight="fill" />}
-          GitHub
-        </button>
+      <div className="space-y-2">
+        <OAuthButton provider="google" onClick={() => handleOAuth('google')} loading={oauthLoading === 'google'} disabled={!!oauthLoading} icon={<GoogleIcon />}>
+          Continue with Google
+        </OAuthButton>
+        <OAuthButton provider="github" onClick={() => handleOAuth('github')} loading={oauthLoading === 'github'} disabled={!!oauthLoading} icon={<GithubIcon />}>
+          Continue with GitHub
+        </OAuthButton>
       </div>
 
-      <div className="flex items-center gap-3 mb-6">
-        <div className="h-px flex-1 bg-white/[0.06]" />
-        <span className="text-[11px] uppercase tracking-wider text-white/30 font-bold">Or continue with</span>
-        <div className="h-px flex-1 bg-white/[0.06]" />
-      </div>
+      <AuthDivider label="or with password" />
 
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="space-y-1.5">
-          <label className="text-[12px] font-semibold text-white/70 pl-1">Email address</label>
-          <input
-            type="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@dsrt.com or you@example.com"
-            className="w-full h-11 px-4 rounded-lg bg-[#0a0a0f] border border-white/[0.1] text-white text-[14px] placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all shadow-inner"
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <AuthInput
+          label="Email or username"
+          type="text"
+          name="identifier"
+          autoComplete="username"
+          autoFocus
+          placeholder="you@example.com or @jisu"
+          leading={<At className="w-4 h-4" weight="regular" />}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
+        />
 
-        <div className="space-y-1.5">
-          <label className="text-[12px] font-semibold text-white/70 pl-1">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className="w-full h-11 px-4 rounded-lg bg-[#0a0a0f] border border-white/[0.1] text-white text-[14px] placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all shadow-inner"
-          />
-        </div>
+        <PasswordInput
+          label="Password"
+          name="password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-        <div className="flex items-center justify-between pt-1 pb-3 px-1">
-          <label className="flex items-center gap-2 cursor-pointer group">
-            <input type="checkbox" className="w-3.5 h-3.5 rounded border-white/20 bg-transparent text-indigo-500 focus:ring-indigo-500/30 focus:ring-offset-0 cursor-pointer" />
-            <span className="text-[12px] text-white/50 group-hover:text-white/70 transition-colors font-medium">Remember me</span>
-          </label>
-          <button type="button" onClick={handleForgotPassword} className="text-[12px] text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => onSwitchView('forgot')}
+            className="text-[12px] text-white/50 hover:text-white/80 transition-colors"
+          >
             Forgot password?
           </button>
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={loading}
-          className="w-full h-11 rounded-lg bg-white hover:bg-zinc-200 text-black text-[14px] font-bold transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+          className={cn(
+            "w-full h-10 rounded-md mt-1 flex items-center justify-center gap-2",
+            "bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[13px] font-semibold",
+            "transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          )}
         >
-          {loading ? <Spinner className="w-5 h-5 animate-spin" /> : 'Log in'}
+          {loading ? <CircleNotch className="w-4 h-4 animate-spin" /> : <>Sign in <ArrowRight className="w-3.5 h-3.5" weight="bold" /></>}
         </button>
       </form>
 
-      <p className="mt-8 text-center text-[13px] text-white/50 font-medium">
-        Don't have an account?{' '}
-        <Link href="/signup" className="text-white hover:text-indigo-300 font-bold transition-colors">
-          Sign up
-        </Link>
+      <p className="text-center text-[13px] text-white/50 mt-6">
+        New to DSRT?{' '}
+        <button onClick={() => onSwitchView('signup')} className="text-[#4F7CFF] hover:text-[#7093FF] font-medium transition-colors">
+          Create account
+        </button>
       </p>
-    </motion.div>
+    </div>
   )
 }
