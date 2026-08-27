@@ -48,25 +48,21 @@ export function SignUpForm({ onSwitchView, onVerify }: Props) {
 
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-          emailRedirectTo: `${window.location.origin}/callback?next=/onboarding`
-        }
+      // Call our backend endpoint to handle user creation, OTP generation, and email dispatch
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName, email, password }),
       })
 
-      if (error) throw error
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to create account')
 
-      if (!data.session) {
-        onVerify(email)
-      } else {
-        toast.success('Account created!')
-        window.location.href = '/onboarding'
-      }
+      toast.success('Account created! Check your email for the 6-digit verification code.')
+      onVerify(email)
     } catch (err: any) {
       toast.error(err.message || 'Failed to create account')
+    } finally {
       setLoading(false)
     }
   }
