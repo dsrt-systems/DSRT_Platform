@@ -20,17 +20,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
     }
 
-    // 1. Rate limit check
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1'
-    const rl = new RateLimitService(adminClient)
-    const ipLimit = await rl.check(`REGISTER:IP:${hashWithSecret(ip)}`, 5, 900)
-    if (!ipLimit.allowed) {
-      return NextResponse.json({ error: 'Too many registration attempts. Please try again later.' }, { status: 429 })
+    // 1. Rate limit check (Bypassed in local development, 15 tokens in production)
+    if (process.env.NODE_ENV === 'production') {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1'
+      const rl = new RateLimitService(adminClient)
+      const ipLimit = await rl.check(`REGISTER:IP:${hashWithSecret(ip)}`, 15, 900)
+      if (!ipLimit.allowed) {
+        return NextResponse.json({ error: 'Too many registration attempts. Please try again later.' }, { status: 429 })
+      }
     }
 
     let userId: string
 
-    // 2. Create User via Admin API (prevents Supabase default magic-link email)
+    // 2. Create User via Admin API (bypasses Supabase default email link)
     const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
       email: cleanEmail,
       password: pwd,
@@ -82,6 +84,7 @@ export async function POST(request: Request) {
     // 5. Generate 6-digit OTP
     const otp = generateSecureOtp6()
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1'
 
     const { error: challengeErr } = await adminClient.from('email_verification_challenges').insert({
       user_id: userId,
