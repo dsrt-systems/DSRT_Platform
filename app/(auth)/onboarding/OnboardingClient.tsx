@@ -21,47 +21,27 @@ const stepConfig = [
     subtitle: 'Personal information',
     heading: 'Tell us who you are',
     description: "Let's start with the basics. This information forms your public presence on DSRT.",
-    tips: [
-      'Your legal name helps you build trust with future collaborators and investors.',
-      'A short tagline can double your profile visits — think of it as your headline.',
-      'Location helps you match with nearby founders, meetups, and opportunities.'
-    ]
   },
   { 
     number: 2, 
     title: 'Contribution', 
     subtitle: 'What you bring',
     heading: 'What do you bring to the table?',
-    description: 'Select the skills, experience, and resources you can contribute to projects and teams.',
-    tips: [
-      'Being specific increases match quality by up to 3x.',
-      'Select all that apply — you can update these anytime later.',
-      'Founders who list technical skills get 40% more collaboration requests.'
-    ]
+    description: 'Select the skills, experience, and resources you can contribute to projects.',
   },
   { 
     number: 3, 
     title: 'Skills', 
     subtitle: 'Technical expertise',
     heading: 'What are you skilled at?',
-    description: 'Add the tools, languages, and disciplines you excel at. These power our AI recommendations.',
-    tips: [
-      'Add at least 5 skills for optimal matching.',
-      'Include both hard skills (React, Figma) and soft skills (leadership, strategy).',
-      'DSRT AI uses these to surface you in relevant opportunities.'
-    ]
+    description: 'Add the tools, languages, and disciplines you excel at.',
   },
   { 
     number: 4, 
     title: 'Interests', 
     subtitle: 'What excites you',
     heading: 'What are you interested in?',
-    description: 'Choose the industries, technologies, and problem spaces that inspire your work.',
-    tips: [
-      'Your interests shape your personalized feed and community suggestions.',
-      'You will see projects, ventures, and posts related to what you choose.',
-      'Diverse interests unlock cross-industry connections.'
-    ]
+    description: 'Choose the industries and problem spaces that inspire your work.',
   },
   { 
     number: 5, 
@@ -69,11 +49,6 @@ const stepConfig = [
     subtitle: 'Where you belong',
     heading: 'Your institution or organization',
     description: 'Connect with peers from your university, company, or professional community.',
-    tips: [
-      'Verified institutions get exclusive community access.',
-      'Alumni networks on DSRT often source top talent for their startups.',
-      'You can add multiple institutions from your Profile settings later.'
-    ]
   },
   { 
     number: 6, 
@@ -81,11 +56,6 @@ const stepConfig = [
     subtitle: 'What you seek',
     heading: 'What are you looking for?',
     description: 'Tell us what you are here to accomplish. We tailor your entire DSRT experience around this.',
-    tips: [
-      'Clear goals attract the right collaborators to your profile.',
-      'You can adjust your goals anytime as your journey evolves.',
-      'DSRT ranks opportunities based on your selected outcomes.'
-    ]
   },
 ]
 
@@ -105,110 +75,107 @@ export function OnboardingClient() {
   }, [router])
 
   if (!mounted) {
-    return (
-      <div className="min-h-screen bg-[#05070D] flex items-center justify-center text-white/40 text-sm">
-        Loading...
-      </div>
-    )
+    return <div className="min-h-screen bg-[#05070D]" />
   }
 
   const safeStep = Math.min(Math.max(Number(step) || 1, 1), 6)
   const currentStep = stepConfig[safeStep - 1]
 
   return (
-    <div className="min-h-screen bg-[#05070D] text-white flex flex-col">
-      {/* Header with DSRT Logo */}
-      <header className="border-b border-white/[0.06] px-6 md:px-8 h-14 flex items-center justify-between">
-        <DsrtLogo size={26} showText />
-        <div className="text-[12px] text-white/50 font-medium">
-          Step <span className="text-white">{safeStep}</span> of 6
+    <div className="min-h-screen bg-[#05070D] text-white flex flex-col relative overflow-hidden">
+      
+      {/* Premium Background Gradient */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#111A30] via-[#05070D] to-[#05070D] opacity-80 pointer-events-none" />
+      <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] pointer-events-none" /> {/* Optional: add a tiny noise texture if you want true enterprise feel */}
+
+      {/* Elevated Header */}
+      <header className="relative z-10 border-b border-white/[0.04] px-6 lg:px-12 h-20 flex items-center justify-between bg-[#05070D]/80 backdrop-blur-md">
+        <DsrtLogo size={32} showText />
+        
+        {/* Mobile Step Indicator */}
+        <div className="lg:hidden text-[13px] text-white/50 font-medium bg-white/[0.03] px-4 py-1.5 rounded-full border border-white/10">
+          Step <span className="text-white">{safeStep}</span> / 6
         </div>
       </header>
 
-      {/* Content Area */}
-      <div className="flex-1 flex flex-col md:flex-row">
-        {/* LEFT SIDEBAR — Steps & Tips */}
-        <aside className="w-full md:w-[300px] lg:w-[340px] border-b md:border-b-0 md:border-r border-white/[0.06] p-6 md:p-8 md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] md:overflow-y-auto">
-          <div className="max-w-xs">
-            {/* Step Navigation */}
-            <nav className="space-y-1 mb-8">
-              {stepConfig.map((s) => {
-                const isCompleted = safeStep > s.number
-                const isCurrent = safeStep === s.number
-                return (
-                  <button
-                    key={s.number}
-                    onClick={() => isCompleted && setStep(s.number)}
-                    disabled={!isCompleted && !isCurrent}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-2.5 rounded-md text-left transition-colors",
-                      isCurrent && "bg-white/[0.04]",
-                      isCompleted && "hover:bg-white/[0.03] cursor-pointer",
-                      !isCurrent && !isCompleted && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <div className={cn(
-                      "w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-semibold flex-shrink-0 border",
-                      isCurrent && "bg-[#4F7CFF] border-[#4F7CFF] text-white",
-                      isCompleted && "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
-                      !isCurrent && !isCompleted && "bg-transparent border-white/10 text-white/40"
-                    )}>
-                      {isCompleted ? <Check className="w-3.5 h-3.5" /> : s.number}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className={cn(
-                        "text-[13px] font-semibold leading-tight",
-                        isCurrent ? "text-white" : isCompleted ? "text-white/70" : "text-white/40"
-                      )}>
-                        {s.title}
-                      </div>
-                      <div className="text-[11px] text-white/40 mt-0.5">{s.subtitle}</div>
-                    </div>
-                  </button>
-                )
-              })}
-            </nav>
+      <div className="relative z-10 flex-1 flex flex-col lg:flex-row max-w-[1400px] mx-auto w-full">
+        
+        {/* DESKTOP SIDEBAR */}
+        <aside className="hidden lg:block w-[360px] p-12 border-r border-white/[0.04]">
+          <nav className="space-y-1.5 relative">
+            {/* Connecting Line */}
+            <div className="absolute left-[15px] top-6 bottom-6 w-px bg-white/10 -z-10" />
 
-            {/* Tips Section */}
-            <div className="pt-6 border-t border-white/[0.06]">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40 mb-3">
-                Tips for this step
-              </p>
-              <ul className="space-y-3">
-                {currentStep.tips.map((tip, i) => (
-                  <li key={i} className="text-[12px] text-white/60 leading-relaxed flex gap-2">
-                    <span className="text-[#4F7CFF] flex-shrink-0 mt-0.5">•</span>
-                    <span>{tip}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+            {stepConfig.map((s) => {
+              const isCompleted = safeStep > s.number
+              const isCurrent = safeStep === s.number
+              return (
+                <button
+                  key={s.number}
+                  onClick={() => isCompleted && setStep(s.number)}
+                  disabled={!isCompleted && !isCurrent}
+                  className={cn(
+                    "w-full flex items-start gap-4 p-3 rounded-xl text-left transition-all duration-300",
+                    isCurrent && "bg-white/[0.04] shadow-[0_0_20px_rgba(255,255,255,0.02)] border border-white/5",
+                    isCompleted && "hover:bg-white/[0.02] cursor-pointer",
+                    !isCurrent && !isCompleted && "opacity-40 cursor-not-allowed"
+                  )}
+                >
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0 transition-all duration-300",
+                    isCurrent ? "bg-[#4F7CFF] text-white shadow-[0_0_15px_rgba(79,124,255,0.4)]" :
+                    isCompleted ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400" :
+                    "bg-[#0A0D14] border border-white/20 text-white/40"
+                  )}>
+                    {isCompleted ? <Check className="w-4 h-4" strokeWidth={3} /> : s.number}
+                  </div>
+                  <div className="flex-1 min-w-0 pt-1">
+                    <div className={cn(
+                      "text-[14px] font-bold tracking-wide",
+                      isCurrent ? "text-white" : isCompleted ? "text-white/80" : "text-white/50"
+                    )}>
+                      {s.title}
+                    </div>
+                    <div className="text-[12px] text-white/40 mt-1 pr-4">{s.subtitle}</div>
+                  </div>
+                </button>
+              )
+            })}
+          </nav>
         </aside>
 
-        {/* RIGHT FORM AREA */}
-        <main className="flex-1 flex justify-center p-6 md:p-10">
-          <div className="w-full max-w-[480px]">
-            <div className="mb-8">
-              <p className="text-[12px] text-white/40 font-medium mb-1">
-                STEP {safeStep} OF 6
-              </p>
-              <h1 className="text-[26px] font-semibold tracking-tight text-white leading-tight">
-                {currentStep.heading}
-              </h1>
-              <p className="text-[14px] text-white/60 mt-2 leading-relaxed">
-                {currentStep.description}
-              </p>
-            </div>
+        {/* MAIN FORM AREA */}
+        <main className="flex-1 flex justify-center p-6 lg:p-12 items-start pt-8 lg:pt-16">
+          <div className="w-full max-w-[540px]">
+            
+            {/* Glassmorphic Elevated Card */}
+            <div className="bg-[#0A0D14]/80 backdrop-blur-2xl border border-white/[0.08] rounded-3xl p-8 lg:p-10 shadow-2xl relative overflow-hidden">
+              
+              {/* Subtle top card glow */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#4F7CFF]/40 to-transparent" />
 
-            <div className="onboarding-step-container">
-              {safeStep === 1 && <StepIdentity />}
-              {safeStep === 2 && <StepBrings />}
-              {safeStep === 3 && <StepSkills />}
-              {safeStep === 4 && <StepInterests />}
-              {safeStep === 5 && <StepInstitution />}
-              {safeStep === 6 && <StepSeeking />}
+              <div className="mb-10">
+                <p className="text-[11px] font-bold tracking-widest text-[#4F7CFF] uppercase mb-3">
+                  Step {safeStep}
+                </p>
+                <h1 className="text-[28px] lg:text-[32px] font-bold tracking-tight text-white leading-tight mb-3">
+                  {currentStep.heading}
+                </h1>
+                <p className="text-[15px] text-white/60 leading-relaxed">
+                  {currentStep.description}
+                </p>
+              </div>
+
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-forwards">
+                {safeStep === 1 && <StepIdentity />}
+                {safeStep === 2 && <StepBrings />}
+                {safeStep === 3 && <StepSkills />}
+                {safeStep === 4 && <StepInterests />}
+                {safeStep === 5 && <StepInstitution />}
+                {safeStep === 6 && <StepSeeking />}
+              </div>
             </div>
+            
           </div>
         </main>
       </div>
