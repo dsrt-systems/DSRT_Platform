@@ -1,10 +1,14 @@
-export default function GlobalLoading() {
+import { DsrtLogo } from '@/components/ui/DsrtLogo'
+
+export default function Loading() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 animate-pulse" />
-        <p className="text-sm text-muted-foreground">Loading...</p>
+    <div className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#050505]">
+      <div className="flex flex-col items-center gap-6 animate-pulse">
+        <DsrtLogo size={64} showText={false} />
+        <p className="text-[11px] font-bold text-white/50 tracking-widest uppercase">
+          INITIALIZING...
+        </p>
       </div>
     </div>
-  );
+  )
 }
