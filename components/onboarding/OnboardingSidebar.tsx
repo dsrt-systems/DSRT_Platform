@@ -67,108 +67,111 @@ const stepTips: Record<OnboardingStepKey, { title: string; tips: string[]; usage
   },
 }
 
-interface Props {
+interface SidebarProps {
   currentStep: OnboardingStepKey
   stepStates: Record<OnboardingStepKey, StepStatus>
   onStepClick: (step: OnboardingStepKey) => void
 }
 
-export function OnboardingSidebar({ currentStep, stepStates, onStepClick }: Props) {
+// 1. The Navigation Steps
+export function OnboardingSidebar({ currentStep, stepStates, onStepClick }: SidebarProps) {
+  return (
+    <div>
+      <p className="text-[11px] font-bold text-white/40 tracking-widest uppercase mb-4 px-1">
+        Your Setup
+      </p>
+
+      <nav className="space-y-0.5">
+        {steps.map((step) => {
+          const status = stepStates[step.key]
+          const isCurrent = currentStep === step.key
+          const isCompleted = status === 'COMPLETED' || status === 'SKIPPED'
+          const isClickable = isCompleted || isCurrent
+
+          return (
+            <button
+              key={step.key}
+              type="button"
+              onClick={() => isClickable && onStepClick(step.key)}
+              disabled={!isClickable}
+              className={cn(
+                'w-full flex items-start gap-3 px-3 py-2.5 rounded-md text-left transition-all',
+                isCurrent && 'bg-white/[0.04]',
+                isCompleted && !isCurrent && 'hover:bg-white/[0.02]',
+                !isCurrent && !isCompleted && 'cursor-not-allowed opacity-40'
+              )}
+            >
+              <div className="flex-shrink-0 mt-0.5">
+                {isCompleted && !isCurrent ? (
+                  <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center">
+                    <Check className="w-3 h-3 text-emerald-400" strokeWidth={3} />
+                  </div>
+                ) : isCurrent ? (
+                  <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-black">{step.number}</span>
+                  </div>
+                ) : (
+                  <div className="w-5 h-5 rounded-full border border-white/20 flex items-center justify-center">
+                    <span className="text-[10px] font-medium text-white/40">{step.number}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div
+                  className={cn(
+                    'text-[13px] font-semibold leading-tight',
+                    isCurrent ? 'text-white' : isCompleted ? 'text-white/80' : 'text-white/50'
+                  )}
+                >
+                  {step.title}
+                  {status === 'SKIPPED' && (
+                    <span className="ml-1.5 text-[10px] font-normal text-white/40">(skipped)</span>
+                  )}
+                </div>
+                <div className="text-[11px] text-white/40 mt-0.5 leading-tight">
+                  {step.description}
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </nav>
+    </div>
+  )
+}
+
+// 2. The Contextual Tips Panels
+export function OnboardingTips({ currentStep }: { currentStep: OnboardingStepKey }) {
   const currentTips = stepTips[currentStep]
 
   return (
-    <aside className="w-full lg:w-[300px] lg:flex-shrink-0">
-      <div className="lg:sticky lg:top-24 space-y-6">
-        {/* Setup Steps */}
-        <div>
-          <p className="text-[11px] font-bold text-white/40 tracking-widest uppercase mb-4 px-1">
-            Your Setup
-          </p>
-
-          <nav className="space-y-0.5">
-            {steps.map((step) => {
-              const status = stepStates[step.key]
-              const isCurrent = currentStep === step.key
-              const isCompleted = status === 'COMPLETED' || status === 'SKIPPED'
-              const isClickable = isCompleted || isCurrent
-
-              return (
-                <button
-                  key={step.key}
-                  type="button"
-                  onClick={() => isClickable && onStepClick(step.key)}
-                  disabled={!isClickable}
-                  className={cn(
-                    'w-full flex items-start gap-3 px-3 py-2.5 rounded-md text-left transition-all',
-                    isCurrent && 'bg-white/[0.04]',
-                    isCompleted && !isCurrent && 'hover:bg-white/[0.02]',
-                    !isCurrent && !isCompleted && 'cursor-not-allowed opacity-40'
-                  )}
-                >
-                  <div className="flex-shrink-0 mt-0.5">
-                    {isCompleted && !isCurrent ? (
-                      <div className="w-5 h-5 rounded-full bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-emerald-400" strokeWidth={3} />
-                      </div>
-                    ) : isCurrent ? (
-                      <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-black">{step.number}</span>
-                      </div>
-                    ) : (
-                      <div className="w-5 h-5 rounded-full border border-white/20 flex items-center justify-center">
-                        <span className="text-[10px] font-medium text-white/40">{step.number}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className={cn(
-                        'text-[13px] font-semibold leading-tight',
-                        isCurrent ? 'text-white' : isCompleted ? 'text-white/80' : 'text-white/50'
-                      )}
-                    >
-                      {step.title}
-                      {status === 'SKIPPED' && (
-                        <span className="ml-1.5 text-[10px] font-normal text-white/40">(skipped)</span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-white/40 mt-0.5 leading-tight">
-                      {step.description}
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-          </nav>
-        </div>
-
-        {/* Tips Panel */}
-        <div className="rounded-md border border-white/[0.06] bg-[#0A0A0C] p-4">
-          <p className="text-[10px] font-bold text-white/50 tracking-widest uppercase mb-3">
-            {currentTips.title}
-          </p>
-          <ul className="space-y-2">
-            {currentTips.tips.map((tip, idx) => (
-              <li key={idx} className="text-[12px] text-white/65 leading-relaxed flex gap-2">
-                <span className="text-white/30 flex-shrink-0">·</span>
-                <span>{tip}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* How we use this data */}
-        <div className="rounded-md border border-white/[0.06] bg-[#0A0A0C] p-4">
-          <p className="text-[10px] font-bold text-white/50 tracking-widest uppercase mb-2">
-            How we use this
-          </p>
-          <p className="text-[12px] text-white/65 leading-relaxed">
-            {currentTips.usage}
-          </p>
-        </div>
+    <div className="space-y-6">
+      {/* Tips Panel */}
+      <div className="rounded-md border border-white/[0.06] bg-[#0A0A0C] p-4">
+        <p className="text-[10px] font-bold text-white/50 tracking-widest uppercase mb-3">
+          {currentTips.title}
+        </p>
+        <ul className="space-y-2">
+          {currentTips.tips.map((tip, idx) => (
+            <li key={idx} className="text-[12px] text-white/65 leading-relaxed flex gap-2">
+              <span className="text-white/30 flex-shrink-0">·</span>
+              <span>{tip}</span>
+            </li>
+          ))}
+        </ul>
       </div>
-    </aside>
+
+      {/* How we use this data */}
+      <div className="rounded-md border border-white/[0.06] bg-[#0A0A0C] p-4">
+        <p className="text-[10px] font-bold text-white/50 tracking-widest uppercase mb-2">
+          How we use this
+        </p>
+        <p className="text-[12px] text-white/65 leading-relaxed">
+          {currentTips.usage}
+        </p>
+      </div>
+    </div>
   )
 }
 
