@@ -7,17 +7,13 @@ import { formatDistanceToNow } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
-  ShieldCheck,
   DeviceMobile,
   Desktop,
   DeviceTablet,
   Key,
   EnvelopeSimple,
-  SignOut,
-  ArrowRight,
   CheckCircle,
-  Warning,
-  Circle
+  Circle,
 } from '@phosphor-icons/react'
 
 interface SessionRow {
@@ -33,7 +29,14 @@ interface SessionRow {
   created_at: string
 }
 
-export function SecurityDashboard({ profile, securityEvents, initialMfaState }: any) {
+export function SecurityDashboard({
+  profile,
+  securityEvents,
+  initialMfaState,
+  pinConfigured = false,
+  pinUpdatedAt = null,
+  pinLastUsed = null,
+}: any) {
   const router = useRouter()
   const supabase = createClient()
   const [sessions, setSessions] = useState<SessionRow[]>([])
@@ -47,9 +50,65 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
   const [enrollingMfa, setEnrollingMfa] = useState(false)
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
 
+  // DSRT PIN
+  const [pinActive, setPinActive] = useState<boolean>(!!pinConfigured)
+  const [pinMode, setPinMode] = useState<'view' | 'set' | 'change'>('view')
+  const [pinCurrent, setPinCurrent] = useState('')
+  const [pinNew, setPinNew] = useState('')
+  const [pinConfirm, setPinConfirm] = useState('')
+  const [pinSaving, setPinSaving] = useState(false)
+
   useEffect(() => {
     loadSessions()
   }, [])
+
+  useEffect(() => {
+    setPinActive(!!pinConfigured)
+  }, [pinConfigured])
+
+  const resetPinForm = () => {
+    setPinCurrent('')
+    setPinNew('')
+    setPinConfirm('')
+    setPinMode('view')
+  }
+
+  const submitPin = async () => {
+    if (pinSaving) return
+    setPinSaving(true)
+    try {
+      if (pinMode === 'change') {
+        const res = await fetch('/api/auth/pin/change', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            currentPin: pinCurrent,
+            newPin: pinNew,
+            confirmPin: pinConfirm,
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Could not update PIN')
+        toast.success('PIN updated')
+      } else {
+        const res = await fetch('/api/auth/pin/set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: pinNew, confirmPin: pinConfirm }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Could not set PIN')
+        toast.success('PIN set')
+      }
+      setPinActive(true)
+      resetPinForm()
+      router.refresh()
+    } catch (e: any) {
+      toast.error(e?.message || 'Something went wrong')
+    } finally {
+      setPinSaving(false)
+    }
+  }
 
   const loadSessions = async () => {
     setLoadingSessions(true)
@@ -110,7 +169,7 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
         issuer: 'DSRT Connect',
-        friendlyName: `DSRT · ${profile.username}`
+        friendlyName: `DSRT · ${profile.username}`,
       })
       if (error) throw error
       setQrCode(data.totp.qr_code)
@@ -132,7 +191,7 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
       const verify = await supabase.auth.mfa.verify({
         factorId,
         challengeId: challenge.data.id,
-        code: mfaCode
+        code: mfaCode,
       })
       if (verify.error) throw verify.error
 
@@ -180,7 +239,9 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-[22px] font-semibold tracking-tight">Security</h1>
-        <p className="text-[13px] text-white/50 mt-1">Manage identity, trust, and access to your DSRT account.</p>
+        <p className="text-[13px] text-white/50 mt-1">
+          Manage identity, trust, and access to your DSRT account.
+        </p>
       </div>
 
       {/* Trust Overview */}
@@ -192,7 +253,10 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
           </div>
           <div className="text-right">
             <p className="text-[11px] uppercase tracking-wider text-white/40 font-semibold">Score</p>
-            <p className="text-[18px] font-mono font-semibold mt-0.5 text-[#4F7CFF]">{trustScore}<span className="text-white/30 text-[12px]">/100</span></p>
+            <p className="text-[18px] font-mono font-semibold mt-0.5 text-[#4F7CFF]">
+              {trustScore}
+              <span className="text-white/30 text-[12px]">/100</span>
+            </p>
           </div>
         </div>
 
@@ -215,11 +279,19 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
       {/* Email Verification */}
       <section className="border border-white/[0.06] bg-[#0A0D14] rounded-lg overflow-hidden mb-6">
         <div className="px-5 py-4 flex items-center gap-4">
-          <div className={cn(
-            "w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0",
-            isVerified ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-white/[0.03] border border-white/[0.06]"
-          )}>
-            {isVerified ? <CheckCircle className="w-4 h-4 text-emerald-400" weight="fill" /> : <EnvelopeSimple className="w-4 h-4 text-white/50" weight="regular" />}
+          <div
+            className={cn(
+              'w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0',
+              isVerified
+                ? 'bg-emerald-500/10 border border-emerald-500/20'
+                : 'bg-white/[0.03] border border-white/[0.06]'
+            )}
+          >
+            {isVerified ? (
+              <CheckCircle className="w-4 h-4 text-emerald-400" weight="fill" />
+            ) : (
+              <EnvelopeSimple className="w-4 h-4 text-white/50" weight="regular" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-white">Email verification</p>
@@ -242,11 +314,18 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
       {/* Two-Factor Authentication */}
       <section className="border border-white/[0.06] bg-[#0A0D14] rounded-lg overflow-hidden mb-6">
         <div className="px-5 py-4 flex items-center gap-4">
-          <div className={cn(
-            "w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0",
-            mfaEnabled ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-white/[0.03] border border-white/[0.06]"
-          )}>
-            <Key className={cn("w-4 h-4", mfaEnabled ? "text-emerald-400" : "text-white/50")} weight="regular" />
+          <div
+            className={cn(
+              'w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0',
+              mfaEnabled
+                ? 'bg-emerald-500/10 border border-emerald-500/20'
+                : 'bg-white/[0.03] border border-white/[0.06]'
+            )}
+          >
+            <Key
+              className={cn('w-4 h-4', mfaEnabled ? 'text-emerald-400' : 'text-white/50')}
+              weight="regular"
+            />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-semibold text-white">Two-factor authentication</p>
@@ -264,13 +343,17 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
             </button>
           )}
           {mfaEnabled && (
-            <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Active</span>
+            <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">
+              Active
+            </span>
           )}
         </div>
 
         {qrCode && !mfaEnabled && (
           <div className="border-t border-white/[0.04] px-5 py-5">
-            <p className="text-[12px] text-white/60 mb-4">Scan with Google Authenticator, 1Password, or Authy, then enter the 6-digit code.</p>
+            <p className="text-[12px] text-white/60 mb-4">
+              Scan with Google Authenticator, 1Password, or Authy, then enter the 6-digit code.
+            </p>
             <div className="flex gap-5 items-start">
               <div className="bg-white p-2 rounded-md flex-shrink-0">
                 <img src={qrCode} alt="MFA QR" className="w-32 h-32" />
@@ -300,15 +383,117 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
           <div className="border-t border-white/[0.04] px-5 py-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[12px] font-semibold text-emerald-400">Save your recovery codes</p>
-              <button onClick={downloadCodes} className="text-[11px] text-white/50 hover:text-white transition-colors">Download .txt</button>
+              <button
+                onClick={downloadCodes}
+                className="text-[11px] text-white/50 hover:text-white transition-colors"
+              >
+                Download .txt
+              </button>
             </div>
-            <p className="text-[11px] text-white/50 mb-3">Shown only once. Each can be used once if you lose your device.</p>
+            <p className="text-[11px] text-white/50 mb-3">
+              Shown only once. Each can be used once if you lose your device.
+            </p>
             <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
               {recoveryCodes.map((c, i) => (
-                <div key={i} className="px-2.5 py-1.5 rounded bg-[#0F1420] border border-white/[0.04] text-white/80">
+                <div
+                  key={i}
+                  className="px-2.5 py-1.5 rounded bg-[#0F1420] border border-white/[0.04] text-white/80"
+                >
                   {c}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* DSRT PIN */}
+      <section className="border border-white/[0.06] bg-[#0A0D14] rounded-lg overflow-hidden mb-6">
+        <div className="px-5 py-4 flex items-center gap-4">
+          <div
+            className={cn(
+              'w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0',
+              pinActive
+                ? 'bg-emerald-500/10 border border-emerald-500/20'
+                : 'bg-white/[0.03] border border-white/[0.06]'
+            )}
+          >
+            <Key
+              className={cn('w-4 h-4', pinActive ? 'text-emerald-400' : 'text-white/50')}
+              weight="regular"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold text-white">DSRT PIN</p>
+            <p className="text-[12px] text-white/50 mt-0.5">
+              {pinActive
+                ? `Active${pinUpdatedAt ? ` · Updated ${new Date(pinUpdatedAt).toLocaleDateString()}` : ''}${
+                    pinLastUsed ? ` · Last used ${new Date(pinLastUsed).toLocaleDateString()}` : ''
+                  }`
+                : '6-digit PIN as a faster alternative to your password'}
+            </p>
+          </div>
+          {pinMode === 'view' && (
+            <button
+              onClick={() => setPinMode(pinActive ? 'change' : 'set')}
+              className="h-8 px-3 rounded-md bg-white/[0.06] hover:bg-white/[0.1] text-white text-[12px] font-semibold border border-white/[0.06] transition-all"
+            >
+              {pinActive ? 'Change' : 'Set PIN'}
+            </button>
+          )}
+          {pinActive && pinMode === 'view' && (
+            <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold ml-2">
+              Active
+            </span>
+          )}
+        </div>
+
+        {pinMode !== 'view' && (
+          <div className="border-t border-white/[0.04] px-5 py-5 space-y-3">
+            {pinMode === 'change' && (
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                value={pinCurrent}
+                onChange={(e) => setPinCurrent(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Current PIN"
+                className="w-full max-w-[220px] h-10 px-3 rounded-md bg-[#0F1420] border border-white/10 text-white font-mono text-[15px] tracking-widest text-center focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF]/40"
+              />
+            )}
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              value={pinNew}
+              onChange={(e) => setPinNew(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="New PIN"
+              className="w-full max-w-[220px] h-10 px-3 rounded-md bg-[#0F1420] border border-white/10 text-white font-mono text-[15px] tracking-widest text-center focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF]/40"
+            />
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              value={pinConfirm}
+              onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Confirm new PIN"
+              className="w-full max-w-[220px] h-10 px-3 rounded-md bg-[#0F1420] border border-white/10 text-white font-mono text-[15px] tracking-widest text-center focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF]/40"
+            />
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={submitPin}
+                disabled={pinSaving}
+                className="h-9 px-4 rounded-md bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[13px] font-semibold disabled:opacity-50"
+              >
+                {pinSaving ? 'Saving...' : pinMode === 'change' ? 'Update PIN' : 'Set PIN'}
+              </button>
+              <button
+                onClick={resetPinForm}
+                disabled={pinSaving}
+                className="h-9 px-3 rounded-md text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] disabled:opacity-40"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         )}
@@ -321,7 +506,7 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
             <p className="text-[13px] font-semibold text-white">Active sessions</p>
             <p className="text-[11px] text-white/40 mt-0.5">Devices signed in to your DSRT account</p>
           </div>
-          {sessions.filter(s => !s.is_current).length > 0 && (
+          {sessions.filter((s) => !s.is_current).length > 0 && (
             <button
               onClick={revokeAllOthers}
               disabled={revoking}
@@ -341,7 +526,10 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
             sessions.map((s) => {
               const Icon = deviceIcon(s.device_type)
               return (
-                <div key={s.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
+                <div
+                  key={s.id}
+                  className="px-5 py-3.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors"
+                >
                   <Icon className="w-4 h-4 text-white/40 flex-shrink-0" weight="regular" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -379,14 +567,19 @@ export function SecurityDashboard({ profile, securityEvents, initialMfaState }: 
           <p className="text-[11px] text-white/40 mt-0.5">Recent events on your account</p>
         </div>
         <div className="divide-y divide-white/[0.04] max-h-72 overflow-y-auto">
-          {(!securityEvents || securityEvents.length === 0) ? (
+          {!securityEvents || securityEvents.length === 0 ? (
             <div className="px-5 py-6 text-[12px] text-white/40 text-center">No security events yet</div>
           ) : (
             securityEvents.slice(0, 15).map((e: any) => (
               <div key={e.id} className="px-5 py-3 flex items-center gap-3 hover:bg-white/[0.02]">
-                <Circle className={cn("w-2 h-2 flex-shrink-0", e.success ? "text-emerald-400" : "text-red-400")} weight="fill" />
+                <Circle
+                  className={cn('w-2 h-2 flex-shrink-0', e.success ? 'text-emerald-400' : 'text-red-400')}
+                  weight="fill"
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[12px] text-white/90 font-medium">{e.event_type.replace(/_/g, ' ').toLowerCase()}</p>
+                  <p className="text-[12px] text-white/90 font-medium">
+                    {e.event_type.replace(/_/g, ' ').toLowerCase()}
+                  </p>
                   <p className="text-[10px] text-white/40 mt-0.5">
                     {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
                   </p>

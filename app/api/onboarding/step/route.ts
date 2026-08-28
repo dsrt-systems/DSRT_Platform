@@ -4,7 +4,14 @@ import { adminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const VALID_STEPS = ['identity', 'profile', 'professional', 'skills', 'personalization'] as const
+const VALID_STEPS = [
+  'identity',
+  'profile',
+  'professional',
+  'skills',
+  'personalization',
+  'security_pin',
+] as const
 const VALID_STATUSES = ['NOT_VISITED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED'] as const
 
 function slugify(name: string) {
@@ -39,7 +46,6 @@ async function resolveSkillId(
     .single()
 
   if (error || !created?.id) {
-    // Race: another request may have created it
     const { data: retry } = await adminClient
       .from('skills')
       .select('id')
@@ -72,7 +78,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
-    // Persist step-specific data
+    // Persist step-specific data (security_pin carries no profile fields)
     if (data && typeof data === 'object') {
       const updates: Record<string, any> = {
         updated_at: new Date().toISOString(),
@@ -92,8 +98,6 @@ export async function POST(request: Request) {
           updates.location_data = data.location_data
           if (data.location_data?.display_name) {
             updates.location = data.location_data.display_name
-          } else if (data.location_data === null) {
-            // keep existing location freetext unless explicitly cleared
           }
         }
       } else if (step === 'professional') {
@@ -102,9 +106,8 @@ export async function POST(request: Request) {
         }
       } else if (step === 'skills') {
         if (status === 'SKIPPED') {
-          // Keep existing skills if any; do not wipe on skip
+          // keep existing skills
         } else if (Array.isArray(data.skills)) {
-          // Replace user's skill set with the new selection
           await adminClient.from('user_skills').delete().eq('user_id', user.id)
 
           for (const skill of data.skills) {
@@ -144,8 +147,8 @@ export async function POST(request: Request) {
           updates.building_intent = data.building_intent || {}
         }
       }
+      // step === 'security_pin' → no profile fields, only state advance below
 
-      // Apply profile-level updates (more than just updated_at)
       if (Object.keys(updates).length > 1) {
         const { error: updateError } = await adminClient
           .from('users')
@@ -162,7 +165,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update state machine
     const { data: rpcResult, error: rpcError } = await adminClient.rpc(
       'update_onboarding_step',
       {

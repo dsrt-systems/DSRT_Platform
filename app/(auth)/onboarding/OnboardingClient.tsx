@@ -12,7 +12,6 @@ import {
   type OnboardingStepKey,
 } from '@/stores/onboardingV2Store'
 
-// Steps (Cleaned import paths from ./steps/)
 import { IdentityStep } from './steps/IdentityStep'
 import { ProfileStep } from './steps/ProfileStep'
 import { ProfessionalStep } from './steps/ProfessionalStep'
@@ -64,6 +63,13 @@ export function OnboardingClient() {
     reset,
   } = useOnboardingV2Store()
 
+  // Clear stuck global isSaving when landing on PIN step
+  useEffect(() => {
+    if (currentStep === 'security_pin') {
+      useOnboardingV2Store.setState({ isSaving: false })
+    }
+  }, [currentStep])
+
   // Auth check + hydrate
   useEffect(() => {
     setMounted(true)
@@ -74,7 +80,6 @@ export function OnboardingClient() {
         return
       }
 
-      // Fetch onboarding state from server
       try {
         const res = await fetch('/api/onboarding/state')
         if (res.ok) {
@@ -97,7 +102,6 @@ export function OnboardingClient() {
   const handleSaveExit = useCallback(async () => {
     setSigningOut(true)
     try {
-      // 1. Persist current step as IN_PROGRESS
       await fetch('/api/onboarding/step', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,13 +122,8 @@ export function OnboardingClient() {
         }),
       }).catch(() => {})
 
-      // 2. Sign out
       await supabase.auth.signOut()
-
-      // 3. Reset store
       reset()
-
-      // 4. Redirect
       toast.success('Progress saved. Sign in anytime to continue.')
       window.location.href = '/login'
     } catch {
@@ -157,11 +156,10 @@ export function OnboardingClient() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col">
-      {/* Fixed Header */}
       <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-white/[0.06] h-16 flex items-center px-6 lg:px-10">
         <div className="max-w-[1200px] w-full mx-auto flex items-center justify-between">
           <DsrtLogo size={26} showText />
-          
+
           <button
             onClick={handleSaveExit}
             disabled={isSaving || signingOut}
@@ -173,20 +171,16 @@ export function OnboardingClient() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 py-10 lg:py-14 px-6 lg:px-10">
         <div className="max-w-[1200px] mx-auto">
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-16">
-            {/* Sidebar */}
             <OnboardingSidebar
               currentStep={currentStep}
               stepStates={step_states}
               onStepClick={handleStepClick}
             />
 
-            {/* Step Content */}
             <div className="flex-1 min-w-0 max-w-[640px]">
-              {/* Heading */}
               <div className="mb-8">
                 <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase mb-2">
                   Step {currentStepNumber} of {totalSteps}
@@ -199,7 +193,6 @@ export function OnboardingClient() {
                 </p>
               </div>
 
-              {/* Step Components */}
               <div className="animate-in fade-in duration-300">
                 {currentStep === 'identity' && <IdentityStep />}
                 {currentStep === 'profile' && <ProfileStep />}

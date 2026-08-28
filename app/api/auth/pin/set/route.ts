@@ -12,11 +12,11 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { pin, confirmPin } = await request.json()
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
 
     if (!pin || !confirmPin) {
       return NextResponse.json({ error: 'Both PIN fields are required' }, { status: 400 })
     }
-
     if (pin !== confirmPin) {
       return NextResponse.json({ error: 'PINs do not match' }, { status: 400 })
     }
@@ -39,6 +39,14 @@ export async function POST(request: Request) {
       console.error('[PIN SET]', error)
       return NextResponse.json({ error: 'Failed to save PIN' }, { status: 500 })
     }
+
+    // Audit log
+    await adminClient.from('security_events').insert({
+      user_id: user.id,
+      event_type: 'PIN_CONFIGURED',
+      success: true,
+      ip_address: ip
+    })
 
     return NextResponse.json({ success: true })
   } catch (err: any) {

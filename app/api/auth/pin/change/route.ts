@@ -12,11 +12,11 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { currentPin, newPin, confirmPin } = await request.json()
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'
 
     if (!currentPin || !newPin || !confirmPin) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
     }
-
     if (newPin !== confirmPin) {
       return NextResponse.json({ error: 'New PINs do not match' }, { status: 400 })
     }
@@ -26,7 +26,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    // Get current stored PIN
     const { data: userPin } = await adminClient
       .from('user_pins')
       .select('pin_hash, pin_salt')
@@ -37,13 +36,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No PIN found for this account' }, { status: 400 })
     }
 
-    // Verify current PIN
     const currentHash = hashPin(currentPin, userPin.pin_salt)
     if (currentHash !== userPin.pin_hash) {
+      // Audit log failed attempt to change PIN
+      await adminClient.from('security_events').insert({
+        user_id: user.id,
+        event_type: 'PIN_CHANGE_FAILED',
+        success: false,
+        ip_address: ip
+      })
       return NextResponse.json({ error: 'Current PIN is incorrect' }, { status: 401 })
     }
 
-    // Save new PIN with fresh salt
     const newSalt = generateSalt()
     const newHash = hashPin(newPin, newSalt)
 
@@ -54,6 +58,14 @@ export async function POST(request: Request) {
     })
 
     if (error) throw error
+
+    // Audit log successful PIN rotation
+    await adminClient.from('security_events').insert({
+      user_id: user.id,
+      event_type: 'PIN_CHANGED',
+      success: true,
+      ip_address: ip
+    })
 
     return NextResponse.json({ success: true, message: 'PIN updated successfully' })
   } catch (err: any) {

@@ -16,7 +16,7 @@ export async function GET() {
         id, email, username, normalized_username, full_name, avatar_url, avatar_status,
         tagline, location, location_data, professional_roles, goals, interest_topics,
         building_status, building_intent, onboarding_state, onboarding_step_states,
-        onboarding_complete, trust_level, trust_score, email_verification_status
+        onboarding_complete, pin_configured, trust_level, trust_score, email_verification_status
       `)
       .eq('id', user.id)
       .single()
@@ -25,7 +25,6 @@ export async function GET() {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
-    // Fetch user's existing skills
     const { data: userSkills } = await adminClient
       .from('user_skills')
       .select(`skill_id, skills:skill_id (id, name, category)`)
@@ -39,6 +38,7 @@ export async function GET() {
         professional: 'NOT_VISITED',
         skills: 'NOT_VISITED',
         personalization: 'NOT_VISITED',
+        security_pin: 'NOT_VISITED',
       },
       profile: {
         ...profile,
