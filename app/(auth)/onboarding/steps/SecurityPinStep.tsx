@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Shield, Loader2 } from 'lucide-react'
@@ -8,6 +8,7 @@ import { useOnboardingV2Store } from '@/stores/onboardingV2Store'
 import { OnboardingFooter } from '@/components/onboarding/OnboardingFooter'
 import { cn } from '@/lib/utils'
 
+// Reusable 6-digit input
 function PinInput({ 
   value, 
   onChange, 
@@ -81,7 +82,6 @@ function PinInput({
 export function SecurityPinStep() {
   const router = useRouter()
   const {
-    updateData,
     isSaving,
     setSaving,
     setCurrentStep,
@@ -92,7 +92,7 @@ export function SecurityPinStep() {
 
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
-  const [step, setStep] = useState<'enter' | 'confirm'>('enter')
+  const [stage, setStage] = useState<'enter' | 'confirm'>('enter')
 
   const handleContinuePin = () => {
     if (pin.length !== 6) {
@@ -104,10 +104,10 @@ export function SecurityPinStep() {
       return
     }
     if (['123456', '654321', '000000', '111111', '123123', '456789'].includes(pin)) {
-      toast.error('PIN is too common — choose another')
+      toast.error('This PIN is too common — please choose another')
       return
     }
-    setStep('confirm')
+    setStage('confirm')
   }
 
   const handleFinalize = async () => {
@@ -151,7 +151,7 @@ export function SecurityPinStep() {
       // 3. Finalize onboarding
       const completeRes = await fetch('/api/onboarding/complete', { method: 'POST' })
       if (!completeRes.ok) {
-        const errData = await completeRes.json()
+        const errData = await completeRes.json().catch(() => ({ error: 'Unknown error' }))
         throw new Error(errData.error || 'Could not complete onboarding')
       }
 
@@ -161,13 +161,12 @@ export function SecurityPinStep() {
       router.refresh()
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong')
-    } finally {
-      setSaving(false)
+      setSaving(false) // Fixed: Always reset spinner on failure
     }
   }
 
   const goBackToEnter = () => {
-    setStep('enter')
+    setStage('enter')
     setConfirmPin('')
   }
 
@@ -180,10 +179,10 @@ export function SecurityPinStep() {
         </div>
         <div>
           <p className="text-[14px] font-semibold text-white leading-tight">
-            {step === 'enter' ? 'Create your 6-digit DSRT PIN' : 'Confirm your PIN'}
+            {stage === 'enter' ? 'Create your 6-digit DSRT PIN' : 'Confirm your PIN'}
           </p>
           <p className="text-[13px] text-white/60 mt-1 leading-relaxed">
-            {step === 'enter' 
+            {stage === 'enter' 
               ? 'Use this PIN as a faster alternative to your password. It works from any device where you sign in with your email.'
               : 'Enter the same 6 digits again to confirm.'}
           </p>
@@ -191,7 +190,7 @@ export function SecurityPinStep() {
       </div>
 
       {/* PIN Input */}
-      {step === 'enter' ? (
+      {stage === 'enter' ? (
         <div className="space-y-3">
           <label className="text-[12px] font-semibold text-white/70 tracking-wide">
             YOUR PIN
@@ -203,17 +202,19 @@ export function SecurityPinStep() {
         </div>
       ) : (
         <div className="space-y-3">
-          <label className="text-[12px] font-semibold text-white/70 tracking-wide">
-            CONFIRM PIN
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-[12px] font-semibold text-white/70 tracking-wide">
+              CONFIRM PIN
+            </label>
+            <button
+              onClick={goBackToEnter}
+              className="text-[12px] text-white/50 hover:text-white transition-colors"
+              type="button"
+            >
+              ← Change PIN
+            </button>
+          </div>
           <PinInput value={confirmPin} onChange={setConfirmPin} autoFocus />
-          <button
-            type="button"
-            onClick={goBackToEnter}
-            className="text-[12px] text-white/50 hover:text-white transition-colors mt-2"
-          >
-            ← Change PIN
-          </button>
         </div>
       )}
 
@@ -228,12 +229,12 @@ export function SecurityPinStep() {
       </div>
 
       <OnboardingFooter
-        canContinue={step === 'enter' ? pin.length === 6 : confirmPin.length === 6}
-        onBack={step === 'enter' ? () => setCurrentStep('personalization') : goBackToEnter}
-        onContinue={step === 'enter' ? handleContinuePin : handleFinalize}
-        continueLabel={step === 'enter' ? 'Continue' : 'Complete Setup'}
+        canContinue={stage === 'enter' ? pin.length === 6 : confirmPin.length === 6}
+        onBack={stage === 'enter' ? () => setCurrentStep('personalization') : goBackToEnter}
+        onContinue={stage === 'enter' ? handleContinuePin : handleFinalize}
+        continueLabel={stage === 'enter' ? 'Continue' : 'Complete Setup'}
         isSaving={isSaving}
-        isLast={step === 'confirm'}
+        isLast={stage === 'confirm'}
       />
     </div>
   )
