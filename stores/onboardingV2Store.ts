@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
-export type OnboardingStepKey = 'identity' | 'profile' | 'professional' | 'skills' | 'personalization'
-export type OnboardingState = 'IDENTITY' | 'PROFILE' | 'PROFESSIONAL' | 'SKILLS' | 'PERSONALIZATION' | 'COMPLETED'
+export type OnboardingStepKey = 'identity' | 'profile' | 'professional' | 'skills' | 'personalization' | 'security_pin'
+export type OnboardingState = 'IDENTITY' | 'PROFILE' | 'PROFESSIONAL' | 'SKILLS' | 'PERSONALIZATION' | 'SECURITY_PIN' | 'COMPLETED'
 export type StepStatus = 'NOT_VISITED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED'
 
 export interface LocationData {
@@ -103,6 +103,7 @@ const initialStepStates: Record<OnboardingStepKey, StepStatus> = {
   professional: 'NOT_VISITED',
   skills: 'NOT_VISITED',
   personalization: 'NOT_VISITED',
+  security_pin: 'NOT_VISITED',
 }
 
 // Map state machine → current step
@@ -113,7 +114,8 @@ export function stateToStep(state: OnboardingState): OnboardingStepKey {
     case 'PROFESSIONAL': return 'professional'
     case 'SKILLS': return 'skills'
     case 'PERSONALIZATION': return 'personalization'
-    case 'COMPLETED': return 'personalization'
+    case 'SECURITY_PIN': return 'security_pin'
+    case 'COMPLETED': return 'security_pin'
     default: return 'identity'
   }
 }
@@ -125,6 +127,7 @@ export function stepToState(step: OnboardingStepKey): OnboardingState {
     case 'professional': return 'PROFESSIONAL'
     case 'skills': return 'SKILLS'
     case 'personalization': return 'PERSONALIZATION'
+    case 'security_pin': return 'SECURITY_PIN'
   }
 }
 

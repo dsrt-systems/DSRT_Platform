@@ -18,6 +18,7 @@ import { ProfileStep } from './steps/ProfileStep'
 import { ProfessionalStep } from './steps/ProfessionalStep'
 import { SkillsStep } from './steps/SkillsStep'
 import { PersonalizationStep } from './steps/PersonalizationStep'
+import { SecurityPinStep } from './steps/SecurityPinStep'
 
 const stepHeadings: Record<OnboardingStepKey, { heading: string; description: string }> = {
   identity: {
@@ -40,12 +41,18 @@ const stepHeadings: Record<OnboardingStepKey, { heading: string; description: st
     heading: 'Personalize your experience',
     description: 'A few last questions so DSRT Connect can show you what matters most from day one.',
   },
+  security_pin: {
+    heading: 'Set your DSRT PIN',
+    description: 'A quick 6-digit PIN that works as an alternative to your password. Sign in faster from any device.',
+  },
 }
 
 export function OnboardingClient() {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [hydrating, setHydrating] = useState(true)
+  const [signingOut, setSigningOut] = useState(false)
+  const supabase = createClient()
 
   const {
     step_states,
@@ -53,13 +60,14 @@ export function OnboardingClient() {
     isSaving,
     setCurrentStep,
     hydrateFromServer,
+    data,
+    reset,
   } = useOnboardingV2Store()
 
   // Auth check + hydrate
   useEffect(() => {
     setMounted(true)
     const init = async () => {
-      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/login')
@@ -70,12 +78,12 @@ export function OnboardingClient() {
       try {
         const res = await fetch('/api/onboarding/state')
         if (res.ok) {
-          const data = await res.json()
-          if (data.profile?.onboarding_complete) {
+          const responseData = await res.json()
+          if (responseData.profile?.onboarding_complete && responseData.profile?.pin_configured) {
             router.push('/home')
             return
           }
-          hydrateFromServer(data)
+          hydrateFromServer(responseData)
         }
       } catch {
         // Fallback to store defaults
@@ -84,12 +92,46 @@ export function OnboardingClient() {
       }
     }
     init()
-  }, [router, hydrateFromServer])
+  }, [router, hydrateFromServer, supabase])
 
   const handleSaveExit = useCallback(async () => {
-    toast.success('Progress saved. You can continue anytime.')
-    setTimeout(() => router.push('/home'), 500)
-  }, [router])
+    setSigningOut(true)
+    try {
+      // 1. Persist current step as IN_PROGRESS
+      await fetch('/api/onboarding/step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          step: currentStep === 'security_pin' ? 'personalization' : currentStep,
+          status: 'IN_PROGRESS',
+          data: {
+            display_name: data.display_name,
+            location_data: data.location_data,
+            avatar_url: data.avatar_url,
+            avatar_status: data.avatar_status,
+            professional_roles: data.professional_roles,
+            goals: data.goals,
+            interest_topics: data.interest_topics,
+            building_status: data.building_status,
+            building_intent: data.building_intent,
+          },
+        }),
+      }).catch(() => {})
+
+      // 2. Sign out
+      await supabase.auth.signOut()
+
+      // 3. Reset store
+      reset()
+
+      // 4. Redirect
+      toast.success('Progress saved. Sign in anytime to continue.')
+      window.location.href = '/login'
+    } catch {
+      toast.error('Could not save. Please try again.')
+      setSigningOut(false)
+    }
+  }, [currentStep, data, supabase, reset])
 
   const handleStepClick = useCallback((step: OnboardingStepKey) => {
     setCurrentStep(step)
@@ -97,8 +139,13 @@ export function OnboardingClient() {
 
   if (!mounted || hydrating) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <Loader2 className="w-5 h-5 text-white/40 animate-spin" />
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center gap-6">
+        <div className="animate-pulse">
+          <DsrtLogo size={64} showText={false} />
+        </div>
+        <p className="text-[11px] font-bold text-white/50 tracking-widest uppercase">
+          INITIALIZING...
+        </p>
       </div>
     )
   }
@@ -106,6 +153,7 @@ export function OnboardingClient() {
   const { heading, description } = stepHeadings[currentStep]
   const currentStepConfig = onboardingStepConfig.find(s => s.key === currentStep)
   const currentStepNumber = currentStepConfig?.number || 1
+  const totalSteps = onboardingStepConfig.length
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col">
@@ -116,10 +164,10 @@ export function OnboardingClient() {
           
           <button
             onClick={handleSaveExit}
-            disabled={isSaving}
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-all disabled:opacity-40"
+            disabled={isSaving || signingOut}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-all disabled:opacity-40"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            {signingOut ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
             <span className="hidden sm:inline">Save & exit</span>
           </button>
         </div>
@@ -141,7 +189,7 @@ export function OnboardingClient() {
               {/* Heading */}
               <div className="mb-8">
                 <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase mb-2">
-                  Step {currentStepNumber} of 5
+                  Step {currentStepNumber} of {totalSteps}
                 </p>
                 <h1 className="text-[26px] lg:text-[28px] font-semibold text-white tracking-tight leading-tight">
                   {heading}
@@ -158,6 +206,7 @@ export function OnboardingClient() {
                 {currentStep === 'professional' && <ProfessionalStep />}
                 {currentStep === 'skills' && <SkillsStep />}
                 {currentStep === 'personalization' && <PersonalizationStep />}
+                {currentStep === 'security_pin' && <SecurityPinStep />}
               </div>
             </div>
           </div>

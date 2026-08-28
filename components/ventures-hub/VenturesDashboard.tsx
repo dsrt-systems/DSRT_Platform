@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import Link from 'next/link'
+import { CreateVentureLandingModal } from '@/components/venture-assessment/CreateVentureLandingModal'
 import {
   MagnifyingGlass, X, Plus, Play, Pause,
   Pencil, FolderSimple, Compass, Heart, Briefcase,
@@ -102,7 +103,7 @@ function greeting(): string {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FEATURED BANNER SLIDER — wider, full-length
+// FEATURED BANNER SLIDER
 // ═══════════════════════════════════════════════════════════════
 
 interface Banner {
@@ -115,7 +116,7 @@ interface Banner {
   ctaLabel?: string
 }
 
-function FeaturedBanner({ banners }: { banners: Banner[] }) {
+function FeaturedBanner({ banners, onCtaCreate }: { banners: Banner[]; onCtaCreate?: () => void }) {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -132,7 +133,6 @@ function FeaturedBanner({ banners }: { banners: Banner[] }) {
   }, [index, paused, advance, banners.length])
 
   if (banners.length === 0) return null
-
   const current = banners[index]
 
   return (
@@ -148,9 +148,7 @@ function FeaturedBanner({ banners }: { banners: Banner[] }) {
             alt={current.title}
             className="absolute inset-0 w-full h-full object-cover"
             style={{ objectPosition: 'center' }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none'
-            }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         ) : null}
 
@@ -172,13 +170,22 @@ function FeaturedBanner({ banners }: { banners: Banner[] }) {
           <p className="text-[12.5px] md:text-[13px] text-white/85 max-w-md drop-shadow">
             {current.subtitle}
           </p>
-          {current.ctaHref && current.ctaLabel && (
-            <Link
-              href={current.ctaHref}
-              className="mt-4 inline-flex items-center h-9 px-5 rounded-md bg-white text-black text-[13px] font-bold hover:bg-white/90 shadow-lg"
-            >
-              {current.ctaLabel}
-            </Link>
+          {current.ctaLabel && (
+            current.ctaHref === '__create__' && onCtaCreate ? (
+              <button
+                onClick={onCtaCreate}
+                className="mt-4 inline-flex items-center h-9 px-5 rounded-md bg-white text-black text-[13px] font-bold hover:bg-white/90 shadow-lg"
+              >
+                {current.ctaLabel}
+              </button>
+            ) : current.ctaHref ? (
+              <Link
+                href={current.ctaHref}
+                className="mt-4 inline-flex items-center h-9 px-5 rounded-md bg-white text-black text-[13px] font-bold hover:bg-white/90 shadow-lg"
+              >
+                {current.ctaLabel}
+              </Link>
+            ) : null
           )}
         </div>
       </div>
@@ -302,13 +309,13 @@ function VentureCard({ venture, onClick }: { venture: Venture; onClick: () => vo
 }
 
 // ═══════════════════════════════════════════════════════════════
-// START NEW VENTURE CARD
+// START NEW VENTURE CARD (now opens the modal)
 // ═══════════════════════════════════════════════════════════════
 
-function StartNewVentureCard() {
+function StartNewVentureCard({ onClick }: { onClick: () => void }) {
   return (
-    <Link
-      href="/ventures/new"
+    <button
+      onClick={onClick}
       className="group rounded-2xl border-2 border-dashed border-white/[0.12] bg-white/[0.01] hover:border-white/[0.25] hover:bg-white/[0.03] transition-all overflow-hidden flex flex-col items-center justify-center min-h-[380px] p-6 text-center"
     >
       <div className="w-14 h-14 rounded-xl bg-white/[0.06] border border-white/[0.1] flex items-center justify-center mb-4 group-hover:bg-white/[0.1] transition-colors">
@@ -316,12 +323,12 @@ function StartNewVentureCard() {
       </div>
       <h3 className="text-[15px] font-bold text-white mb-1">Start a new venture</h3>
       <p className="text-[12px] text-white/45">Turn your next idea into reality</p>
-    </Link>
+    </button>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════
-// EDITABLE PREFERENCES CHIP LIST — with proper truncation
+// EDITABLE PREFERENCES CHIP LIST
 // ═══════════════════════════════════════════════════════════════
 
 function EditablePreferences({
@@ -336,7 +343,7 @@ function EditablePreferences({
   items: string[]
   editing: boolean
   onRemove: (item: string) => void
-  onAdd: (item: string | any) => void  // accepts string or full community object
+  onAdd: (item: string | any) => void
   placeholder: string
   suggestionSource: 'domains' | 'communities'
   emptyText: string
@@ -410,7 +417,6 @@ function EditablePreferences({
                 <button
                   key={s.slug || s.id}
                   onClick={() => {
-                    // For communities, pass full object; for domains, pass name only
                     onAdd(suggestionSource === 'communities' ? s : s.name)
                     setInput('')
                     setSuggestions([])
@@ -500,10 +506,10 @@ function VentureTypesSection({
 }
 
 // ═══════════════════════════════════════════════════════════════
-// "HAVE AN IDEA" CARD — with animated abstract background
+// "HAVE AN IDEA" CARD (now triggers modal)
 // ═══════════════════════════════════════════════════════════════
 
-function HaveAnIdeaCard() {
+function HaveAnIdeaCard({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="relative rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
       <AbstractBackground />
@@ -518,19 +524,19 @@ function HaveAnIdeaCard() {
         <p className="text-[12px] text-white/70 leading-relaxed mb-4">
           Create your venture, find the right co-founders and turn your idea into real-world impact.
         </p>
-        <Link
-          href="/ventures/new"
+        <button
+          onClick={onCreate}
           className="w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-white text-black hover:bg-zinc-100 text-[13px] font-bold shadow-lg"
         >
           <Plus size={12} weight="bold" /> Create Venture
-        </Link>
+        </button>
       </div>
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ABSTRACT ANIMATED BACKGROUND — SVG mesh with slow drift
+// ABSTRACT ANIMATED BACKGROUND
 // ═══════════════════════════════════════════════════════════════
 
 function AbstractBackground() {
@@ -559,11 +565,8 @@ function AbstractBackground() {
       <div className="absolute inset-0 overflow-hidden">
         <div
           className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(135deg, #1a0b3d 0%, #0d1030 40%, #0a0b1f 100%)',
-          }}
+          style={{ background: 'linear-gradient(135deg, #1a0b3d 0%, #0d1030 40%, #0a0b1f 100%)' }}
         />
-
         <svg
           className="absolute inset-0 w-full h-full"
           viewBox="0 0 400 300"
@@ -583,12 +586,10 @@ function AbstractBackground() {
               <stop offset="100%" stopColor="#ec4899" stopOpacity="0" />
             </radialGradient>
           </defs>
-
           <circle cx="80" cy="80" r="120" fill="url(#blob1)" className="abstract-blob-1" />
           <circle cx="320" cy="200" r="140" fill="url(#blob2)" className="abstract-blob-2" />
           <circle cx="200" cy="150" r="100" fill="url(#blob3)" className="abstract-blob-3" />
         </svg>
-
         <div
           className="absolute inset-0 opacity-[0.04] pointer-events-none"
           style={{
@@ -596,7 +597,6 @@ function AbstractBackground() {
               "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)'/%3E%3C/svg%3E\")",
           }}
         />
-
         <div
           className="absolute inset-0 opacity-[0.06] pointer-events-none"
           style={{
@@ -605,7 +605,6 @@ function AbstractBackground() {
             backgroundSize: '24px 24px',
           }}
         />
-
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/40" />
       </div>
     </>
@@ -620,7 +619,9 @@ export function VenturesDashboard() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Session ID for no-repeat tracking
+  // ── Modal state (new) ─────────────────────────────────────────
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+
   const [sessionId] = useState(() => {
     if (typeof window === 'undefined') return ''
     const existing = sessionStorage.getItem('dsrt_ventures_session')
@@ -636,7 +637,6 @@ export function VenturesDashboard() {
   const [followingVentures, setFollowingVentures] = useState<Venture[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Explore state
   const [exploreVentures, setExploreVentures] = useState<Venture[]>([])
   const [exploreOffset, setExploreOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
@@ -653,13 +653,11 @@ export function VenturesDashboard() {
   const [communities, setCommunities] = useState<Community[]>([])
   const [userCommunityPrefs, setUserCommunityPrefs] = useState<string[]>([])
   const [ventureTypes, setVentureTypes] = useState<VentureType[]>([])
-
   const [editingCategories, setEditingCategories] = useState(false)
   const [editingCommunities, setEditingCommunities] = useState(false)
-
-  // ─── Community preferences (stored as IDs, displayed as names) ───
-  // Track the full community objects so we can display names + persist IDs
   const [preferredCommunities, setPreferredCommunities] = useState<Community[]>([])
+
+  const openCreate = useCallback(() => setCreateModalOpen(true), [])
 
   const banners: Banner[] = [
     {
@@ -673,7 +671,7 @@ export function VenturesDashboard() {
       title: 'Launch your venture on DSRT',
       subtitle: 'Create your company page, attract co-founders, raise capital.',
       gradient: 'linear-gradient(135deg, #1a2a4e 0%, #0d1530 50%, #0a0b1f 100%)',
-      ctaHref: '/ventures/new',
+      ctaHref: '__create__',
       ctaLabel: 'Create venture',
     },
     {
@@ -684,7 +682,6 @@ export function VenturesDashboard() {
     },
   ]
 
-  // Load user + my ventures
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -752,13 +749,11 @@ export function VenturesDashboard() {
         setUserCategories(dData.userCategories || pData.preferred_categories || [])
         setCommunities(cData.communities || [])
 
-        // Initialize preferred communities from server response
         const communitiesFromServer = (cData.communities || []) as any[]
         const preferredIds = new Set(pData.preferred_community_ids || [])
         const initialPreferred = communitiesFromServer.filter(c => preferredIds.has(c.id))
         setPreferredCommunities(initialPreferred)
         setUserCommunityPrefs(initialPreferred.map(c => c.name))
-
         setVentureTypes(tData.types || [])
       } catch (e) { console.error(e) }
     }
@@ -830,32 +825,22 @@ export function VenturesDashboard() {
   }
 
   const addCommunityPref = async (nameOrCommunity: string | Community) => {
-    // If user typed a name in the input (fallback), search for it
     let community: Community | null = null
-
     if (typeof nameOrCommunity === 'object' && nameOrCommunity.id) {
       community = nameOrCommunity
     } else {
-      // Search for it (in case user typed name manually)
       try {
         const res = await fetch('/api/community/search?q=' + encodeURIComponent(nameOrCommunity as string) + '&limit=1')
         const json = await res.json()
-        if (json.communities && json.communities.length > 0) {
-          community = json.communities[0]
-        }
+        if (json.communities && json.communities.length > 0) community = json.communities[0]
       } catch {}
     }
-
     if (!community) return
-
-    // Check duplicate
     if (preferredCommunities.some(c => c.id === community!.id)) return
 
     const nextCommunities = [...preferredCommunities, community]
     setPreferredCommunities(nextCommunities)
     setUserCommunityPrefs(nextCommunities.map(c => c.name))
-
-    // Save community IDs to backend
     try {
       await fetch('/api/explore/preferences', {
         method: 'PATCH',
@@ -869,7 +854,6 @@ export function VenturesDashboard() {
     const nextCommunities = preferredCommunities.filter(c => c.name !== name)
     setPreferredCommunities(nextCommunities)
     setUserCommunityPrefs(nextCommunities.map(c => c.name))
-
     try {
       await fetch('/api/explore/preferences', {
         method: 'PATCH',
@@ -920,9 +904,7 @@ export function VenturesDashboard() {
               {greeting()},{' '}
               <span
                 className="bg-clip-text text-transparent"
-                style={{
-                  backgroundImage: 'linear-gradient(135deg, #e5c9ff 0%, #d9b3ff 50%, #c9a3ff 100%)',
-                }}
+                style={{ backgroundImage: 'linear-gradient(135deg, #e5c9ff 0%, #d9b3ff 50%, #c9a3ff 100%)' }}
               >
                 {firstName}
               </span>
@@ -931,12 +913,12 @@ export function VenturesDashboard() {
               Here is what is happening across your ventures.
             </p>
           </div>
-          <Link
-            href="/ventures/new"
-            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13.5px] font-bold shrink-0 self-start sm:self-auto shadow-lg"
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13.5px] font-bold shrink-0 self-start sm:self-auto shadow-lg active:scale-95 transition-all"
           >
             <Plus size={13} weight="bold" /> New venture
-          </Link>
+          </button>
         </div>
 
         {/* Tabs */}
@@ -966,11 +948,8 @@ export function VenturesDashboard() {
 
         {/* MAIN CONTENT */}
         <div className={showRightSidebar ? 'grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6' : ''}>
-
-          {/* LEFT: Main content */}
           <div className="min-w-0">
 
-            {/* MY VENTURES TAB */}
             {activeTab === 'my-ventures' && (
               <div>
                 <div className="flex items-center gap-3 text-[13px] text-white/60 mb-5 flex-wrap">
@@ -1011,14 +990,14 @@ export function VenturesDashboard() {
                           onClick={() => router.push('/ventures/' + v.slug)}
                         />
                       ))}
-                      <StartNewVentureCard />
+                      <StartNewVentureCard onClick={openCreate} />
                     </div>
                   </div>
                 )}
 
                 {myVentures.length === 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <StartNewVentureCard />
+                    <StartNewVentureCard onClick={openCreate} />
                     <div className="lg:col-span-2 flex items-center rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.02] p-8">
                       <div>
                         <h3 className="text-[15px] font-bold text-white mb-1">No ventures yet</h3>
@@ -1032,10 +1011,8 @@ export function VenturesDashboard() {
               </div>
             )}
 
-            {/* EXPLORE TAB */}
             {activeTab === 'explore' && (
               <div>
-                {/* Search */}
                 <div className="relative mb-4">
                   <MagnifyingGlass size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
                   <input
@@ -1050,7 +1027,6 @@ export function VenturesDashboard() {
                   </span>
                 </div>
 
-                {/* Domain chips */}
                 <div className="flex items-center gap-1.5 mb-5 overflow-x-auto scrollbar-hide">
                   <button
                     onClick={() => setActiveDomain('all')}
@@ -1084,12 +1060,10 @@ export function VenturesDashboard() {
                   })}
                 </div>
 
-                {/* Featured banner */}
                 <div className="mb-6 w-full">
-                  <FeaturedBanner banners={banners} />
+                  <FeaturedBanner banners={banners} onCtaCreate={openCreate} />
                 </div>
 
-                {/* Active-type filter indicator */}
                 {activeType !== 'all' && (
                   <div className="mb-4 flex items-center gap-2">
                     <span className="text-[12px] text-white/50">Showing:</span>
@@ -1105,7 +1079,6 @@ export function VenturesDashboard() {
                   </div>
                 )}
 
-                {/* Recommended header */}
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-[17px] font-bold text-white">
                     {activeType !== 'all'
@@ -1167,7 +1140,6 @@ export function VenturesDashboard() {
               </div>
             )}
 
-            {/* FOLLOWING TAB */}
             {activeTab === 'following' && (
               <div>
                 {followingVentures.length === 0 ? (
@@ -1196,7 +1168,6 @@ export function VenturesDashboard() {
               </div>
             )}
 
-            {/* APPLICATIONS TAB */}
             {activeTab === 'applications' && (
               <div className="rounded-2xl border border-dashed border-white/[0.1] p-12 text-center">
                 <Briefcase size={28} className="mx-auto mb-3 text-white/30" />
@@ -1208,10 +1179,8 @@ export function VenturesDashboard() {
             )}
           </div>
 
-          {/* RIGHT SIDEBAR (Explore only) */}
           {showRightSidebar && (
             <aside className="space-y-4 min-w-0">
-              {/* My Categories */}
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 min-w-0">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[13px] font-bold text-white">My Categories</h3>
@@ -1233,7 +1202,6 @@ export function VenturesDashboard() {
                 />
               </div>
 
-              {/* My Communities */}
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 min-w-0">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-[13px] font-bold text-white">My Communities</h3>
@@ -1255,19 +1223,23 @@ export function VenturesDashboard() {
                 />
               </div>
 
-              {/* Venture Type */}
               <VentureTypesSection
                 types={ventureTypes}
                 activeType={activeType}
                 onSelect={setActiveType}
               />
 
-              {/* Have an idea */}
-              <HaveAnIdeaCard />
+              <HaveAnIdeaCard onCreate={openCreate} />
             </aside>
           )}
         </div>
       </div>
+
+      {/* Assessment landing modal (new) */}
+      <CreateVentureLandingModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+      />
     </div>
   )
 }

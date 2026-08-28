@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Camera, Heart, Share, DotsThree, X, Check } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { ConnectButton } from '@/components/shared/ConnectButton'
+import { AssessmentBadge } from '@/components/venture-assessment/AssessmentBadge'
 
 interface Props {
   venture: any
@@ -220,6 +221,10 @@ export function VentureHeader({
                       {currentStage}
                     </button>
                   )}
+
+                  {venture.has_verified_assessment && (
+                    <AssessmentBadge variant="compact" />
+                  )}
                 </div>
 
                 <div className="mb-3">
@@ -292,7 +297,6 @@ export function VentureHeader({
               <div className="hidden md:flex items-center gap-2 flex-shrink-0 self-end mb-1">
                 {!isOwner && (
                   <>
-                    {/* DSRT Mail ConnectButton replaces legacy message/connect buttons */}
                     <ConnectButton
                       entityType="venture"
                       entityId={venture.id}

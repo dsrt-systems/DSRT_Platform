@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useOnboardingV2Store } from '@/stores/onboardingV2Store'
 import { TopicSelector } from '@/components/primitives/TopicSelector'
@@ -43,7 +42,6 @@ const BUILDING_OPTIONS = [
 ]
 
 export function PersonalizationStep() {
-  const router = useRouter()
   const {
     data,
     updateData,
@@ -52,7 +50,6 @@ export function PersonalizationStep() {
     setCurrentStep,
     setStepStates,
     setOnboardingState,
-    reset,
   } = useOnboardingV2Store()
 
   const [goals, setGoals] = useState<string[]>(data.goals || [])
@@ -96,7 +93,6 @@ export function PersonalizationStep() {
             }
           : {}
 
-      // 1. Save personalization step
       const stepRes = await fetch('/api/onboarding/step', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,9 +109,7 @@ export function PersonalizationStep() {
       })
 
       const stepData = await stepRes.json()
-      if (!stepRes.ok) {
-        throw new Error(stepData.error || 'Failed to save personalization')
-      }
+      if (!stepRes.ok) throw new Error(stepData.error || 'Failed to save personalization')
 
       updateData({
         goals,
@@ -124,23 +118,10 @@ export function PersonalizationStep() {
         building_intent,
       })
       setStepStates(stepData.step_states)
-      setOnboardingState(stepData.onboarding_state || 'COMPLETED')
-
-      // 2. Finalize onboarding (ACTIVE + events)
-      const completeRes = await fetch('/api/onboarding/complete', {
-        method: 'POST',
-      })
-      const completeData = await completeRes.json()
-      if (!completeRes.ok) {
-        throw new Error(completeData.error || 'Failed to complete onboarding')
-      }
-
-      // Reset store and route to the professional welcome handoff screen
-      reset()
-      router.push('/welcome')
-      router.refresh()
+      setOnboardingState(stepData.onboarding_state)
+      setCurrentStep('security_pin')
     } catch (err: any) {
-      toast.error(err.message || 'Something went wrong. Please try again.')
+      toast.error(err.message || 'Something went wrong')
       setSaving(false)
     }
   }
@@ -297,9 +278,8 @@ export function PersonalizationStep() {
         canContinue={canContinue}
         onBack={() => setCurrentStep('skills')}
         onContinue={handleContinue}
-        continueLabel="Finish Setup"
+        continueLabel="Continue to PIN"
         isSaving={isSaving}
-        isLast
       />
     </div>
   )

@@ -1,13 +1,14 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Info, Newspaper, UsersThree, BookOpen, Gear,
   ShareNetwork, BookmarkSimple, DotsThreeOutline, Briefcase, Package,
-  ChartLineUp, CurrencyDollar, ClockClockwise, Handshake, ChartBar
+  ChartLineUp, CurrencyDollar, ClockClockwise, Handshake, ChartBar,
+  Question, ListChecks, Flag
 } from '@phosphor-icons/react'
 import { VentureHeader } from './VentureHeader'
 import { VentureSidebar } from './VentureSidebar'
@@ -26,6 +27,10 @@ import { VentureApplicants } from './applicants/VentureApplicants'
 import { VentureNotificationsTab } from './notifications/VentureNotificationsTab'
 import { VentureAnalytics } from './VentureAnalytics'
 import { ConnectComposer } from '@/components/inbox/ConnectComposer'
+import { AssumptionManager } from '@/components/venture-assessment/AssumptionManager'
+import { MilestonesTimeline } from '@/components/venture-assessment/MilestonesTimeline'
+import { PostPublishWelcomeModal } from '@/components/venture-assessment/PostPublishWelcomeModal'
+import { VentureQuestionsTab } from './questions/VentureQuestionsTab'
 
 interface Props { slug: string }
 
@@ -155,6 +160,7 @@ export function VentureDetailPage({ slug }: Props) {
 
   const tabs: { id: string; label: string; icon: any; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: Info },
+    { id: 'questions', label: 'Questions', icon: Question },
     { id: 'products', label: 'Products', icon: Package, badge: products?.length || 0 },
     { id: 'growth', label: 'Growth', icon: ChartLineUp },
     { id: 'team', label: 'Team & Roles', icon: UsersThree, badge: (team?.length || 0) + (lookingFor?.length || 0) },
@@ -165,6 +171,8 @@ export function VentureDetailPage({ slug }: Props) {
     { id: 'documentation', label: 'Docs', icon: BookOpen },
   ]
   if (isOwner) {
+    tabs.push({ id: 'assumptions', label: 'Assumptions', icon: ListChecks })
+    tabs.push({ id: 'milestones', label: 'Milestones', icon: Flag })
     tabs.push({ id: 'analytics', label: 'Analytics', icon: ChartBar })
     tabs.push({ id: 'applicants', label: 'Applicants', icon: Briefcase, badge: pendingApps })
     tabs.push({ id: 'notifications', label: 'Notifications', icon: Newspaper, badge: unreadNotifs })
@@ -231,6 +239,9 @@ export function VentureDetailPage({ slug }: Props) {
             {activeTab === 'overview' && (
               <VentureOverview venture={venture} isOwner={isOwner} onUpdate={patchVenture} />
             )}
+            {activeTab === 'questions' && (
+              <VentureQuestionsTab slug={slug} isOwner={isOwner} />
+            )}
             {activeTab === 'products' && (
               <VentureProducts venture={venture} products={products || []} slug={slug} isOwner={isOwner} />
             )}
@@ -254,6 +265,12 @@ export function VentureDetailPage({ slug }: Props) {
             )}
             {activeTab === 'documentation' && (
               <VentureDocumentation venture={venture} slug={slug} isOwner={isOwner} />
+            )}
+            {activeTab === 'assumptions' && isOwner && (
+              <AssumptionManager slug={slug} />
+            )}
+            {activeTab === 'milestones' && isOwner && (
+              <MilestonesTimeline slug={slug} />
             )}
             {activeTab === 'analytics' && isOwner && (
               <VentureAnalytics slug={slug} />
@@ -294,6 +311,15 @@ export function VentureDetailPage({ slug }: Props) {
             fetchDetail()
           }}
         />
+      )}
+
+      {isOwner && (
+        <Suspense fallback={null}>
+          <PostPublishWelcomeModal
+            slug={slug}
+            ventureName={venture.name}
+          />
+        </Suspense>
       )}
     </div>
   )

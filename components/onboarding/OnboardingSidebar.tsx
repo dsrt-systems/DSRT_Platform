@@ -17,6 +17,7 @@ const steps: StepConfig[] = [
   { key: 'professional',    number: 3, title: 'Professional',   description: 'How you identify' },
   { key: 'skills',          number: 4, title: 'Skills',         description: 'What you can do' },
   { key: 'personalization', number: 5, title: 'Personalization', description: 'Tailor your experience' },
+  { key: 'security_pin',    number: 6, title: 'Security PIN',   description: 'Fast alternative login' },
 ]
 
 const stepTips: Record<OnboardingStepKey, { title: string; tips: string[]; usage: string }> = {
@@ -64,6 +65,15 @@ const stepTips: Record<OnboardingStepKey, { title: string; tips: string[]; usage
       'Your building status helps others understand where you are in your journey.',
     ],
     usage: 'DSRT uses these signals to rank opportunities, suggest collaborators, and personalize every screen you see from day one.',
+  },
+  security_pin: {
+    title: 'Tips for your PIN',
+    tips: [
+      'Pick 6 digits you can remember without writing down.',
+      'Avoid sequences like 123456 or birthdate patterns.',
+      'You can update your PIN anytime from Security Settings.',
+    ],
+    usage: 'Your PIN is stored as a salted hash — never in plain text. It offers a faster login option, especially on mobile.',
   },
 }
 

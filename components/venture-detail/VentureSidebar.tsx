@@ -7,6 +7,7 @@ import {
   UserPlus, Eye, EyeSlash, MapPin
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
+import { AssessmentProgressCard } from '@/components/venture-assessment/AssessmentProgressCard'
 
 interface Props {
   venture: any
@@ -81,6 +82,7 @@ export function VentureSidebar({ venture, founder, team, products, roles, isOwne
 
   return (
     <div className="space-y-4">
+      {isOwner && <AssessmentProgressCard venture={venture} />}
       <AtAGlance venture={venture} isOwner={isOwner} onUpdate={onUpdate} />
       <FinancialsCard venture={venture} isOwner={isOwner} onUpdate={onUpdate} />
       <SocialLinksCard venture={venture} isOwner={isOwner} onUpdate={onUpdate} />

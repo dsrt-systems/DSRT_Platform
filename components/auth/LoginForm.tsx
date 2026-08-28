@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
-import { At, ArrowRight } from '@phosphor-icons/react'
+import { Loader2, KeyRound, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AuthInput } from './AuthInput'
 import { PasswordInput } from './PasswordInput'
@@ -23,6 +22,8 @@ export function LoginForm({ onSwitchView }: Props) {
   const supabase = createClient()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [pin, setPin] = useState('')
+  const [mode, setMode] = useState<'password' | 'pin'>('password')
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<'google' | 'github' | null>(null)
 
@@ -42,7 +43,16 @@ export function LoginForm({ onSwitchView }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!identifier || !password) return toast.error('Please enter your credentials')
+
+    if (mode === 'password') {
+      await handlePasswordLogin()
+    } else {
+      await handlePinLogin()
+    }
+  }
+
+  const handlePasswordLogin = async () => {
+    if (!identifier || !password) return toast.error('Enter your credentials')
 
     setLoading(true)
     try {
@@ -71,6 +81,43 @@ export function LoginForm({ onSwitchView }: Props) {
     }
   }
 
+  const handlePinLogin = async () => {
+    if (!identifier || !pin) return toast.error('Enter your email and PIN')
+    if (!identifier.includes('@')) return toast.error('Enter your email address (not username) for PIN login')
+    if (pin.length !== 6 || !/^\d{6}$/.test(pin)) return toast.error('PIN must be 6 digits')
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/pin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier.trim().toLowerCase(), pin })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'PIN login failed')
+
+      // Use magic link token to establish session
+      const { error: verifyErr } = await supabase.auth.verifyOtp({
+        type: 'magiclink',
+        token_hash: data.token_hash,
+      })
+
+      if (verifyErr) throw verifyErr
+
+      router.push('/home')
+      router.refresh()
+    } catch (err: any) {
+      toast.error(err.message || 'PIN login failed')
+      setLoading(false)
+    }
+  }
+
+  const togglePinMode = () => {
+    setMode(mode === 'password' ? 'pin' : 'password')
+    setPin('')
+    setPassword('')
+  }
+
   return (
     <div className="w-full">
       <div className="mb-6">
@@ -91,35 +138,75 @@ export function LoginForm({ onSwitchView }: Props) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <AuthInput
-          label="Email or username"
+          label={mode === 'pin' ? 'Email' : 'Email or username'}
           type="text"
           name="identifier"
           autoComplete="username"
           autoFocus
-          placeholder="alex@example.com or username"
+          placeholder={mode === 'pin' ? 'alex@example.com' : 'alex@example.com or username'}
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
         />
 
-        <div className="space-y-1">
-          <PasswordInput
-            label="Password"
-            name="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => onSwitchView('forgot')}
-              className="text-[12px] text-white/50 hover:text-white transition-colors"
-            >
-              Forgot password?
-            </button>
+        {mode === 'password' ? (
+          <div className="space-y-1">
+            <PasswordInput
+              label="Password"
+              name="password"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={togglePinMode}
+                className="text-[12px] text-[#4F7CFF] hover:text-[#7093FF] font-medium flex items-center gap-1 transition-colors"
+              >
+                <KeyRound className="w-3 h-3" />
+                Sign in with DSRT PIN
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwitchView('forgot')}
+                className="text-[12px] text-white/50 hover:text-white transition-colors"
+              >
+                Forgot password?
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-1">
+            <div className="space-y-1.5 flex w-full flex-col">
+              <label className="text-[13px] font-medium text-white/90">DSRT PIN</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="6-digit PIN"
+                className={cn(
+                  "w-full h-9 px-3 rounded-md bg-transparent border border-white/15 text-white text-[14px] font-mono tracking-widest text-center",
+                  "placeholder:text-white/30 placeholder:tracking-normal placeholder:font-sans",
+                  "focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF]",
+                  "transition-all"
+                )}
+              />
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={togglePinMode}
+                className="text-[12px] text-[#4F7CFF] hover:text-[#7093FF] font-medium flex items-center gap-1 transition-colors"
+              >
+                <Lock className="w-3 h-3" />
+                Sign in with password
+              </button>
+            </div>
+          </div>
+        )}
 
         <button
           type="submit"

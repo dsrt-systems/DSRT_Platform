@@ -6,13 +6,14 @@ export const dynamic = 'force-dynamic'
 /**
  * GET /api/ventures/explore
  *   ?sort=recommended|newest|most_viewed|trending
- *   ?domain=<name>       // filter by category
- *   ?type=<venture_type> // filter by venture type
+ *   ?domain=<name>
+ *   ?type=<venture_type>
  *   ?limit=24 &offset=0
  *   ?session_id=<sid>
  *
  * Cache-first pattern for recommended sort.
  * Direct query for other sorts.
+ * Verified assessments rank higher in default/recommended sort.
  */
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -117,7 +118,7 @@ export async function GET(request: Request) {
       })
     }
 
-    // Hydrate ventures
+    // Hydrate ventures (includes has_verified_assessment + intelligence_score)
     const ventureIds = paginated.map(c => c.venture_id)
     const { data: ventures, error } = await supabase
       .from('ventures')
@@ -128,7 +129,8 @@ export async function GET(request: Request) {
         seeking_investment, seeking_cofounder, seeking_advisor, seeking_partner,
         last_activity_at, updated_at, created_at,
         team_size, tags, founder_id, user_id,
-        traction_score, global_rank, industry_rank
+        traction_score, global_rank, industry_rank,
+        has_verified_assessment, intelligence_score
       `)
       .in('id', ventureIds)
 
@@ -180,6 +182,17 @@ export async function GET(request: Request) {
       })
       .filter(Boolean)
 
+    // Boost verified assessments to the top of recommended results
+    results.sort((a: any, b: any) => {
+      const aV = a.has_verified_assessment ? 1 : 0
+      const bV = b.has_verified_assessment ? 1 : 0
+      if (bV !== aV) return bV - aV
+      const aS = a.intelligence_score || 0
+      const bS = b.intelligence_score || 0
+      if (bS !== aS) return bS - aS
+      return (b._score || 0) - (a._score || 0)
+    })
+
     return NextResponse.json({
       ventures: results,
       hasMore: diversified.length > offset + limit,
@@ -212,7 +225,8 @@ async function fetchVenturesDirectly(supabase: any, opts: {
       seeking_investment, seeking_cofounder, seeking_advisor, seeking_partner,
       last_activity_at, updated_at, created_at,
       team_size, tags, founder_id, user_id,
-      traction_score, global_rank, industry_rank
+      traction_score, global_rank, industry_rank,
+      has_verified_assessment, intelligence_score
     `)
     .eq('show_in_explore', true)
     .neq('status', 'archived')
@@ -236,7 +250,11 @@ async function fetchVenturesDirectly(supabase: any, opts: {
   } else if (sort === 'trending') {
     query = query.order('traction_score', { ascending: false, nullsFirst: false })
   } else {
-    query = query.order('last_activity_at', { ascending: false, nullsFirst: false })
+    // Default / recommended: verified assessments first, then intelligence score, then activity
+    query = query
+      .order('has_verified_assessment', { ascending: false, nullsFirst: false })
+      .order('intelligence_score', { ascending: false, nullsFirst: false })
+      .order('last_activity_at', { ascending: false, nullsFirst: false })
   }
 
   const { data: ventures, error } = await query.range(offset, offset + limit - 1)
