@@ -5,32 +5,23 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Info, Newspaper, UsersThree, BookOpen, Gear,
-  ShareNetwork, BookmarkSimple, DotsThreeOutline, Briefcase, Package,
-  ChartLineUp, CurrencyDollar, ClockClockwise, Handshake, ChartBar,
-  Question, ListChecks, Flag
+  Info, Question, Newspaper, Image as ImageIcon, BookOpen, UsersThree,
+  Gear, ShareNetwork, BookmarkSimple, DotsThreeOutline, ChartBar, Bell
 } from '@phosphor-icons/react'
+
 import { VentureHeader } from './VentureHeader'
 import { VentureSidebar } from './VentureSidebar'
 import { VentureOverview } from './VentureOverview'
-import { VentureProducts } from './products/VentureProducts'
-import { VentureGrowth } from './growth/VentureGrowth'
-import { VentureTeamStructure } from './team/VentureTeamStructure'
-import { VentureUpdates } from './updates/VentureUpdates'
-import { VentureOpenRoles } from './VentureOpenRoles'
-import { VentureFunding } from './funding/VentureFunding'
-import { VentureTimeline } from './timeline/VentureTimeline'
-import { VenturePartners } from './partners/VenturePartners'
-import { VentureDocumentation } from './documentation/VentureDocumentation'
-import { VentureSettings } from './VentureSettings'
-import { VentureApplicants } from './applicants/VentureApplicants'
-import { VentureNotificationsTab } from './notifications/VentureNotificationsTab'
-import { VentureAnalytics } from './VentureAnalytics'
-import { ConnectComposer } from '@/components/inbox/ConnectComposer'
-import { AssumptionManager } from '@/components/venture-assessment/AssumptionManager'
-import { MilestonesTimeline } from '@/components/venture-assessment/MilestonesTimeline'
-import { PostPublishWelcomeModal } from '@/components/venture-assessment/PostPublishWelcomeModal'
 import { VentureQuestionsTab } from './questions/VentureQuestionsTab'
+import { VentureUpdates } from './updates/VentureUpdates'
+import { VentureMediaTab } from './media/VentureMediaTab'
+import { VentureDocumentsTab } from './documents/VentureDocumentsTab'
+import { VentureTeamStructure } from './team/VentureTeamStructure'
+import { VentureAnalytics } from './VentureAnalytics'
+import { VentureNotificationsTab } from './notifications/VentureNotificationsTab'
+import { VentureSettings } from './VentureSettings'
+import { ConnectComposer } from '@/components/inbox/ConnectComposer'
+import { PostPublishWelcomeModal } from '@/components/venture-assessment/PostPublishWelcomeModal'
 
 interface Props { slug: string }
 
@@ -60,8 +51,11 @@ export function VentureDetailPage({ slug }: Props) {
       }
       const json = await res.json()
       setData(json)
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
+    } catch (e) { 
+      console.error('Fetch detail error:', e) 
+    } finally { 
+      setLoading(false) 
+    }
   }, [slug, router])
 
   useEffect(() => {
@@ -104,7 +98,9 @@ export function VentureDetailPage({ slug }: Props) {
       if (!res.ok) throw new Error('Update failed')
       const json = await res.json()
       setData((prev: any) => ({ ...prev, venture: { ...prev.venture, ...json.venture } }))
-    } catch (e) { console.error(e) }
+    } catch (e) { 
+      console.error('Patch venture error:', e) 
+    }
   }
 
   const toggleFollow = async () => {
@@ -116,7 +112,9 @@ export function VentureDetailPage({ slug }: Props) {
         isFollowing: json.following,
         venture: { ...prev.venture, follower_count: (prev.venture.follower_count || 0) + (json.following ? 1 : -1) }
       }))
-    } catch (e) { console.error(e) }
+    } catch (e) { 
+      console.error('Toggle follow error:', e) 
+    }
   }
 
   if (loading) {
@@ -146,36 +144,29 @@ export function VentureDetailPage({ slug }: Props) {
     )
   }
 
-  const { venture, team, products, lookingFor, updates, metrics, timeline, partners, funding, founder, isFollowing, isOwner } = data
-
-  const pendingApps = (data?.applications || []).filter((a: any) => a.status === 'pending').length
+  const { venture, team, lookingFor, updates, founder, isFollowing, isOwner } = data
   const unreadNotifs = venture.unread_notifications || 0
 
   const headerStats = {
     team: team?.length || 0,
     followers: venture.follower_count || 0,
-    applications: data?.applications?.length || 0,
+    applications: 0,
     openRoles: (lookingFor || []).filter((r: any) => r.status === 'active' || !r.status).length,
   }
 
+  // ─── STREAMLINED INFORMATION ARCHITECTURE TABS ───
   const tabs: { id: string; label: string; icon: any; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: Info },
     { id: 'questions', label: 'Questions', icon: Question },
-    { id: 'products', label: 'Products', icon: Package, badge: products?.length || 0 },
-    { id: 'growth', label: 'Growth', icon: ChartLineUp },
-    { id: 'team', label: 'Team & Roles', icon: UsersThree, badge: (team?.length || 0) + (lookingFor?.length || 0) },
     { id: 'updates', label: 'Updates', icon: Newspaper, badge: updates?.length || 0 },
-    { id: 'funding', label: 'Funding', icon: CurrencyDollar },
-    { id: 'timeline', label: 'Timeline', icon: ClockClockwise },
-    { id: 'partners', label: 'Partners', icon: Handshake },
-    { id: 'documentation', label: 'Docs', icon: BookOpen },
+    { id: 'media', label: 'Media', icon: ImageIcon },
+    { id: 'documents', label: 'Documents', icon: BookOpen },
+    { id: 'team', label: 'Team & Roles', icon: UsersThree, badge: (team?.length || 0) + (lookingFor?.length || 0) },
   ]
+
   if (isOwner) {
-    tabs.push({ id: 'assumptions', label: 'Assumptions', icon: ListChecks })
-    tabs.push({ id: 'milestones', label: 'Milestones', icon: Flag })
     tabs.push({ id: 'analytics', label: 'Analytics', icon: ChartBar })
-    tabs.push({ id: 'applicants', label: 'Applicants', icon: Briefcase, badge: pendingApps })
-    tabs.push({ id: 'notifications', label: 'Notifications', icon: Newspaper, badge: unreadNotifs })
+    tabs.push({ id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifs })
     tabs.push({ id: 'settings', label: 'Settings', icon: Gear })
   }
 
@@ -183,6 +174,7 @@ export function VentureDetailPage({ slug }: Props) {
     <div className="min-h-screen bg-[#0a0a0f] pb-20 xl:pb-8 text-white">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
 
+        {/* Venture Header */}
         <VentureHeader
           venture={venture}
           founder={founder}
@@ -195,24 +187,28 @@ export function VentureDetailPage({ slug }: Props) {
           stats={headerStats}
         />
 
+        {/* Main Grid Layout */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 mt-6">
           <div className="min-w-0">
+            
+            {/* Top Sub-Navigation Bar */}
             <div className="flex items-center justify-between border-b border-white/[0.08] mb-6">
               <div className="flex gap-0.5 -mb-px overflow-x-auto scrollbar-hide">
                 {tabs.map(t => {
                   const Icon = t.icon
+                  const active = activeTab === t.id
                   return (
                     <button
                       key={t.id}
                       onClick={() => setActiveTab(t.id)}
                       className={
                         'px-4 py-3 text-[14px] font-medium whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ' +
-                        (activeTab === t.id
+                        (active
                           ? 'text-white border-white'
                           : 'text-white/45 border-transparent hover:text-white/80')
                       }
                     >
-                      <Icon size={15} weight={activeTab === t.id ? 'fill' : 'regular'} />
+                      <Icon size={15} weight={active ? 'fill' : 'regular'} />
                       {t.label}
                       {t.badge !== undefined && t.badge > 0 && (
                         <span className="ml-0.5 text-[10px] font-bold bg-white/10 text-white/80 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
@@ -236,47 +232,27 @@ export function VentureDetailPage({ slug }: Props) {
               </div>
             </div>
 
+            {/* Active Tab Views */}
             {activeTab === 'overview' && (
               <VentureOverview venture={venture} isOwner={isOwner} onUpdate={patchVenture} />
             )}
             {activeTab === 'questions' && (
               <VentureQuestionsTab slug={slug} isOwner={isOwner} />
             )}
-            {activeTab === 'products' && (
-              <VentureProducts venture={venture} products={products || []} slug={slug} isOwner={isOwner} />
+            {activeTab === 'updates' && (
+              <VentureUpdates venture={venture} updates={updates || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
             )}
-            {activeTab === 'growth' && (
-              <VentureGrowth venture={venture} metrics={metrics || []} slug={slug} isOwner={isOwner} />
+            {activeTab === 'media' && (
+              <VentureMediaTab slug={slug} isOwner={isOwner} />
+            )}
+            {activeTab === 'documents' && (
+              <VentureDocumentsTab slug={slug} isOwner={isOwner} />
             )}
             {activeTab === 'team' && (
               <VentureTeamStructure venture={venture} team={team || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
             )}
-            {activeTab === 'updates' && (
-              <VentureUpdates venture={venture} updates={updates || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
-            )}
-            {activeTab === 'funding' && (
-              <VentureFunding venture={venture} rounds={funding || []} slug={slug} isOwner={isOwner} onUpdate={patchVenture} />
-            )}
-            {activeTab === 'timeline' && (
-              <VentureTimeline venture={venture} events={timeline || []} slug={slug} isOwner={isOwner} />
-            )}
-            {activeTab === 'partners' && (
-              <VenturePartners venture={venture} partners={partners || []} slug={slug} isOwner={isOwner} />
-            )}
-            {activeTab === 'documentation' && (
-              <VentureDocumentation venture={venture} slug={slug} isOwner={isOwner} />
-            )}
-            {activeTab === 'assumptions' && isOwner && (
-              <AssumptionManager slug={slug} />
-            )}
-            {activeTab === 'milestones' && isOwner && (
-              <MilestonesTimeline slug={slug} />
-            )}
             {activeTab === 'analytics' && isOwner && (
               <VentureAnalytics slug={slug} />
-            )}
-            {activeTab === 'applicants' && isOwner && (
-              <VentureApplicants slug={slug} />
             )}
             {activeTab === 'notifications' && isOwner && (
               <VentureNotificationsTab slug={slug} />
@@ -286,12 +262,13 @@ export function VentureDetailPage({ slug }: Props) {
             )}
           </div>
 
+          {/* Right Sidebar */}
           <div className="min-w-0">
             <VentureSidebar
               venture={venture}
               founder={founder}
               team={team || []}
-              products={products || []}
+              products={[]}
               roles={lookingFor || []}
               isOwner={isOwner}
               onUpdate={patchVenture}
@@ -300,6 +277,7 @@ export function VentureDetailPage({ slug }: Props) {
         </div>
       </div>
 
+      {/* Direct Contact Composer */}
       {connectOpen && (
         <ConnectComposer
           referenceType="venture"
@@ -313,6 +291,7 @@ export function VentureDetailPage({ slug }: Props) {
         />
       )}
 
+      {/* Post-Publish Welcome Flow */}
       {isOwner && (
         <Suspense fallback={null}>
           <PostPublishWelcomeModal
