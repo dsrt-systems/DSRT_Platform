@@ -2,14 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { CaretLeft, CaretRight, Play, Pause } from '@phosphor-icons/react'
+import Link from 'next/link'
 
 interface Banner {
   id: string
-  title: string
-  subtitle?: string
   image_url: string
-  cta_label?: string
   cta_route?: string
+  title?: string
 }
 
 interface FeaturedCarouselProps {
@@ -20,17 +19,48 @@ export function FeaturedCarousel({ banners }: FeaturedCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Track which banners have been seen to avoid spamming the DB
+  const trackedImpressions = useRef<Set<string>>(new Set())
 
+  // Auto-play timer
   useEffect(() => {
     if (isPaused || banners.length <= 1) return
     timerRef.current = setTimeout(() => {
       setCurrentIndex((prev) => (prev + 1) % banners.length)
     }, 7000)
 
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [currentIndex, isPaused, banners.length])
+
+  // Impression Logging
+  useEffect(() => {
+    if (!banners || banners.length === 0) return
+    const activeBanner = banners[currentIndex]
+    
+    if (activeBanner && !trackedImpressions.current.has(activeBanner.id)) {
+      trackedImpressions.current.add(activeBanner.id)
+      
+      // Fire analytics
+      fetch('/api/ventures/explore/banner-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ banner_id: activeBanner.id, event_type: 'impression' })
+      }).catch(() => {})
+    }
+  }, [currentIndex, banners])
+
+  const handleBannerClick = () => {
+    const activeBanner = banners[currentIndex]
+    if (!activeBanner) return
+    
+    fetch('/api/ventures/explore/banner-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ banner_id: activeBanner.id, event_type: 'click' }),
+      keepalive: true
+    }).catch(() => {})
+  }
 
   if (!banners || banners.length === 0) return null
 
@@ -42,20 +72,17 @@ export function FeaturedCarousel({ banners }: FeaturedCarouselProps) {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Aspect Ratio Container 1600x340 (4.7:1) */}
-      <div className="relative w-full aspect-[4.7/1] min-h-[180px] max-h-[340px] overflow-hidden">
-        <a href={activeBanner.cta_route || '#'} className="block w-full h-full">
+      <div className="relative w-full aspect-[2/1] sm:aspect-[3/1] md:aspect-[4.7/1] overflow-hidden bg-zinc-900">
+        <Link href={activeBanner.cta_route || '#'} onClick={handleBannerClick} className="block w-full h-full">
           <img
             src={activeBanner.image_url}
-            alt={activeBanner.title}
+            alt={activeBanner.title || 'Featured Banner'}
             className="w-full h-full object-cover transition-opacity duration-500"
           />
-        </a>
+        </Link>
 
-        {/* Carousel Navigation Controls */}
         {banners.length > 1 && (
-          <div className="absolute bottom-4 right-5 z-20 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-            {/* Dots */}
+          <div className="absolute bottom-4 right-5 z-20 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
             <div className="flex items-center gap-1.5">
               {banners.map((_, i) => (
                 <button
@@ -69,29 +96,26 @@ export function FeaturedCarousel({ banners }: FeaturedCarouselProps) {
               ))}
             </div>
 
-            {/* Pause/Play toggle */}
             <button
               onClick={() => setIsPaused(!isPaused)}
               className="ml-1 text-zinc-400 hover:text-white transition-colors"
-              aria-label={isPaused ? 'Play' : 'Pause'}
             >
-              {isPaused ? <Play size={12} weight="fill" /> : <Pause size={12} weight="fill" />}
+              {isPaused ? <Play size={10} weight="fill" /> : <Pause size={10} weight="fill" />}
             </button>
           </div>
         )}
 
-        {/* Left / Right Arrow Hover Buttons */}
         {banners.length > 1 && (
           <>
             <button
               onClick={() => setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length)}
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
             >
               <CaretLeft size={16} weight="bold" />
             </button>
             <button
               onClick={() => setCurrentIndex((prev) => (prev + 1) % banners.length)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
             >
               <CaretRight size={16} weight="bold" />
             </button>

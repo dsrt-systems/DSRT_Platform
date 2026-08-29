@@ -9,22 +9,38 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { searchParams } = new URL(request.url)
-  const search = searchParams.get('search') || undefined
-  const domains = searchParams.get('domains')?.split(',').filter(Boolean)
-  const stages = searchParams.get('stages')?.split(',').filter(Boolean)
-  const venture_types = searchParams.get('venture_types')?.split(',').filter(Boolean)
-  const is_verified = searchParams.get('is_verified') === 'true'
-  const is_hiring = searchParams.get('is_hiring') === 'true'
+  const sessionId = searchParams.get('session_id') || undefined
+  const activeTab = searchParams.get('vtab') || 'recommended'
+  const cursor = searchParams.get('cursor') || undefined
+  
+  const filters = {
+    search: searchParams.get('q') || undefined,
+    domains: searchParams.get('domain')?.split(',').filter(Boolean),
+    stages: searchParams.get('stage')?.split(',').filter(Boolean),
+    locations: searchParams.get('location')?.split(',').filter(Boolean),
+    venture_types: searchParams.get('type')?.split(',').filter(Boolean),
+    business_models: searchParams.get('model')?.split(',').filter(Boolean),
+    team_sizes: searchParams.get('team')?.split(',').filter(Boolean),
+    funding_stages: searchParams.get('funding')?.split(',').filter(Boolean),
+    is_verified: searchParams.get('verified') === '1',
+    is_hiring: searchParams.get('hiring') === '1',
+    is_seeking_investment: searchParams.get('investment') === '1',
+    is_seeking_cofounder: searchParams.get('cofounder') === '1',
+    is_newly_launched: searchParams.get('fresh') === '1',
+    sort: (searchParams.get('sort') as any) || 'recommended',
+  }
 
   try {
-    const engine = new VentureExploreEngine(supabase, user?.id)
-    const feed = await engine.generateFeed({
-      search, domains, stages, venture_types, is_verified, is_hiring
-    })
+    // Determine A/B ranking version for user
+    const { data: version } = await supabase.rpc('fn_get_ranking_version', { p_user_id: user?.id || null })
+    const variant = version || 'venture-explore-v1'
 
-    return NextResponse.json(feed)
+    const engine = new VentureExploreEngine(supabase, user?.id, sessionId, variant)
+    const feed = await engine.generateFeed(filters, activeTab, cursor)
+    
+    return NextResponse.json({ ...feed, ranking_version: variant })
   } catch (e: any) {
     console.error('Explore feed API error:', e)
-    return NextResponse.json({ modules: [], error: e.message }, { status: 500 })
+    return NextResponse.json({ modules: [], nextCursor: null, error: e.message }, { status: 500 })
   }
 }

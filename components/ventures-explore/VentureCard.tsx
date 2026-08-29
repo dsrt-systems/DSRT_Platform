@@ -1,40 +1,71 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { DotsThree, MapPin, Users, CheckCircle, Heart, ShareNetwork, EyeSlash, WarningCircle } from '@phosphor-icons/react'
+import { DotsThree, MapPin, Users, CheckCircle, EyeSlash } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { ExploreVentureCard } from '@/lib/venture-explore/types'
+import { STAGES } from '@/lib/config/sectors'
+import { getAffinityLearner } from '@/lib/venture-explore/affinity-learner'
 
 interface VentureCardProps {
   venture: ExploreVentureCard
   onNotInterested?: (id: string) => void
+  position?: number
+  moduleType?: string
 }
 
-export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
+export function VentureCard({ venture, onNotInterested, position = 0, moduleType }: VentureCardProps) {
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [isFollowing, setIsFollowing] = useState(venture.is_following || false)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const impressionFiredRef = useRef(false)
 
-  const handleFollowToggle = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsFollowing(!isFollowing)
-    try {
-      const res = await fetch('/api/profile/follow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          following_id: venture.id,
-          following_type: 'venture'
-        })
-      })
-      if (res.ok) {
-        toast.success(isFollowing ? `Unfollowed ${venture.name}` : `Following ${venture.name}`)
-      }
-    } catch {
-      setIsFollowing(isFollowing)
-    }
+  const stageConfig = STAGES.find(s => s.id === venture.stage)
+  const domainSlugs = [venture.industry, venture.sector, venture.sub_category].filter(Boolean) as string[]
+
+  // Fire 'view' impression when card enters viewport (once per session)
+  useEffect(() => {
+    if (!cardRef.current || impressionFiredRef.current) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !impressionFiredRef.current) {
+          impressionFiredRef.current = true
+
+          getAffinityLearner().track({
+            venture_id: venture.id,
+            action: 'view',
+            domain_slugs: domainSlugs,
+          })
+
+          fetch('/api/ventures/explore/impression', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              venture_id: venture.id,
+              module_type: moduleType || 'unknown',
+              position,
+            }),
+            keepalive: true,
+          }).catch(() => {})
+        }
+      },
+      { threshold: 0.5 }
+    )
+
+    observer.observe(cardRef.current)
+    return () => observer.disconnect()
+  }, [venture.id, position, moduleType, domainSlugs])
+
+  const handleCardClick = () => {
+    getAffinityLearner().track({
+      venture_id: venture.id,
+      action: 'click',
+      domain_slugs: domainSlugs,
+    })
+    router.push(`/ventures/${venture.slug}`)
   }
 
   const handleShare = async (e: React.MouseEvent) => {
@@ -43,12 +74,24 @@ export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
     await navigator.clipboard.writeText(url)
     toast.success('Link copied to clipboard')
     setMenuOpen(false)
+    getAffinityLearner().track({
+      venture_id: venture.id,
+      action: 'share',
+      domain_slugs: domainSlugs,
+    })
   }
 
   const handleDismiss = async (e: React.MouseEvent) => {
     e.stopPropagation()
     setMenuOpen(false)
     if (onNotInterested) onNotInterested(venture.id)
+
+    getAffinityLearner().track({
+      venture_id: venture.id,
+      action: 'dismiss',
+      domain_slugs: domainSlugs,
+    })
+
     try {
       await fetch('/api/ventures/explore/dismiss', {
         method: 'POST',
@@ -56,23 +99,23 @@ export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
         body: JSON.stringify({ venture_id: venture.id, reason: 'not_relevant' })
       })
       toast.info('Venture hidden from your recommendations')
-    } catch {
-      // Ignore
-    }
+    } catch {}
   }
 
   return (
     <div
-      onClick={() => router.push(`/ventures/${venture.slug}`)}
+      ref={cardRef}
+      onClick={handleCardClick}
       className="group bg-[#121215] border border-white/[0.06] hover:border-white/[0.14] rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 flex flex-col shadow-sm"
     >
-      {/* 16:9 Thumbnail Header */}
+      {/* Thumbnail */}
       <div className="relative w-full aspect-[16/9] bg-[#09090b] border-b border-white/[0.04] overflow-hidden">
         {venture.cover_url ? (
           <img
             src={venture.cover_url}
             alt={venture.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-900 to-zinc-950">
@@ -80,7 +123,6 @@ export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
           </div>
         )}
 
-        {/* Logo Overlay */}
         <div className="absolute bottom-3 left-3 w-10 h-10 rounded-xl bg-[#09090b] border border-white/[0.12] p-0.5 shadow-lg overflow-hidden flex-shrink-0">
           {venture.logo_url ? (
             <img src={venture.logo_url} alt="" className="w-full h-full object-cover rounded-lg" />
@@ -91,18 +133,16 @@ export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
           )}
         </div>
 
-        {/* Optional Status Badge */}
         {venture.reason_label && (
-          <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-zinc-300 uppercase tracking-wider">
+          <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-zinc-300 uppercase tracking-wider shadow-sm">
             {venture.reason_label}
           </div>
         )}
       </div>
 
-      {/* Card Content */}
+      {/* Content */}
       <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         <div>
-          {/* Header Row */}
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
@@ -120,13 +160,9 @@ export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
               )}
             </div>
 
-            {/* 3-Dot Context Menu */}
             <div className="relative shrink-0">
               <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setMenuOpen(!menuOpen)
-                }}
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
                 className="w-7 h-7 rounded-lg text-zinc-500 hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
               >
                 <DotsThree size={18} weight="bold" />
@@ -137,22 +173,16 @@ export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
                   <div className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }} />
                   <div className="absolute right-0 top-full mt-1 z-40 w-44 bg-[#0d0d10] border border-white/[0.1] rounded-xl shadow-2xl p-1 space-y-0.5">
                     <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/ventures/${venture.slug}`); }}
+                      onClick={(e) => { e.stopPropagation(); handleCardClick(); }}
                       className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors"
                     >
                       Open venture
                     </button>
                     <button
-                      onClick={handleFollowToggle}
-                      className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors"
-                    >
-                      {isFollowing ? 'Unfollow' : 'Follow venture'}
-                    </button>
-                    <button
                       onClick={handleShare}
                       className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors"
                     >
-                      Share
+                      Share link
                     </button>
                     <div className="h-px bg-white/[0.06] my-1" />
                     <button
@@ -167,21 +197,21 @@ export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
             </div>
           </div>
 
-          {/* Tags Metadata Row */}
-          <div className="flex items-center gap-2 text-[11.5px] text-zinc-500 font-medium mt-2 flex-wrap">
+          {/* Meta Row */}
+          <div className="flex items-center gap-2 text-[11.5px] text-zinc-500 font-medium mt-2.5 flex-wrap">
             {venture.industry && <span>{venture.industry}</span>}
-            {venture.industry && venture.stage && <span className="w-1 h-1 rounded-full bg-zinc-700" />}
-            {venture.stage && <span className="capitalize">{venture.stage.replace('-', ' ')}</span>}
+            {venture.industry && stageConfig && <span className="w-1 h-1 rounded-full bg-zinc-700" />}
+            {stageConfig && <span className="capitalize">{stageConfig.label}</span>}
+            {stageConfig && venture.location && <span className="w-1 h-1 rounded-full bg-zinc-700" />}
             {venture.location && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-zinc-700" />
-                <span className="flex items-center gap-0.5"><MapPin size={10} /> {venture.location}</span>
-              </>
+              <span className="flex items-center gap-0.5">
+                <MapPin size={10} /> {venture.location.split(',')[0]}
+              </span>
             )}
           </div>
         </div>
 
-        {/* Founder & Activity Footer */}
+        {/* Footer: Founder + Hiring Badge */}
         <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between text-[11.5px] text-zinc-400">
           {venture.founder ? (
             <Link
@@ -201,11 +231,14 @@ export function VentureCard({ venture, onNotInterested }: VentureCardProps) {
               <span className="truncate">{venture.founder.full_name}</span>
             </Link>
           ) : (
-            <span>{venture.follower_count || 0} followers</span>
+            <span className="flex items-center gap-1">
+              <Users size={12} weight="duotone" /> {venture.team_size || 1} Builder{(venture.team_size || 1) !== 1 ? 's' : ''}
+            </span>
           )}
 
           {venture.is_hiring && (
-            <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-semibold text-[10.5px] border border-emerald-500/20">
+            <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-semibold text-[10.5px] border border-emerald-500/20 shadow-sm flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Hiring
             </span>
           )}

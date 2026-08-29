@@ -1,263 +1,337 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { ExploreVentureCard, ExploreFeedModule, ExploreFilterState } from './types'
+import { parseQuery } from './query-parser'
+
+const PAGE_SIZE = 20
 
 export class VentureExploreEngine {
-  constructor(private supabase: SupabaseClient, private userId?: string) {}
+  constructor(
+    private supabase: SupabaseClient, 
+    private userId?: string,
+    private sessionId?: string,
+    private variant: string = 'v1'
+  ) {}
 
-  // 1. MAIN FEED GENERATOR
-  async generateFeed(filters: ExploreFilterState = {}, limit = 20, cursor?: string): Promise<{ modules: ExploreFeedModule[], nextCursor?: string }> {
-    const negativeVentureIds = await this.getNegativeVentureIds()
-    const userAffinities = await this.getUserDomainAffinities()
-    const followedIds = await this.getFollowedVentureIds()
+  async generateFeed(
+    filters: ExploreFilterState = {},
+    activeTab: string = 'recommended',
+    cursor?: string
+  ): Promise<{ modules: ExploreFeedModule[], nextCursor?: string | null }> {
+    
+    const [negativeVentureIds, userAffinities, sessionAffinities, followedIds, featuredIds] = await Promise.all([
+      this.getNegativeVentureIds(),
+      this.getUserDomainAffinities(),
+      this.getSessionAffinities(),
+      this.getFollowedVentureIds(),
+      this.getFeaturedVentureIds()
+    ])
 
-    // Query Base Candidates
+    const cursorData = this.parseCursor(cursor)
+
     let query = this.supabase
       .from('ventures')
       .select(`
         id, slug, name, tagline, description, logo_url, cover_url,
-        stage, status, industry, sector, location, venture_type, business_model,
+        stage, status, industry, sector, sub_category, location, venture_type, business_model, funding_stage,
         team_size, follower_count, view_count, is_verified, is_hiring,
         seeking_investment, seeking_cofounder, last_activity_at, created_at,
+        discovery_rank_seed,
         founder:users!ventures_founder_id_fkey(id, full_name, username, avatar_url),
-        user_id
+        user_id,
+        trending:venture_trending_scores(bayesian_score, growth_rate)
       `)
-      .eq('show_in_explore', true)
       .neq('status', 'archived')
-      .eq('is_draft', false)
 
-    // Exclude negative signals
     if (negativeVentureIds.length > 0) {
       query = query.not('id', 'in', `(${negativeVentureIds.join(',')})`)
     }
 
-    // Apply Filter State Constraints
     if (filters.search) {
-      const q = filters.search.trim().toLowerCase()
-      query = query.or(`name.ilike.%${q}%,tagline.ilike.%${q}%,description.ilike.%${q}%,industry.ilike.%${q}%,sector.ilike.%${q}%,location.ilike.%${q}%`)
-    }
+      const parsed = parseQuery(filters.search)
+      if (parsed.stage && !filters.stages?.includes(parsed.stage)) filters.stages = [...(filters.stages || []), parsed.stage]
+      if (parsed.location && !filters.locations?.includes(parsed.location)) filters.locations = [...(filters.locations || []), parsed.location]
+      if (parsed.domains.length > 0) filters.domains = [...new Set([...(filters.domains || []), ...parsed.domains])]
+      if (parsed.is_hiring) filters.is_hiring = true
 
-    if (filters.domains && filters.domains.length > 0) {
-      const domainFilter = filters.domains.map(d => `industry.ilike.%${d}%,sector.ilike.%${d}%`).join(',')
-      query = query.or(domainFilter)
-    }
-
-    if (filters.stages && filters.stages.length > 0) {
-      query = query.in('stage', filters.stages)
-    }
-
-    if (filters.venture_types && filters.venture_types.length > 0) {
-      query = query.in('venture_type', filters.venture_types)
-    }
-
-    if (filters.business_models && filters.business_models.length > 0) {
-      query = query.in('business_model', filters.business_models)
-    }
-
-    if (filters.is_verified) {
-      query = query.eq('is_verified', true)
-    }
-
-    if (filters.is_hiring) {
-      query = query.eq('is_hiring', true)
-    }
-
-    const { data: rawCandidates, error } = await query.limit(150)
-    if (error || !rawCandidates) {
-      console.error('Candidate fetch error:', error)
-      return { modules: [] }
-    }
-
-    // Transform Candidates
-    const candidates: ExploreVentureCard[] = rawCandidates.map((v: any) => ({
-      ...v,
-      is_following: followedIds.has(v.id),
-      domains: [v.industry, v.sector].filter(Boolean) as string[],
-    }))
-
-    // If specific filters or search are applied, return catalog grid directly
-    if (filters.search || (filters.domains && filters.domains.length > 0) || filters.stages?.length) {
-      const ranked = this.rankCandidates(candidates, userAffinities)
-      return {
-        modules: [{
-          id: 'catalog-results',
-          type: 'catalog',
-          title: `Venture Results (${ranked.length})`,
-          items: ranked.slice(0, limit)
-        }]
+      if (parsed.keywords.length > 0) {
+        const kFilters = parsed.keywords.map(k => `name.ilike.%${k}%,tagline.ilike.%${k}%,description.ilike.%${k}%`).join(',')
+        query = query.or(kFilters)
       }
     }
 
-    // Build YouTube-Style Multi-Module Discovery Feed
-    const modules: ExploreFeedModule[] = []
-
-    // Module 1: Recommended for you (70% preferences / 30% exploration)
-    const scoredRecommended = this.rankCandidates(candidates, userAffinities)
-    if (scoredRecommended.length > 0) {
-      modules.push({
-        id: 'recommended-mod',
-        type: 'recommended',
-        title: 'Recommended for you',
-        subtitle: 'Personalized based on your domain preferences and network activity',
-        items: scoredRecommended.slice(0, 8)
-      })
+    if (filters.domains && filters.domains.length > 0) {
+      const domainFilter = filters.domains.map(d => `industry.ilike.%${d}%,sector.ilike.%${d}%,sub_category.ilike.%${d}%`).join(',')
+      query = query.or(domainFilter)
     }
 
-    // Module 2: Rising across DSRT
+    if (filters.stages && filters.stages.length > 0) query = query.in('stage', filters.stages)
+    if (filters.locations && filters.locations.length > 0) query = query.or(filters.locations.map(l => `location.ilike.%${l}%`).join(','))
+    if (filters.venture_types && filters.venture_types.length > 0) query = query.in('venture_type', filters.venture_types)
+    if (filters.business_models && filters.business_models.length > 0) query = query.in('business_model', filters.business_models)
+    if (filters.funding_stages && filters.funding_stages.length > 0) query = query.in('funding_stage', filters.funding_stages)
+
+    if (filters.team_sizes && filters.team_sizes.length > 0) {
+      const teamConditions: string[] = []
+      for (const size of filters.team_sizes) {
+        if (size === 'solo') teamConditions.push('team_size.eq.1')
+        else if (size === '2-5') teamConditions.push('and(team_size.gte.2,team_size.lte.5)')
+        else if (size === '6-10') teamConditions.push('and(team_size.gte.6,team_size.lte.10)')
+        else if (size === '11-25') teamConditions.push('and(team_size.gte.11,team_size.lte.25)')
+        else if (size === '26-50') teamConditions.push('and(team_size.gte.26,team_size.lte.50)')
+        else if (size === '51-100') teamConditions.push('and(team_size.gte.51,team_size.lte.100)')
+        else if (size === '100+') teamConditions.push('team_size.gt.100')
+      }
+      if (teamConditions.length > 0) query = query.or(teamConditions.join(','))
+    }
+
+    if (filters.is_verified) query = query.eq('is_verified', true)
+    if (filters.is_seeking_investment) query = query.eq('seeking_investment', true)
+    if (filters.is_seeking_cofounder) query = query.eq('seeking_cofounder', true)
+
+    if (filters.is_newly_launched) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      query = query.gte('created_at', thirtyDaysAgo)
+    }
+
+    if (filters.is_hiring) {
+      const { data: hiringRoles } = await this.supabase.from('team_up_requests').select('venture_id').eq('status', 'published').not('venture_id', 'is', null)
+      const hiringVentureIds = [...new Set((hiringRoles || []).map(r => r.venture_id))]
+      if (hiringVentureIds.length > 0) query = query.in('id', hiringVentureIds)
+      else return { modules: [], nextCursor: null }
+    }
+
+    if (cursorData?.seed) query = query.gt('discovery_rank_seed', cursorData.seed)
+    
+    const isFiltered = this.isFiltered(filters)
+    const fetchLimit = isFiltered ? PAGE_SIZE + 1 : 150
+
+    const { data: rawCandidates, error } = await query.order('discovery_rank_seed', { ascending: true }).limit(fetchLimit)
+
+    if (error || !rawCandidates || rawCandidates.length === 0) return { modules: [], nextCursor: null }
+
+    const hasMore = rawCandidates.length >= fetchLimit
+    const items = hasMore ? rawCandidates.slice(0, -1) : rawCandidates
+    const lastSeed = items[items.length - 1]?.discovery_rank_seed
+    const nextCursor = hasMore && lastSeed ? this.encodeCursor({ seed: lastSeed }) : null
+
+    const candidates: ExploreVentureCard[] = items.map((v: any) => ({
+      ...v,
+      is_following: followedIds.has(v.id),
+      domains: [v.industry, v.sector, v.sub_category].filter(Boolean) as string[],
+      _bayesian: v.trending?.[0]?.bayesian_score || 0,
+      _growth: v.trending?.[0]?.growth_rate || 0,
+    }))
+
+    if (isFiltered || activeTab === 'all') {
+      const sortMode = filters.sort || (activeTab === 'all' ? 'recommended' : activeTab)
+      const ranked = this.sortCatalog(candidates, sortMode, userAffinities, sessionAffinities)
+      return { modules: [{ id: 'catalog', type: 'catalog', title: cursor ? '' : `Ventures (${ranked.length}${hasMore ? '+' : ''})`, items: ranked }], nextCursor }
+    }
+
+    if (activeTab === 'rising') {
+      const rising = this.sortCatalog(candidates, 'rising', userAffinities, sessionAffinities)
+      return { modules: [{ id: 'rising', type: 'rising', title: cursor ? '' : 'Rising across DSRT', items: rising.map(v => ({ ...v, reason_code: 'RISING', reason_label: 'Rising momentum' })) }], nextCursor }
+    }
+
+    if (activeTab === 'new') {
+      const fresh = this.sortCatalog(candidates, 'newest', userAffinities, sessionAffinities)
+      return { modules: [{ id: 'new', type: 'new_and_notable', title: cursor ? '' : 'New ventures', items: fresh.map(v => ({ ...v, reason_code: 'NEW', reason_label: 'Newly launched' })) }], nextCursor }
+    }
+
+    if (cursor) {
+      const ranked = this.rankCandidatesMMR(candidates, userAffinities, sessionAffinities)
+      return { modules: [{ id: 'rec-cont', type: 'catalog', title: '', items: ranked }], nextCursor }
+    }
+
+    // MULTI-MODULE RECOMMENDED FEED
+    const modules: ExploreFeedModule[] = []
+
+    // 1. EDITORIAL / FEATURED (Admin Controlled)
+    const featuredItems = candidates.filter(c => featuredIds.has(c.id)).slice(0, 4)
+    if (featuredItems.length > 0) {
+      modules.push({ id: 'editorial-mod', type: 'editorial', title: 'Featured by DSRT', items: featuredItems.map(v => ({ ...v, reason_label: 'Editor Pick' })) })
+    }
+    
+    // 2. MMR RECOMMENDED
+    const scoredRecommended = this.rankCandidatesMMR(candidates.filter(c => !featuredIds.has(c.id)), userAffinities, sessionAffinities)
+    if (scoredRecommended.length > 0) {
+      modules.push({ id: 'recommended-mod', type: 'recommended', title: 'Recommended for you', subtitle: 'Curated based on your interests and activity', items: scoredRecommended.slice(0, 8) })
+    }
+
+    // 3. RISING (Real growth math from DB)
     const risingVentures = [...candidates]
-      .sort((a, b) => {
-        const scoreA = (a.follower_count || 0) * 2 + (a.view_count || 0)
-        const scoreB = (b.follower_count || 0) * 2 + (b.view_count || 0)
-        return scoreB - scoreA
-      })
+      .filter(c => !featuredIds.has(c.id))
+      .sort((a: any, b: any) => b._growth - a._growth)
       .slice(0, 8)
       .map(v => ({ ...v, reason_code: 'RISING', reason_label: 'Rising in momentum' }))
 
     if (risingVentures.length > 0) {
-      modules.push({
-        id: 'rising-mod',
-        type: 'rising',
-        title: 'Rising across DSRT',
-        subtitle: 'Ventures gaining rapid traction and community engagement',
-        items: risingVentures
-      })
+      modules.push({ id: 'rising-mod', type: 'rising', title: 'Rising across DSRT', items: risingVentures, see_all_href: '?vtab=rising' })
     }
 
-    // Module 3: Domain Affinity (e.g. Robotics, Marine, Food, etc.)
-    const topDomain = userAffinities[0]?.domain_slug || candidates[0]?.industry
-    if (topDomain) {
+    // 4. SESSION INTENT OR TOP AFFINITY
+    const topAffinity = sessionAffinities[0] || userAffinities[0]
+    if (topAffinity) {
       const domainVentures = candidates
-        .filter(v => (v.industry || '').toLowerCase().includes(topDomain.toLowerCase()) || (v.sector || '').toLowerCase().includes(topDomain.toLowerCase()))
+        .filter(v => v.domains?.some(d => d.toLowerCase().includes(topAffinity.domain_slug.toLowerCase())))
         .slice(0, 8)
-        .map(v => ({ ...v, reason_code: 'DOMAIN_AFFINITY', reason_label: `In ${topDomain}` }))
+        .map(v => ({ ...v, reason_code: 'DOMAIN_AFFINITY', reason_label: `Because you explore ${topAffinity.domain_slug}` }))
 
       if (domainVentures.length > 0) {
-        modules.push({
-          id: 'domain-affinity-mod',
-          type: 'domain_affinity',
-          title: `Because you explore ${topDomain}`,
-          subtitle: `Curated ventures in ${topDomain}`,
-          items: domainVentures
-        })
+        modules.push({ id: 'affinity-mod', type: 'domain_affinity', title: `Because you explore ${topAffinity.domain_slug}`, items: domainVentures, see_all_href: `?domain=${encodeURIComponent(topAffinity.domain_slug)}` })
       }
     }
 
-    // Module 4: New & Notable
-    const newVentures = [...candidates]
-      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-      .slice(0, 8)
-      .map(v => ({ ...v, reason_code: 'NEW', reason_label: 'Newly launched' }))
-
-    if (newVentures.length > 0) {
-      modules.push({
-        id: 'new-mod',
-        type: 'new_and_notable',
-        title: 'New ventures',
-        subtitle: 'Recently created ventures building on DSRT Connect',
-        items: newVentures
-      })
-    }
-
-    return { modules }
+    return { modules, nextCursor }
   }
 
-  // 2. CANDIDATE RANKING ENGINE (Personalized Scoring + 30% Exploration)
-  private rankCandidates(candidates: ExploreVentureCard[], affinities: { domain_slug: string; score: number }[]): ExploreVentureCard[] {
+  // === TRUE MMR DIVERSIFICATION RANKING with A/B VARIANT & SESSION INTENT ===
+  private rankCandidatesMMR(
+    candidates: ExploreVentureCard[], 
+    affinities: { domain_slug: string; score: number }[],
+    sessionAffinities: { domain_slug: string; score: number }[]
+  ): ExploreVentureCard[] {
     const affinityMap = new Map(affinities.map(a => [a.domain_slug.toLowerCase(), a.score]))
+    const sessionMap = new Map(sessionAffinities.map(a => [a.domain_slug.toLowerCase(), a.score]))
+
+    // A/B Variant Parameter Toggles
+    const isV2 = this.variant === 'venture-explore-v2'
+    const domainWeight = isV2 ? 3 : 5
+    const sessionBoostWeight = isV2 ? 10 : 5
+    const bayesianWeight = isV2 ? 4 : 2
+    const mmrLambda = isV2 ? 0.6 : 0.75 // v2 prefers slightly more diversity
 
     const scored = candidates.map(v => {
       let score = 0
       const reasons: string[] = []
 
-      // Domain match
-      const ind = (v.industry || '').toLowerCase()
-      const sec = (v.sector || '').toLowerCase()
-      const domScore = (affinityMap.get(ind) || 0) + (affinityMap.get(sec) || 0)
-
+      // 1. Long-term Affinity
+      const domScore = (v.domains || []).reduce((acc, d) => acc + (affinityMap.get(d.toLowerCase()) || 0), 0)
       if (domScore > 0) {
-        score += domScore * 25
-        reasons.push(`Based on your interest in ${v.industry || v.sector}`)
+        score += domScore * domainWeight
+        reasons.push(`Because you explore ${v.domains?.[0]}`)
       }
 
-      // Verification & Activity
+      // 2. Session Intent Boost
+      const sessScore = (v.domains || []).reduce((acc, d) => acc + (sessionMap.get(d.toLowerCase()) || 0), 0)
+      if (sessScore > 0) {
+        score += sessScore * sessionBoostWeight
+        reasons.unshift(`Based on your recent activity`) // Session intent overrides standard reason
+      }
+
+      // 3. Bayesian Quality Baseline
+      score += (v as any)._bayesian * bayesianWeight
+
       if (v.is_verified) score += 15
-      if (v.is_hiring) score += 10
-      if (v.seeking_investment) score += 8
-
-      // Freshness decay
-      const hoursAgo = (Date.now() - new Date(v.last_activity_at || v.created_at || Date.now()).getTime()) / (1000 * 60 * 60)
-      const freshness = Math.max(0, 20 - (hoursAgo / 24))
-      score += freshness
-
-      // Exploration Injection (Randomness to break filter bubble)
-      const explorationBonus = Math.random() * 15
-      score += explorationBonus
+      
+      const hoursAgo = (Date.now() - new Date(v.last_activity_at || v.created_at || Date.now()).getTime()) / 3600000
+      score += Math.max(0, 20 - (hoursAgo / 24))
 
       return {
         ...v,
         _score: score,
-        reason_label: reasons[0] || (v.is_verified ? 'Verified Venture' : 'Discover on DSRT')
+        reason_label: reasons[0] || (v.is_verified ? 'Verified' : undefined)
       }
     })
 
-    // Sort descending
-    const sorted = scored.sort((a, b) => (b as any)._score - (a as any)._score)
+    // MMR Selection
+    const unselected = [...scored]
+    const selected: typeof scored = []
 
-    // Maximal Marginal Relevance (MMR) Diversification - Max 2 consecutive same-industry items
-    return this.diversifyByIndustry(sorted, 2)
-  }
+    unselected.sort((a, b) => b._score! - a._score!)
+    if (unselected.length > 0) selected.push(unselected.shift()!)
 
-  // 3. DIVERSIFICATION PASS
-  private diversifyByIndustry(items: ExploreVentureCard[], maxConsecutive = 2): ExploreVentureCard[] {
-    const result: ExploreVentureCard[] = []
-    const bench: ExploreVentureCard[] = []
-    let lastIndustry = ''
-    let streak = 0
+    while (unselected.length > 0) {
+      let bestIdx = 0
+      let bestMMR = -Infinity
 
-    for (const item of items) {
-      const ind = (item.industry || 'general').toLowerCase()
-      if (ind === lastIndustry && streak >= maxConsecutive) {
-        bench.push(item)
-      } else {
-        result.push(item)
-        if (ind === lastIndustry) {
-          streak++
-        } else {
-          lastIndustry = ind
-          streak = 1
+      for (let i = 0; i < unselected.length; i++) {
+        const candidate = unselected[i]
+        
+        let maxSim = 0
+        for (const s of selected) {
+          const sharedDomains = candidate.domains?.filter(d => s.domains?.includes(d)) || []
+          let sim = (sharedDomains.length > 0) ? 0.8 : 0
+          if (candidate.stage === s.stage) sim += 0.2
+          if (sim > maxSim) maxSim = sim
+        }
+
+        const mmr = (mmrLambda * candidate._score!) - ((1 - mmrLambda) * maxSim * 50)
+        
+        if (mmr > bestMMR) {
+          bestMMR = mmr
+          bestIdx = i
         }
       }
+
+      selected.push(unselected[bestIdx])
+      unselected.splice(bestIdx, 1)
     }
 
-    return [...result, ...bench]
+    return selected
   }
 
-  // HELPERS
-  private async getNegativeVentureIds(): Promise<string[]> {
+  private sortCatalog(c: ExploreVentureCard[], m: string, a: any[], sa: any[]) {
+    if (m === 'newest') return [...c].sort((x, y) => new Date(y.created_at || 0).getTime() - new Date(x.created_at || 0).getTime())
+    if (m === 'updated') return [...c].sort((x, y) => new Date(y.last_activity_at || 0).getTime() - new Date(x.last_activity_at || 0).getTime())
+    if (m === 'most_followed') return [...c].sort((x, y) => (y.follower_count || 0) - (x.follower_count || 0))
+    if (m === 'rising') return [...c].sort((x: any, y: any) => y._growth - x._growth)
+    return this.rankCandidatesMMR(c, a, sa)
+  }
+
+  private isFiltered(f: ExploreFilterState): boolean {
+    return !!(f.search || f.domains?.length || f.stages?.length || f.locations?.length || f.venture_types?.length || f.business_models?.length || f.team_sizes?.length || f.funding_stages?.length || f.is_verified || f.is_hiring || f.is_seeking_investment || f.is_seeking_cofounder || f.is_newly_launched)
+  }
+  
+  private parseCursor(c?: string) {
+    if (!c) return null
+    try { return JSON.parse(Buffer.from(c, 'base64').toString('utf-8')) } catch { return null }
+  }
+  private encodeCursor(d: any) { return Buffer.from(JSON.stringify(d), 'utf-8').toString('base64') }
+  
+  private async getNegativeVentureIds() {
     if (!this.userId) return []
-    const { data } = await this.supabase
-      .from('explore_negative_signals')
-      .select('venture_id')
-      .eq('user_id', this.userId)
+    const { data } = await this.supabase.from('explore_negative_signals').select('venture_id').eq('user_id', this.userId)
     return (data || []).map((r: any) => r.venture_id)
   }
-
-  private async getUserDomainAffinities(): Promise<{ domain_slug: string; score: number }[]> {
+  
+  private async getUserDomainAffinities() {
     if (!this.userId) return []
-    const { data } = await this.supabase
-      .from('user_domain_affinity')
-      .select('domain_slug, score')
-      .eq('user_id', this.userId)
-      .order('score', { ascending: false })
+    const { data } = await this.supabase.from('user_domain_affinity').select('domain_slug, score').eq('user_id', this.userId).order('score', { ascending: false }).limit(20)
     return data || []
   }
 
-  private async getFollowedVentureIds(): Promise<Set<string>> {
-    if (!this.userId) return new Set()
+  private async getSessionAffinities() {
+    if (!this.sessionId) return []
+    // Get temporary boost from what the user clicked *this session* (last 2 hours max)
     const { data } = await this.supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', this.userId)
-      .eq('following_type', 'venture')
+      .from('explore_interactions')
+      .select('domain_slugs, weight')
+      .eq('session_id', this.sessionId)
+      .gt('created_at', new Date(Date.now() - 2 * 3600000).toISOString())
+    
+    if (!data) return []
+    const agg = new Map<string, number>()
+    data.forEach(r => {
+      (r.domain_slugs || []).forEach((d: string) => {
+        const k = d.toLowerCase()
+        agg.set(k, (agg.get(k) || 0) + r.weight)
+      })
+    })
+    return Array.from(agg.entries())
+      .map(([domain_slug, score]) => ({ domain_slug, score }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+  }
+
+  private async getFollowedVentureIds() {
+    if (!this.userId) return new Set<string>()
+    const { data } = await this.supabase.from('follows').select('following_id').eq('follower_id', this.userId).eq('following_type', 'venture')
     return new Set((data || []).map((r: any) => r.following_id))
+  }
+
+  private async getFeaturedVentureIds() {
+    const { data } = await this.supabase.from('explore_featured_ventures').select('venture_id').eq('is_active', true)
+    return new Set((data || []).map((r: any) => r.venture_id))
   }
 }
