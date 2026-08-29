@@ -1,16 +1,17 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { CreateVentureLandingModal } from '@/components/venture-assessment/CreateVentureLandingModal'
+import { VentureExplorePage } from '@/components/ventures-explore/VentureExplorePage' // ← NEW EXPLORE PAGE IMPORTED
 import {
-  MagnifyingGlass, X, Plus, Play, Pause,
+  Plus,
   FolderSimple, Compass, Heart, Briefcase,
   Buildings, Users, ArrowRight, CircleNotch,
   CaretDown, WarningCircle, DotsThree, MapPin,
-  ArrowSquareOut, Sparkle, Lightning
+  ArrowSquareOut
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
@@ -41,16 +42,6 @@ interface Venture {
   last_activity_at?: string
   updated_at?: string
   created_at?: string
-}
-
-interface Banner {
-  id: string
-  title: string
-  subtitle: string
-  imageUrl?: string
-  gradient?: string
-  ctaHref?: string
-  ctaLabel?: string
 }
 
 type TabId = 'my-ventures' | 'explore' | 'following' | 'applications'
@@ -96,7 +87,7 @@ function VenturesDashboardContent() {
   const searchParams = useSearchParams()
   const supabase = createClient()
 
-  // Creation modal state (Preserved original trigger)
+  // Creation modal state
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const openCreate = useCallback(() => setCreateModalOpen(true), [])
 
@@ -109,7 +100,6 @@ function VenturesDashboardContent() {
   const [user, setUser] = useState<any>(null)
   const [myVentures, setMyVentures] = useState<Venture[]>([])
   const [followingVentures, setFollowingVentures] = useState<Venture[]>([])
-  const [exploreVentures, setExploreVentures] = useState<Venture[]>([])
   const [resources, setResources] = useState<any[]>([])
 
   const [loading, setLoading] = useState(true)
@@ -121,9 +111,6 @@ function VenturesDashboardContent() {
   const [deleteModalVenture, setDeleteModalVenture] = useState<Venture | null>(null)
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
   const [deleting, setDeleting] = useState(false)
-
-  // Explore filters
-  const [searchQuery, setSearchQuery] = useState('')
 
   // ── Fetch user & ventures ────────────────────────────────────
   const loadWorkspaceData = useCallback(async () => {
@@ -141,7 +128,6 @@ function VenturesDashboardContent() {
         if (profile) setUser({ ...user, profile })
       }
 
-      // Fetch user ventures and curated founder resources in parallel
       const [venturesRes, resourcesRes] = await Promise.all([
         fetch('/api/ventures/me'),
         supabase.from('founder_resources').select('*').order('display_order', { ascending: true })
@@ -151,7 +137,6 @@ function VenturesDashboardContent() {
         const vJson = await venturesRes.json()
         setMyVentures(vJson.ventures || [])
       } else {
-        // Fallback to legacy endpoint if /me endpoint doesn't exist
         const myRes = await fetch('/api/ventures/my')
         if (myRes.ok) {
           const myJson = await myRes.json()
@@ -176,15 +161,11 @@ function VenturesDashboardContent() {
 
   // ── Fetch tab-specific data ──────────────────────────────────
   useEffect(() => {
+    // Note: Explore data is now fully handled inside <VentureExplorePage />
     if (activeTab === 'following') {
       fetch('/api/ventures/following')
         .then(r => r.json())
         .then(d => setFollowingVentures(d.ventures || []))
-        .catch(() => {})
-    } else if (activeTab === 'explore') {
-      fetch('/api/ventures/explore?limit=24')
-        .then(r => r.json())
-        .then(d => setExploreVentures(d.ventures || []))
         .catch(() => {})
     }
   }, [activeTab])
@@ -214,7 +195,7 @@ function VenturesDashboardContent() {
     }
   }
 
-  // Sortventures logic
+  // Sort ventures logic
   const sortedVentures = [...myVentures].sort((a, b) => {
     if (sortOption === 'created') {
       return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
@@ -236,23 +217,6 @@ function VenturesDashboardContent() {
     acc[res.category].push(res)
     return acc
   }, {} as Record<string, any[]>)
-
-  const banners: Banner[] = [
-    {
-      id: 'b1',
-      title: 'Build your venture in public',
-      subtitle: 'Share milestones, manage your team graph, and connect with collaborators.',
-      gradient: 'linear-gradient(135deg, #1a2a4e 0%, #0d1530 50%, #0a0b1f 100%)',
-      ctaHref: '__create__',
-      ctaLabel: 'Create venture',
-    },
-    {
-      id: 'b2',
-      title: 'Find talent and collaborators',
-      subtitle: 'Post open roles directly to DSRT Looking For and manage applicants.',
-      gradient: 'linear-gradient(135deg, #2d1b4e 0%, #1a1030 50%, #0d0b1f 100%)',
-    },
-  ]
 
   return (
     <div className="flex-1 min-h-screen bg-[#09090b] text-white pb-24 font-sans">
@@ -456,31 +420,10 @@ function VenturesDashboardContent() {
           </div>
         )}
 
-        {/* ── EXPLORE TAB ────────────────────────────────────────── */}
+        {/* ── EXPLORE TAB (Global Discovery Engine) ──────────────── */}
         {activeTab === 'explore' && (
-          <div className="space-y-6">
-            <div className="relative">
-              <MagnifyingGlass size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search ventures, industries, founders..."
-                className="w-full h-11 pl-10 pr-16 rounded-lg bg-[#121215] border border-white/[0.08] text-[13.5px] text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
-              />
-            </div>
-
-            <FeaturedBanner banners={banners} onCtaCreate={openCreate} />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {exploreVentures.map(v => (
-                <VentureHorizontalCard
-                  key={v.id}
-                  venture={v}
-                  onDeleteRequest={(target) => setDeleteModalVenture(target)}
-                />
-              ))}
-            </div>
+          <div className="pt-2">
+            <VentureExplorePage />
           </div>
         )}
 
@@ -531,7 +474,9 @@ function VenturesDashboardContent() {
         )}
 
         {/* FOUNDER RESOURCES SECTION */}
-        <FounderResourcesSection resourcesByCategory={resourcesByCategory} />
+        {activeTab !== 'explore' && (
+          <FounderResourcesSection resourcesByCategory={resourcesByCategory} />
+        )}
 
         {/* DSRT FOOTER */}
         <DSRTFooter />
@@ -578,7 +523,7 @@ function VenturesDashboardContent() {
         </div>
       )}
 
-      {/* Venture creation assessment modal (Preserved from existing codebase) */}
+      {/* Venture creation assessment modal */}
       <CreateVentureLandingModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -637,82 +582,6 @@ function ServicesPanel() {
           Explore services →
         </Link>
       </div>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────────
-   COMPONENT: FeaturedBanner (Restrained Slider)
-────────────────────────────────────────────────────────────── */
-function FeaturedBanner({ banners, onCtaCreate }: { banners: Banner[]; onCtaCreate?: () => void }) {
-  const [index, setIndex] = useState(0)
-  const [paused, setPaused] = useState(false)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    if (paused || banners.length <= 1) return
-    intervalRef.current = setTimeout(() => {
-      setIndex(i => (i + 1) % banners.length)
-    }, 6000)
-    return () => { if (intervalRef.current) clearTimeout(intervalRef.current) }
-  }, [index, paused, banners.length])
-
-  if (banners.length === 0) return null
-  const current = banners[index]
-
-  return (
-    <div
-      className="relative rounded-2xl overflow-hidden border border-white/[0.08] group w-full"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      <div className="relative h-[200px] sm:h-[220px] overflow-hidden w-full flex flex-col justify-center px-8">
-        <div
-          className="absolute inset-0"
-          style={{ background: current.gradient || 'linear-gradient(135deg, #1a2a4e 0%, #0d1530 50%, #0a0b1f 100%)' }}
-        />
-        <div className="relative z-10 max-w-xl">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkle size={16} weight="fill" className="text-white/80" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-semibold">Featured</span>
-          </div>
-          <h3 className="text-[18px] sm:text-[20px] font-bold text-white tracking-tight mb-2">
-            {current.title}
-          </h3>
-          <p className="text-[13px] text-zinc-300 leading-relaxed mb-4">
-            {current.subtitle}
-          </p>
-          {current.ctaLabel && (
-            <button
-              onClick={onCtaCreate}
-              className="inline-flex items-center h-8 px-4 rounded-lg bg-white text-black text-[12px] font-bold hover:bg-zinc-200 transition-colors shadow-sm"
-            >
-              {current.ctaLabel}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {banners.length > 1 && (
-        <div className="absolute bottom-3 right-4 flex items-center gap-1.5 z-20">
-          {banners.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              className={
-                'h-1 rounded-full transition-all ' +
-                (i === index ? 'w-5 bg-white' : 'w-1.5 bg-white/30')
-              }
-            />
-          ))}
-          <button
-            onClick={() => setPaused(p => !p)}
-            className="ml-2 text-zinc-400 hover:text-white"
-          >
-            {paused ? <Play size={10} weight="fill" /> : <Pause size={10} weight="fill" />}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
@@ -990,7 +859,7 @@ function DSRTFooter() {
 
       <div className="pt-8 border-t border-white/[0.04] flex items-center justify-between">
         <p>© 2026 DSRT Connect. All rights reserved.</p>
-        <p className="font-mono text-[11px]">BERLIN · SAN FRANCISCO · BENGALURU</p>
+        <p className="font-mono text-[11px]">MUMBAI· SAN FRANCISCO · BENGALURU</p>
       </div>
     </footer>
   )
