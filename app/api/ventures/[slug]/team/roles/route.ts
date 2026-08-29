@@ -10,13 +10,11 @@ export async function GET(
 ) {
   const { slug } = await context.params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
   try {
     const { data: venture } = await supabase.from('ventures').select('id').eq('slug', slug).single()
     if (!venture) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
 
-    // Fetch canonical + venture custom roles
     const { data: roles } = await supabase
       .from('venture_roles')
       .select('*')
@@ -24,13 +22,11 @@ export async function GET(
       .order('is_system', { ascending: false })
       .order('display_order', { ascending: true })
 
-    // Fetch all permissions
     const { data: permissions } = await supabase
       .from('venture_permissions')
       .select('*')
       .order('category', { ascending: true })
 
-    // Fetch role → permission mappings
     const roleIds = (roles || []).map(r => r.id)
     const { data: rolePerms } = await supabase
       .from('venture_role_permissions')
@@ -77,10 +73,10 @@ export async function POST(
     const { name, description, permissions = [] } = body
 
     if (!name?.trim()) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Role name is required' }, { status: 400 })
     }
 
-    const slug_id = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+    const slug_id = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now().toString(36)
 
     // Insert role
     const { data: role, error } = await supabase
@@ -96,7 +92,10 @@ export async function POST(
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Insert role error:', error)
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
 
     // Insert permissions
     if (permissions.length > 0) {
