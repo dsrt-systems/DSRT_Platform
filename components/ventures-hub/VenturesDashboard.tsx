@@ -1,23 +1,19 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { CreateVentureLandingModal } from '@/components/venture-assessment/CreateVentureLandingModal'
-import { VentureExplorePage } from '@/components/ventures-explore/VentureExplorePage' // ← NEW EXPLORE PAGE IMPORTED
+import { VentureExplorePage } from '@/components/ventures-explore/VentureExplorePage'
 import {
   Plus,
   FolderSimple, Compass, Heart, Briefcase,
   Buildings, Users, ArrowRight, CircleNotch,
   CaretDown, WarningCircle, DotsThree, MapPin,
-  ArrowSquareOut
+  ArrowSquareOut, Sparkle
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-
-// ═══════════════════════════════════════════════════════════════
-// TYPES & HELPERS
-// ═══════════════════════════════════════════════════════════════
 
 interface Venture {
   id: string
@@ -61,10 +57,6 @@ function greeting(): string {
   return 'Good night'
 }
 
-// ═══════════════════════════════════════════════════════════════
-// EXPORTED DASHBOARD ENTRYPOINT (Suspense Wrapped for Next.js)
-// ═══════════════════════════════════════════════════════════════
-
 export function VenturesDashboard() {
   return (
     <Suspense fallback={
@@ -78,16 +70,11 @@ export function VenturesDashboard() {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════
-// MAIN DASHBOARD CONTENT
-// ═══════════════════════════════════════════════════════════════
-
 function VenturesDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
 
-  // Creation modal state
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const openCreate = useCallback(() => setCreateModalOpen(true), [])
 
@@ -105,14 +92,12 @@ function VenturesDashboardContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
-  // Sort & Delete State
   const [sortOption, setSortOption] = useState<'updated' | 'created' | 'name' | 'stage'>('updated')
   const [sortOpen, setSortOpen] = useState(false)
   const [deleteModalVenture, setDeleteModalVenture] = useState<Venture | null>(null)
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
   const [deleting, setDeleting] = useState(false)
 
-  // ── Fetch user & ventures ────────────────────────────────────
   const loadWorkspaceData = useCallback(async () => {
     setLoading(true)
     setError(false)
@@ -159,9 +144,7 @@ function VenturesDashboardContent() {
     loadWorkspaceData()
   }, [loadWorkspaceData])
 
-  // ── Fetch tab-specific data ──────────────────────────────────
   useEffect(() => {
-    // Note: Explore data is now fully handled inside <VentureExplorePage />
     if (activeTab === 'following') {
       fetch('/api/ventures/following')
         .then(r => r.json())
@@ -170,7 +153,6 @@ function VenturesDashboardContent() {
     }
   }, [activeTab])
 
-  // ── Delete Venture Handler ───────────────────────────────────
   const handleConfirmDelete = async () => {
     if (!deleteModalVenture || deleteConfirmInput.trim() !== deleteModalVenture.name.trim()) {
       toast.error('Venture name does not match')
@@ -195,7 +177,6 @@ function VenturesDashboardContent() {
     }
   }
 
-  // Sort ventures logic
   const sortedVentures = [...myVentures].sort((a, b) => {
     if (sortOption === 'created') {
       return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
@@ -211,18 +192,10 @@ function VenturesDashboardContent() {
 
   const firstName = user?.profile?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || 'Founder'
 
-  // Group resources by category
-  const resourcesByCategory = resources.reduce((acc, res) => {
-    if (!acc[res.category]) acc[res.category] = []
-    acc[res.category].push(res)
-    return acc
-  }, {} as Record<string, any[]>)
-
   return (
     <div className="flex-1 min-h-screen bg-[#09090b] text-white pb-24 font-sans">
       <div className="max-w-[1240px] mx-auto px-4 md:px-6 pt-8">
 
-        {/* ── Greeting Header ───────────────────────────────────── */}
         <div className="flex items-end justify-between mb-8">
           <div>
             <h1 className="text-[26px] sm:text-[30px] font-bold tracking-tight text-white leading-snug">
@@ -244,7 +217,6 @@ function VenturesDashboardContent() {
           </button>
         </div>
 
-        {/* ── Venture Navigation Tabs ────────────────────────────── */}
         <div className="border-b border-white/[0.08] mb-8">
           <div className="flex gap-6 -mb-px overflow-x-auto scrollbar-hide">
             {TABS.map(tab => {
@@ -265,11 +237,8 @@ function VenturesDashboardContent() {
           </div>
         </div>
 
-        {/* ── MY VENTURES TAB WORKSPACE ───────────────────────────── */}
         {activeTab === 'my-ventures' && (
           <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 items-start">
-            
-            {/* LEFT COLUMN: Information Guidance Rail */}
             <div className="space-y-4">
               <InfoPanel
                 title="BUILD WITH INTENT"
@@ -302,10 +271,7 @@ function VenturesDashboardContent() {
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Ventures List */}
             <div className="min-w-0">
-              
-              {/* Create Venture Panel */}
               <div className="bg-[#121215] border border-white/[0.06] rounded-2xl p-8 mb-8 flex flex-col items-center text-center shadow-sm">
                 <h2 className="text-[18px] font-bold text-white mb-2">Start a new venture</h2>
                 <p className="text-[13.5px] text-zinc-400 max-w-md mx-auto mb-6 leading-relaxed">
@@ -319,7 +285,6 @@ function VenturesDashboardContent() {
                 </button>
               </div>
 
-              {/* List Header */}
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-[16px] font-bold text-white">Your ventures</h2>
@@ -369,7 +334,6 @@ function VenturesDashboardContent() {
                 </div>
               </div>
 
-              {/* State Machine */}
               {loading ? (
                 <div className="space-y-4">
                   {[1, 2].map(i => (
@@ -420,14 +384,12 @@ function VenturesDashboardContent() {
           </div>
         )}
 
-        {/* ── EXPLORE TAB (Global Discovery Engine) ──────────────── */}
         {activeTab === 'explore' && (
           <div className="pt-2">
             <VentureExplorePage />
           </div>
         )}
 
-        {/* ── FOLLOWING TAB ──────────────────────────────────────── */}
         {activeTab === 'following' && (
           <div>
             {followingVentures.length === 0 ? (
@@ -456,7 +418,6 @@ function VenturesDashboardContent() {
           </div>
         )}
 
-        {/* ── APPLICATIONS TAB ───────────────────────────────────── */}
         {activeTab === 'applications' && (
           <div className="rounded-2xl border border-dashed border-white/[0.1] p-12 text-center bg-[#121215]/50">
             <Briefcase size={28} className="mx-auto mb-3 text-zinc-600" />
@@ -473,17 +434,14 @@ function VenturesDashboardContent() {
           </div>
         )}
 
-        {/* FOUNDER RESOURCES SECTION */}
         {activeTab !== 'explore' && (
-          <FounderResourcesSection resourcesByCategory={resourcesByCategory} />
+          <FounderResourcesMarquee resources={resources} />
         )}
 
-        {/* DSRT FOOTER */}
         <DSRTFooter />
 
       </div>
 
-      {/* Delete Venture Modal */}
       {deleteModalVenture && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDeleteModalVenture(null)}>
           <div className="bg-[#121215] border border-white/[0.1] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
@@ -523,7 +481,6 @@ function VenturesDashboardContent() {
         </div>
       )}
 
-      {/* Venture creation assessment modal */}
       <CreateVentureLandingModal
         open={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
@@ -532,9 +489,6 @@ function VenturesDashboardContent() {
   )
 }
 
-/* ─────────────────────────────────────────────────────────────
-   COMPONENT: InfoPanel (Guidance Card)
-────────────────────────────────────────────────────────────── */
 function InfoPanel({ title, text, linkText, linkHref }: { title: string; text: string; linkText: string; linkHref: string }) {
   return (
     <div className="p-5 border border-white/[0.04] rounded-xl bg-[#121215]">
@@ -547,9 +501,6 @@ function InfoPanel({ title, text, linkText, linkHref }: { title: string; text: s
   )
 }
 
-/* ─────────────────────────────────────────────────────────────
-   COMPONENT: ServicesPanel (Bridge into DSRT Ecosystem)
-────────────────────────────────────────────────────────────── */
 function ServicesPanel() {
   return (
     <div className="p-5 border border-white/[0.04] rounded-xl bg-[#121215] space-y-3">
@@ -586,9 +537,6 @@ function ServicesPanel() {
   )
 }
 
-/* ─────────────────────────────────────────────────────────────
-   COMPONENT: VentureHorizontalCard (Horizontal Operational Card)
-────────────────────────────────────────────────────────────── */
 function VentureHorizontalCard({ venture, onDeleteRequest }: { venture: Venture; onDeleteRequest: (v: Venture) => void }) {
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -610,7 +558,6 @@ function VentureHorizontalCard({ venture, onDeleteRequest }: { venture: Venture;
       onClick={handleCardClick}
       className="group relative bg-[#121215] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-5 flex flex-col md:flex-row gap-5 cursor-pointer transition-all shadow-sm"
     >
-      {/* Thumbnail Container (~200x125) */}
       <div className="w-full md:w-[200px] h-[125px] rounded-xl bg-[#09090b] border border-white/[0.06] overflow-hidden flex-shrink-0 relative">
         {venture.cover_url ? (
           <img src={venture.cover_url} alt="" className="w-full h-full object-cover" />
@@ -627,7 +574,6 @@ function VentureHorizontalCard({ venture, onDeleteRequest }: { venture: Venture;
         )}
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0 flex flex-col py-0.5">
         <div className="flex items-start justify-between gap-4 mb-1">
           <div className="min-w-0">
@@ -639,7 +585,6 @@ function VentureHorizontalCard({ venture, onDeleteRequest }: { venture: Venture;
             )}
           </div>
 
-          {/* Context 3-Dot Menu */}
           <div className="relative flex-shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
@@ -689,7 +634,6 @@ function VentureHorizontalCard({ venture, onDeleteRequest }: { venture: Venture;
           </div>
         </div>
 
-        {/* Tags Row */}
         <div className="flex items-center gap-3 text-[12px] text-zinc-500 font-medium my-2">
           {venture.industry && <span>{venture.industry}</span>}
           {venture.industry && venture.stage && <span className="w-1 h-1 rounded-full bg-zinc-700" />}
@@ -698,12 +642,10 @@ function VentureHorizontalCard({ venture, onDeleteRequest }: { venture: Venture;
           {venture.location && <span className="flex items-center gap-1"><MapPin size={11} /> {venture.location}</span>}
         </div>
 
-        {/* Short Description */}
         <p className="text-[13px] text-zinc-300 line-clamp-2 leading-relaxed mb-auto">
           {venture.description || 'Provide a concise overview of the problem, product, and mission.'}
         </p>
 
-        {/* Footer Metrics */}
         <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div>
@@ -738,63 +680,115 @@ function VentureHorizontalCard({ venture, onDeleteRequest }: { venture: Venture;
 }
 
 /* ─────────────────────────────────────────────────────────────
-   COMPONENT: FounderResourcesSection
+   COMPONENT: FounderResourcesMarquee (Auto-Scrolling Loop)
 ────────────────────────────────────────────────────────────── */
-function FounderResourcesSection({ resourcesByCategory }: { resourcesByCategory: Record<string, any[]> }) {
-  const categories = Object.keys(resourcesByCategory)
+function FounderResourcesMarquee({ resources }: { resources: any[] }) {
+  const [isPaused, setIsPaused] = useState(false)
+  const [duplicated, setDuplicated] = useState<any[]>([])
 
-  if (categories.length === 0) return null
+  useEffect(() => {
+    if (resources.length > 0) {
+      // Duplicate the array 3x for seamless infinite loop
+      setDuplicated([...resources, ...resources, ...resources])
+    }
+  }, [resources])
+
+  if (resources.length === 0) return null
 
   return (
     <div className="mt-20 pt-12 border-t border-white/[0.08]">
       <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-[19px] font-bold text-white">Resources for founders</h2>
-          <p className="text-[13.5px] text-zinc-500 mt-0.5">Curated material to help you build, validate, finance and grow your venture.</p>
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+            <Sparkle size={16} weight="fill" className="text-zinc-400" />
+          </div>
+          <div>
+            <h2 className="text-[19px] font-bold text-white">Resources for founders</h2>
+            <p className="text-[13.5px] text-zinc-500 mt-0.5">Curated essays, playbooks, and hidden gems from operators, investors, and researchers.</p>
+          </div>
         </div>
         <Link href="/resources" className="text-[12.5px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1 transition-colors">
-          View all <ArrowRight size={11} />
+          Explore library <ArrowRight size={11} />
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {categories.slice(0, 3).map((category) => (
-          <div key={category} className="bg-[#121215] border border-white/[0.06] rounded-2xl p-6 flex flex-col">
-            <p className="text-[11px] font-mono uppercase tracking-widest text-zinc-500 font-bold mb-4">{category}</p>
-            <div className="space-y-4 flex-1">
-              {resourcesByCategory[category].slice(0, 3).map((item) => (
-                <a
-                  key={item.id}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block group"
-                >
-                  <p className="text-[13px] font-semibold text-zinc-200 group-hover:text-white transition-colors leading-snug">
-                    {item.title}
-                  </p>
-                  <p className="text-[11px] text-zinc-500 mt-1 flex items-center gap-1">
-                    <span>{item.provider}</span>
-                    <ArrowSquareOut size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </p>
-                </a>
-              ))}
-            </div>
-            <div className="pt-5 mt-4 border-t border-white/[0.04]">
-              <Link href="/resources" className="text-[12px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1 transition-colors">
-                Explore {category} →
-              </Link>
-            </div>
-          </div>
-        ))}
+      {/* Marquee Container */}
+      <div
+        className="relative overflow-hidden rounded-2xl"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
+        {/* Left fade */}
+        <div className="absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-[#09090b] to-transparent pointer-events-none" />
+        {/* Right fade */}
+        <div className="absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-[#09090b] to-transparent pointer-events-none" />
+
+        <div
+          className="flex gap-4 py-2"
+          style={{
+            animation: `marquee-scroll ${resources.length * 8}s linear infinite`,
+            animationPlayState: isPaused ? 'paused' : 'running',
+            width: 'fit-content',
+          }}
+        >
+          {duplicated.map((item, idx) => (
+            <ResourceCard key={`${item.id}-${idx}`} resource={item} />
+          ))}
+        </div>
       </div>
+
+      <style jsx>{`
+        @keyframes marquee-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-33.333%); }
+        }
+      `}</style>
     </div>
   )
 }
 
-/* ─────────────────────────────────────────────────────────────
-   COMPONENT: DSRTFooter
-────────────────────────────────────────────────────────────── */
+function ResourceCard({ resource }: { resource: any }) {
+  const isHiddenGem = resource.is_hidden_gem
+  
+  return (
+    <a
+      href={resource.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex-shrink-0 w-[300px] p-5 bg-[#121215] border border-white/[0.06] hover:border-white/[0.16] rounded-xl transition-all block"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold flex-1 truncate">
+          {resource.category}
+        </p>
+        {isHiddenGem && (
+          <span className="text-[8.5px] font-mono uppercase tracking-widest text-amber-500 font-bold flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5">
+            <Sparkle size={8} weight="fill" />
+            Hidden Gem
+          </span>
+        )}
+      </div>
+
+      <p className="text-[13.5px] font-bold text-white group-hover:text-zinc-200 transition-colors leading-snug mb-2 line-clamp-2 min-h-[38px]">
+        {resource.title}
+      </p>
+
+      {resource.description && (
+        <p className="text-[11.5px] text-zinc-500 leading-relaxed line-clamp-2 mb-3 min-h-[30px]">
+          {resource.description}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.04]">
+        <p className="text-[11px] text-zinc-400 font-semibold truncate">
+          {resource.provider}
+        </p>
+        <ArrowSquareOut size={11} className="text-zinc-600 group-hover:text-white transition-colors" />
+      </div>
+    </a>
+  )
+}
+
 function DSRTFooter() {
   return (
     <footer className="mt-24 pt-12 border-t border-white/[0.08] text-[12px] text-zinc-500">

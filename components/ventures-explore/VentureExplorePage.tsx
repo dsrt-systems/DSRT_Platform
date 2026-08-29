@@ -131,10 +131,13 @@ export function VentureExplorePage() {
     return chips
   }, [filters, setFilters])
 
+  // The first module holds the title/subtitle context
+  const primaryModule = modules[0]
+
   return (
     <div className="font-sans">
       
-      {/* Top Header — Non-scrolling section */}
+      {/* Top Header */}
       <div className="space-y-6 pb-6">
         <div>
           <h2 className="text-[22px] font-bold text-white tracking-tight">Explore ventures</h2>
@@ -169,45 +172,6 @@ export function VentureExplorePage() {
           </div>
         </div>
 
-        {/* Discovery Tabs + Sort + Mobile Filter Button */}
-        <div className="flex items-center justify-between gap-4 border-b border-white/[0.08] pb-3">
-          <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide flex-1">
-            {DISCOVERY_TABS.map((mode) => (
-              <button
-                key={mode.id}
-                onClick={() => setActiveTab(mode.id)}
-                className={`text-[13.5px] font-semibold whitespace-nowrap transition-colors relative ${
-                  activeTab === mode.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {mode.label}
-                {activeTab === mode.id && (
-                  <span className="absolute left-0 right-0 -bottom-3 h-0.5 bg-white rounded-full" />
-                )}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <SortDropdown
-              value={filters.sort || 'recommended'}
-              onChange={(v) => setFilters({ ...filters, sort: v as any })}
-            />
-            <button
-              onClick={() => setMobileFiltersOpen(true)}
-              className="lg:hidden flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#121215] border border-white/[0.08] hover:border-white/[0.16] text-white text-[12px] font-semibold transition-all"
-            >
-              <FunnelSimple size={12} weight="bold" />
-              Filters
-              {activeFilterChips.length > 0 && (
-                <span className="text-[9px] font-mono text-zinc-400 bg-white/[0.06] border border-white/10 rounded px-1 py-0.5">
-                  {activeFilterChips.length}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-
         {/* Active Filter Chips */}
         {activeFilterChips.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
@@ -231,7 +195,7 @@ export function VentureExplorePage() {
           </div>
         )}
 
-        {/* Banner */}
+        {/* Banner (only when recommended + no filters) */}
         {activeTab === 'recommended' && !isFiltered && (
           <FeaturedCarousel banners={banners} />
         )}
@@ -240,7 +204,7 @@ export function VentureExplorePage() {
       {/* Workspace: Sticky Filter + Scrolling Feed */}
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         
-        {/* STICKY SIDEBAR — Only sidebar stays fixed */}
+        {/* STICKY SIDEBAR */}
         <aside className="hidden lg:block w-[260px] shrink-0 sticky top-6 max-h-[calc(100vh-4rem)] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           <FilterSidebar
             filters={filters}
@@ -249,8 +213,57 @@ export function VentureExplorePage() {
           />
         </aside>
 
-        {/* SCROLLING FEED — Content flows freely */}
-        <div className="flex-1 w-full min-w-0 space-y-10">
+        {/* FEED */}
+        <div className="flex-1 w-full min-w-0 space-y-6">
+          
+          {/* Section Header — Title + Tabs Beside It */}
+          <div className="flex items-end justify-between gap-4 flex-wrap border-b border-white/[0.08] pb-4">
+            <div>
+              <h3 className="text-[18px] font-bold text-white tracking-tight">
+                {primaryModule?.title || 'Recommended for you'}
+              </h3>
+              {primaryModule?.subtitle && (
+                <p className="text-[12.5px] text-zinc-500 mt-0.5">{primaryModule.subtitle}</p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Discovery Tabs */}
+              <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide">
+                {DISCOVERY_TABS.map((mode) => (
+                  <button
+                    key={mode.id}
+                    onClick={() => setActiveTab(mode.id)}
+                    className={`text-[12.5px] font-semibold whitespace-nowrap transition-colors ${
+                      activeTab === mode.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="w-px h-4 bg-white/10" />
+
+              <SortDropdown
+                value={filters.sort || 'recommended'}
+                onChange={(v) => setFilters({ ...filters, sort: v as any })}
+              />
+              <button
+                onClick={() => setMobileFiltersOpen(true)}
+                className="lg:hidden flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#121215] border border-white/[0.08] hover:border-white/[0.16] text-white text-[12px] font-semibold transition-all"
+              >
+                <FunnelSimple size={12} weight="bold" />
+                Filters
+                {activeFilterChips.length > 0 && (
+                  <span className="text-[9px] font-mono text-zinc-400 bg-white/[0.06] border border-white/10 rounded px-1 py-0.5">
+                    {activeFilterChips.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
           {loading ? (
             <SkeletonFeed />
           ) : error ? (
@@ -262,42 +275,20 @@ export function VentureExplorePage() {
             <EmptyState onClear={clearFilters} />
           ) : (
             <>
-              {modules.map((mod) => (
-                mod.items.length > 0 && (
-                  <div key={mod.id} className="space-y-4">
-                    {(mod.title || mod.subtitle) && (
-                      <div className="mb-2 flex items-end justify-between">
-                        <div>
-                          {mod.title && <h3 className="text-[16px] font-bold text-white tracking-tight">{mod.title}</h3>}
-                          {mod.subtitle && <p className="text-[12.5px] text-zinc-500 mt-0.5">{mod.subtitle}</p>}
-                        </div>
-                        {mod.see_all_href && (
-                          <a
-                            href={mod.see_all_href}
-                            className="text-[12px] font-semibold text-zinc-400 hover:text-white transition-colors"
-                          >
-                            See all →
-                          </a>
-                        )}
-                      </div>
-                    )}
+              {/* Continuous grid — merge all page items */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {modules.flatMap(m => m.items).map((venture, idx) => (
+                  <VentureCard
+                    key={`${venture.id}-${idx}`}
+                    venture={venture}
+                    position={idx}
+                    moduleType={modules[0]?.type}
+                    onNotInterested={removeItem}
+                  />
+                ))}
+              </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                      {mod.items.map((venture, idx) => (
-                        <VentureCard
-                          key={`${venture.id}-${mod.id}-${idx}`}
-                          venture={venture}
-                          position={idx}
-                          moduleType={mod.type}
-                          onNotInterested={removeItem}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )
-              ))}
-
-              {/* Infinite scroll sentinel — Never stops loading */}
+              {/* Sentinel for infinite scroll */}
               <div ref={sentinelRef} className="py-8 flex items-center justify-center min-h-[80px]">
                 {loadingMore && (
                   <div className="flex items-center gap-2 text-zinc-500">
@@ -311,7 +302,6 @@ export function VentureExplorePage() {
         </div>
       </div>
 
-      {/* Mobile drawer */}
       <MobileFilterDrawer
         open={mobileFiltersOpen}
         onClose={() => setMobileFiltersOpen(false)}
@@ -326,25 +316,20 @@ export function VentureExplorePage() {
 
 function SkeletonFeed() {
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-        <div className="h-5 w-48 bg-white/[0.06] rounded animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-2xl bg-[#121215] border border-white/[0.06] overflow-hidden">
-              <div className="aspect-[16/9] bg-white/[0.03] animate-pulse" />
-              <div className="p-4 space-y-3">
-                <div className="h-4 w-3/4 bg-white/[0.06] rounded animate-pulse" />
-                <div className="h-3 w-full bg-white/[0.04] rounded animate-pulse" />
-                <div className="pt-3 border-t border-white/[0.04] flex justify-between">
-                  <div className="h-3 w-20 bg-white/[0.04] rounded animate-pulse" />
-                  <div className="h-3 w-12 bg-white/[0.04] rounded animate-pulse" />
-                </div>
-              </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="rounded-2xl bg-[#121215] border border-white/[0.06] overflow-hidden">
+          <div className="aspect-[16/9] bg-white/[0.03] animate-pulse" />
+          <div className="p-4 space-y-3">
+            <div className="h-4 w-3/4 bg-white/[0.06] rounded animate-pulse" />
+            <div className="h-3 w-full bg-white/[0.04] rounded animate-pulse" />
+            <div className="pt-3 border-t border-white/[0.04] flex justify-between">
+              <div className="h-3 w-20 bg-white/[0.04] rounded animate-pulse" />
+              <div className="h-3 w-12 bg-white/[0.04] rounded animate-pulse" />
             </div>
-          ))}
+          </div>
         </div>
-      </div>
+      ))}
     </div>
   )
 }

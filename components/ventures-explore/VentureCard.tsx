@@ -25,7 +25,7 @@ export function VentureCard({ venture, onNotInterested, position = 0, moduleType
   const stageConfig = STAGES.find(s => s.id === venture.stage)
   const domainSlugs = [venture.industry, venture.sector, venture.sub_category].filter(Boolean) as string[]
 
-  // Fire 'view' impression when card enters viewport (once per session)
+  // Impression tracking
   useEffect(() => {
     if (!cardRef.current || impressionFiredRef.current) return
 
@@ -102,6 +102,13 @@ export function VentureCard({ venture, onNotInterested, position = 0, moduleType
     } catch {}
   }
 
+  // Build the metadata chip list
+  const metaTags: { label: string; type: 'sector' | 'stage' | 'location' }[] = []
+  if (venture.industry) metaTags.push({ label: venture.industry, type: 'sector' })
+  if (venture.sub_category) metaTags.push({ label: venture.sub_category, type: 'sector' })
+  if (stageConfig) metaTags.push({ label: stageConfig.label, type: 'stage' })
+  if (venture.location) metaTags.push({ label: venture.location.split(',')[0], type: 'location' })
+
   return (
     <div
       ref={cardRef}
@@ -141,8 +148,9 @@ export function VentureCard({ venture, onNotInterested, position = 0, moduleType
       </div>
 
       {/* Content */}
-      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-4 flex-1 flex flex-col space-y-3">
         <div>
+          {/* Name + Menu */}
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
@@ -153,11 +161,6 @@ export function VentureCard({ venture, onNotInterested, position = 0, moduleType
                   <CheckCircle size={14} weight="fill" className="text-blue-500 shrink-0" />
                 )}
               </div>
-              {venture.tagline && (
-                <p className="text-[12.5px] text-zinc-400 line-clamp-1 mt-0.5 leading-snug">
-                  {venture.tagline}
-                </p>
-              )}
             </div>
 
             <div className="relative shrink-0">
@@ -197,22 +200,37 @@ export function VentureCard({ venture, onNotInterested, position = 0, moduleType
             </div>
           </div>
 
-          {/* Meta Row */}
-          <div className="flex items-center gap-2 text-[11.5px] text-zinc-500 font-medium mt-2.5 flex-wrap">
-            {venture.industry && <span>{venture.industry}</span>}
-            {venture.industry && stageConfig && <span className="w-1 h-1 rounded-full bg-zinc-700" />}
-            {stageConfig && <span className="capitalize">{stageConfig.label}</span>}
-            {stageConfig && venture.location && <span className="w-1 h-1 rounded-full bg-zinc-700" />}
-            {venture.location && (
-              <span className="flex items-center gap-0.5">
-                <MapPin size={10} /> {venture.location.split(',')[0]}
-              </span>
-            )}
-          </div>
+          {/* FULL Tagline (2 lines) */}
+          {venture.tagline && (
+            <p className="text-[12.5px] text-zinc-400 line-clamp-2 mt-1 leading-snug">
+              {venture.tagline}
+            </p>
+          )}
+
+          {/* Sector + Stage + Location Chip Row */}
+          {metaTags.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-3">
+              {metaTags.map((tag, i) => (
+                <span
+                  key={i}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold border ${
+                    tag.type === 'sector'
+                      ? 'bg-white/[0.04] text-zinc-300 border-white/[0.08]'
+                      : tag.type === 'stage'
+                      ? 'bg-white/[0.06] text-white border-white/[0.12]'
+                      : 'bg-white/[0.03] text-zinc-400 border-white/[0.06]'
+                  }`}
+                >
+                  {tag.type === 'location' && <MapPin size={9} />}
+                  {tag.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Footer: Founder + Hiring Badge */}
-        <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between text-[11.5px] text-zinc-400">
+        {/* Footer: Founder + Hiring */}
+        <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between text-[11.5px] text-zinc-400 mt-auto">
           {venture.founder ? (
             <Link
               href={`/profile/${venture.founder.username}`}
@@ -237,8 +255,8 @@ export function VentureCard({ venture, onNotInterested, position = 0, moduleType
           )}
 
           {venture.is_hiring && (
-            <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-semibold text-[10.5px] border border-emerald-500/20 shadow-sm flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="px-2 py-0.5 rounded bg-white/[0.06] text-white font-semibold text-[10.5px] border border-white/[0.12] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               Hiring
             </span>
           )}

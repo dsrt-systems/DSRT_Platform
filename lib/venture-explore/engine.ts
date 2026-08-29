@@ -27,10 +27,9 @@ export class VentureExploreEngine {
     ])
 
     const cursorData = this.parseCursor(cursor)
-    const pageDepth = cursorData?.depth || 0  // How deep we've paged into the recycled catalog
-    const seenIds = cursorData?.seen || []    // IDs already shown this session
+    const pageDepth = cursorData?.depth || 0
+    const seenIds = cursorData?.seen || []
 
-    // Fetch ALL relevant ventures (not paginated)
     let query = this.supabase
       .from('ventures')
       .select(`
@@ -104,7 +103,6 @@ export class VentureExploreEngine {
       else return { modules: [], nextCursor: null }
     }
 
-    // Fetch a broad candidate pool — up to 500
     const { data: rawCandidates, error } = await query
       .order('discovery_rank_seed', { ascending: true })
       .limit(500)
@@ -121,129 +119,73 @@ export class VentureExploreEngine {
       _growth: v.trending?.[0]?.growth_rate || 0,
     }))
 
-    // === RANK ALL CANDIDATES ONCE ===
+    // === RANK ALL CANDIDATES ===
     const sortMode = filters.sort || (activeTab === 'all' ? 'recommended' : (activeTab === 'rising' ? 'rising' : activeTab === 'new' ? 'newest' : 'recommended'))
     const rankedAll = this.sortCatalog(allCandidates, sortMode, userAffinities, sessionAffinities)
 
-    // === RECYCLE PAGING: Never end ===
-    // If pageDepth > 0, we're recycling. Filter to items not-yet-shown, or if all shown, reshuffle with relevance decay
+    // === RECYCLE PAGING: Never end, YouTube-style ===
     let pageItems: ExploreVentureCard[]
     
     if (pageDepth === 0) {
-      // First page — take from the top
       pageItems = rankedAll.slice(0, PAGE_SIZE)
     } else {
-      // Later pages — filter out seen items
       const seenSet = new Set(seenIds)
       const unseen = rankedAll.filter(v => !seenSet.has(v.id))
 
       if (unseen.length >= PAGE_SIZE) {
         pageItems = unseen.slice(0, PAGE_SIZE)
       } else {
-        // Recycled — mix unseen + reshuffled old items with relevance decay
         const decayed = this.applyRelevanceDecay(rankedAll, pageDepth, seenSet)
         pageItems = [...unseen, ...decayed].slice(0, PAGE_SIZE)
       }
     }
 
-    // Build reason labels contextually based on what module this is
-    if (activeTab === 'rising') {
-      pageItems = pageItems.map(v => ({ ...v, reason_code: 'RISING', reason_label: 'Rising momentum' }))
-    } else if (activeTab === 'new') {
-      pageItems = pageItems.map(v => ({ ...v, reason_code: 'NEW', reason_label: 'Newly launched' }))
-    }
+    // === SILENT PERSONALIZATION IN REASON LABELS (Optional context — not module titles) ===
+    pageItems = pageItems.map(v => {
+      const affinityMap = new Map(userAffinities.map(a => [a.domain_slug.toLowerCase(), a.score]))
+      const sessionMap = new Map(sessionAffinities.map(a => [a.domain_slug.toLowerCase(), a.score]))
+      
+      let reasonLabel: string | undefined
 
-    // Build the next cursor with tracking
-    const newSeenIds = [...seenIds, ...pageItems.map(p => p.id)].slice(-200) // Keep last 200 seen
+      if (activeTab === 'rising') {
+        reasonLabel = 'Rising momentum'
+      } else if (activeTab === 'new') {
+        reasonLabel = 'Newly launched'
+      } else {
+        // Silent personalization — reason label appears if a strong affinity match exists
+        const sessMatch = v.domains?.find(d => sessionMap.has(d.toLowerCase()))
+        const affinityMatch = v.domains?.find(d => affinityMap.has(d.toLowerCase()))
+        
+        if (sessMatch && (sessionMap.get(sessMatch.toLowerCase()) || 0) > 5) {
+          reasonLabel = 'Based on your recent activity'
+        } else if (affinityMatch) {
+          reasonLabel = `Because you explore ${affinityMatch}`
+        } else if (v.is_verified) {
+          reasonLabel = 'Verified venture'
+        }
+      }
+
+      return { ...v, reason_label: reasonLabel }
+    })
+
+    // === BUILD SINGLE MODULE — NO ROWS ===
+    const newSeenIds = [...seenIds, ...pageItems.map(p => p.id)].slice(-200)
     const nextCursor = this.encodeCursor({ depth: pageDepth + 1, seen: newSeenIds })
 
-    // === TAB-SPECIFIC RESPONSE ===
-    
-    // For paginated/filtered/tab pages — return single catalog module
-    if (this.isFiltered(filters) || activeTab !== 'recommended' || pageDepth > 0) {
-      const moduleTitle = pageDepth === 0 ? this.getModuleTitle(activeTab, filters) : ''
-      return {
-        modules: [{
-          id: `catalog-${pageDepth}`,
-          type: 'catalog',
-          title: moduleTitle,
-          subtitle: pageDepth === 0 ? this.getModuleSubtitle(activeTab) : undefined,
-          items: pageItems
-        }],
-        nextCursor
-      }
+    // First page only shows the section title
+    const moduleTitle = pageDepth === 0 ? this.getModuleTitle(activeTab, filters) : ''
+    const moduleSubtitle = pageDepth === 0 ? this.getModuleSubtitle(activeTab) : undefined
+
+    return {
+      modules: [{
+        id: `feed-${pageDepth}`,
+        type: activeTab === 'rising' ? 'rising' : activeTab === 'new' ? 'new_and_notable' : activeTab === 'all' ? 'catalog' : 'recommended',
+        title: moduleTitle,
+        subtitle: moduleSubtitle,
+        items: pageItems
+      }],
+      nextCursor
     }
-
-    // === RECOMMENDED (INITIAL LOAD) — MULTI-MODULE ===
-    const modules: ExploreFeedModule[] = []
-
-    // 1. Editorial Featured
-    const featuredItems = allCandidates.filter(c => featuredIds.has(c.id)).slice(0, 4)
-    if (featuredItems.length > 0) {
-      modules.push({
-        id: 'editorial-mod',
-        type: 'editorial',
-        title: 'Featured by DSRT',
-        items: featuredItems.map(v => ({ ...v, reason_label: 'Editor Pick' }))
-      })
-    }
-
-    // 2. Recommended (MMR ranked)
-    const recommendedItems = rankedAll
-      .filter(v => !featuredIds.has(v.id))
-      .slice(0, 8)
-    if (recommendedItems.length > 0) {
-      modules.push({
-        id: 'recommended-mod',
-        type: 'recommended',
-        title: 'Recommended for you',
-        subtitle: 'Curated based on your interests and activity',
-        items: recommendedItems
-      })
-    }
-
-    // 3. Rising (uses growth_rate from DB)
-    const risingItems = [...allCandidates]
-      .filter(c => !featuredIds.has(c.id))
-      .sort((a: any, b: any) => b._growth - a._growth)
-      .slice(0, 8)
-      .map(v => ({ ...v, reason_code: 'RISING', reason_label: 'Rising in momentum' }))
-
-    if (risingItems.length > 0) {
-      modules.push({
-        id: 'rising-mod',
-        type: 'rising',
-        title: 'Rising across DSRT',
-        items: risingItems,
-        see_all_href: '?vtab=rising'
-      })
-    }
-
-    // 4. Because you explore [domain]
-    const topAffinity = sessionAffinities[0] || userAffinities[0]
-    if (topAffinity) {
-      const affinityDomain = topAffinity.domain_slug
-      const domainItems = allCandidates
-        .filter(v => v.domains?.some(d => d.toLowerCase().includes(affinityDomain.toLowerCase())))
-        .slice(0, 8)
-        .map(v => ({ ...v, reason_code: 'DOMAIN_AFFINITY', reason_label: `Because you explore ${affinityDomain}` }))
-
-      if (domainItems.length > 0) {
-        modules.push({
-          id: 'affinity-mod',
-          type: 'domain_affinity',
-          title: `Because you explore ${affinityDomain}`,
-          items: domainItems,
-          see_all_href: `?domain=${encodeURIComponent(affinityDomain)}`
-        })
-      }
-    }
-
-    // Track seen items for infinite scroll continuation
-    const initialSeenIds = modules.flatMap(m => m.items.map(i => i.id))
-    const initialCursor = this.encodeCursor({ depth: 1, seen: initialSeenIds })
-
-    return { modules, nextCursor: initialCursor }
   }
 
   private getModuleTitle(activeTab: string, filters: ExploreFilterState): string {
@@ -251,22 +193,21 @@ export class VentureExploreEngine {
     if (activeTab === 'rising') return 'Rising across DSRT'
     if (activeTab === 'new') return 'New ventures'
     if (activeTab === 'all') return 'All Ventures'
-    return ''
+    return 'Recommended for you'
   }
 
   private getModuleSubtitle(activeTab: string): string | undefined {
-    if (activeTab === 'rising') return 'Ranked by engagement growth'
-    if (activeTab === 'new') return 'Recently launched on DSRT'
+    if (activeTab === 'rising') return 'Ventures gaining engagement momentum'
+    if (activeTab === 'new') return 'Recently launched on DSRT Connect'
+    if (activeTab === 'recommended') return 'Curated based on your interests and activity'
     return undefined
   }
 
-  // === RELEVANCE DECAY (YouTube-style continuous scroll) ===
   private applyRelevanceDecay(
     allRanked: ExploreVentureCard[],
     depth: number,
     seenSet: Set<string>
   ): ExploreVentureCard[] {
-    // On deeper pages, reshuffle less-relevant items with higher randomness
     const decayFactor = Math.max(0.3, 1 - (depth * 0.15))
     
     const pool = allRanked.map(v => {
@@ -275,13 +216,11 @@ export class VentureExploreEngine {
       return { ...v, _score: decayedScore }
     })
 
-    // Shuffle to prevent identical results
     return pool
       .sort((a: any, b: any) => b._score - a._score)
       .filter(v => !seenSet.has(v.id))
   }
 
-  // === TRUE MMR DIVERSIFICATION RANKING ===
   private rankCandidatesMMR(
     candidates: ExploreVentureCard[], 
     affinities: { domain_slug: string; score: number }[],
@@ -298,19 +237,12 @@ export class VentureExploreEngine {
 
     const scored = candidates.map(v => {
       let score = 0
-      const reasons: string[] = []
 
       const domScore = (v.domains || []).reduce((acc, d) => acc + (affinityMap.get(d.toLowerCase()) || 0), 0)
-      if (domScore > 0) {
-        score += domScore * domainWeight
-        reasons.push(`Because you explore ${v.domains?.[0]}`)
-      }
+      if (domScore > 0) score += domScore * domainWeight
 
       const sessScore = (v.domains || []).reduce((acc, d) => acc + (sessionMap.get(d.toLowerCase()) || 0), 0)
-      if (sessScore > 0) {
-        score += sessScore * sessionBoostWeight
-        reasons.unshift(`Based on your recent activity`)
-      }
+      if (sessScore > 0) score += sessScore * sessionBoostWeight
 
       score += (v as any)._bayesian * bayesianWeight
 
@@ -319,11 +251,7 @@ export class VentureExploreEngine {
       const hoursAgo = (Date.now() - new Date(v.last_activity_at || v.created_at || Date.now()).getTime()) / 3600000
       score += Math.max(0, 20 - (hoursAgo / 24))
 
-      return {
-        ...v,
-        _score: score,
-        reason_label: reasons[0] || (v.is_verified ? 'Verified' : undefined)
-      }
+      return { ...v, _score: score }
     })
 
     // MMR Selection
@@ -371,10 +299,6 @@ export class VentureExploreEngine {
     return this.rankCandidatesMMR(c, a, sa)
   }
 
-  private isFiltered(f: ExploreFilterState): boolean {
-    return !!(f.search || f.domains?.length || f.stages?.length || f.locations?.length || f.venture_types?.length || f.business_models?.length || f.team_sizes?.length || f.funding_stages?.length || f.is_verified || f.is_hiring || f.is_seeking_investment || f.is_seeking_cofounder || f.is_newly_launched)
-  }
-  
   private parseCursor(c?: string): { depth: number; seen: string[] } | null {
     if (!c) return null
     try {
