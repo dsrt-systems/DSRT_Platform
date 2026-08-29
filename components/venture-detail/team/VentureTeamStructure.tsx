@@ -23,9 +23,9 @@ export function VentureTeamStructure({ venture, slug, isOwner, currentUserId }: 
   const [view, setView] = useState<'graph' | 'members' | 'roles'>('graph')
   const [loading, setLoading] = useState(true)
   const [graphData, setGraphData] = useState<any>(null)
-  
+
   const [selectedPositionId, setSelectedPositionId] = useState<string | null>(null)
-  
+
   // Modals
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
@@ -102,9 +102,9 @@ export function VentureTeamStructure({ venture, slug, isOwner, currentUserId }: 
         </div>
       ) : view === 'graph' && graphData ? (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 relative">
-          
+
           {isOwner && (
-            <button 
+            <button
               onClick={handleAdd}
               className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-white text-black px-3 h-8 rounded-md text-[12px] font-bold shadow-lg hover:bg-zinc-200 transition-colors"
             >
@@ -113,9 +113,9 @@ export function VentureTeamStructure({ venture, slug, isOwner, currentUserId }: 
           )}
 
           <div className="bg-[#09090b] border border-white/[0.06] rounded-2xl overflow-hidden shadow-inner relative h-[600px]">
-            <TeamGraphCanvas 
+            <TeamGraphCanvas
               slug={slug}
-              data={graphData} 
+              data={graphData}
               isOwner={isOwner}
               onNodeSelect={setSelectedPositionId}
               onRefresh={loadGraph}
@@ -123,7 +123,7 @@ export function VentureTeamStructure({ venture, slug, isOwner, currentUserId }: 
           </div>
 
           <div>
-            <PositionInspector 
+            <PositionInspector
               position={selectedPosition}
               memberships={graphData.memberships.filter((m: any) => m.position_id === selectedPositionId)}
               isOwner={isOwner}
@@ -140,7 +140,12 @@ export function VentureTeamStructure({ venture, slug, isOwner, currentUserId }: 
       ) : view === 'members' && graphData ? (
         <TeamDirectory memberships={graphData.memberships} positions={graphData.positions} />
       ) : view === 'roles' && graphData ? (
-        <TeamOpenRoles positions={graphData.positions} isOwner={isOwner} />
+        <TeamOpenRoles
+          positions={graphData.positions}
+          isOwner={isOwner}
+          slug={slug}
+          ventureId={venture.id}
+        />
       ) : null}
 
       {/* Modals */}

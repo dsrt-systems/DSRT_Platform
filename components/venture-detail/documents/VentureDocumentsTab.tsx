@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CircleNotch, BookOpen, Plus } from '@phosphor-icons/react'
+import { CircleNotch, BookOpen, Plus, Upload } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { DocumentSidebar } from './DocumentSidebar'
 import { BlockDocumentEditor } from './BlockDocumentEditor'
@@ -19,7 +19,6 @@ export function VentureDocumentsTab({ slug, isOwner }: Props) {
   const [loadingDoc, setLoadingDoc] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('all')
 
-  // Load document list
   const loadDocuments = useCallback(async () => {
     setLoadingList(true)
     try {
@@ -32,7 +31,6 @@ export function VentureDocumentsTab({ slug, isOwner }: Props) {
       const docs = json.documents || []
       setDocuments(docs)
 
-      // Auto-select first document if none selected
       if (!activeDocId && docs.length > 0) {
         setActiveDocId(docs[0].id)
       }
@@ -45,7 +43,6 @@ export function VentureDocumentsTab({ slug, isOwner }: Props) {
 
   useEffect(() => { loadDocuments() }, [loadDocuments])
 
-  // Load single active document details
   const loadSingleDoc = useCallback(async (docId: string) => {
     setLoadingDoc(true)
     try {
@@ -66,16 +63,16 @@ export function VentureDocumentsTab({ slug, isOwner }: Props) {
     else setActiveDoc(null)
   }, [activeDocId, loadSingleDoc])
 
-  // Create new document
-  const handleCreateDocument = async (category = 'General') => {
+  const handleCreateDocument = async (parentId?: string, category = 'General') => {
     try {
       const res = await fetch(`/api/ventures/${slug}/documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: 'Untitled document',
+          title: 'Untitled Document',
           category,
           icon: '📄',
+          parent_document_id: parentId || null
         }),
       })
       const json = await res.json()
@@ -89,9 +86,8 @@ export function VentureDocumentsTab({ slug, isOwner }: Props) {
     }
   }
 
-  // Delete document
   const handleDeleteDocument = async (docId: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) return
+    if (!confirm('Are you sure you want to delete this document? All nested elements will disconnect.')) return
     try {
       const res = await fetch(`/api/ventures/${slug}/documents/${docId}`, {
         method: 'DELETE',
@@ -109,23 +105,78 @@ export function VentureDocumentsTab({ slug, isOwner }: Props) {
     }
   }
 
+  // Quick Plaintext/PDF Upload parsing simulator to construct blocks from local source
+  const handleImportFile = () => {
+    const fileInput = document.createElement('input')
+    fileInput.type = 'file'
+    fileInput.accept = '.txt,.json'
+    fileInput.onchange = async (e: any) => {
+      const file = e.target.files[0]
+      if (!file) return
+
+      const reader = new FileReader()
+      reader.onload = async (event: any) => {
+        try {
+          const rawContent = event.target.result
+          const blocks = rawContent.split('\n\n').map((para: string, idx: number) => ({
+            id: `imported_blk_${idx}_${Date.now()}`,
+            type: 'paragraph',
+            content: para.trim()
+          }))
+
+          const res = await fetch(`/api/ventures/${slug}/documents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: file.name.replace(/\.[^/.]+$/, ""),
+              category: 'General',
+              icon: '📎',
+              content_blocks: blocks
+            }),
+          })
+          const json = await res.json()
+          if (!res.ok) throw new Error()
+
+          toast.success('Import Successful!')
+          await loadDocuments()
+          setActiveDocId(json.document.id)
+        } catch {
+          toast.error('Could not import selected document structural data.')
+        }
+      }
+      reader.readAsText(file)
+    }
+    fileInput.click()
+  }
+
   return (
     <div className="bg-[#121215] border border-white/[0.06] rounded-2xl overflow-hidden min-h-[650px] grid grid-cols-1 lg:grid-cols-[280px_1fr]">
-      
-      {/* LEFT: Sidebar Navigation & Tree */}
-      <DocumentSidebar
-        documents={documents}
-        activeDocId={activeDocId}
-        loading={loadingList}
-        selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-        onSelectDoc={setActiveDocId}
-        onCreateDoc={handleCreateDocument}
-        onDeleteDoc={handleDeleteDocument}
-        isOwner={isOwner}
-      />
+      <div className="flex flex-col h-full">
+        <div className="flex-1">
+          <DocumentSidebar
+            documents={documents}
+            activeDocId={activeDocId}
+            loading={loadingList}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            onSelectDoc={setActiveDocId}
+            onCreateDoc={handleCreateDocument}
+            onDeleteDoc={handleDeleteDocument}
+            isOwner={isOwner}
+          />
+        </div>
+        {isOwner && (
+          <div className="p-3 border-t border-zinc-800 bg-[#0d0d10]">
+            <button
+              onClick={handleImportFile}
+              className="w-full flex items-center justify-center gap-2 text-[11.5px] py-2 border border-dashed border-zinc-800 hover:border-zinc-600 rounded-lg text-zinc-400 hover:text-white transition-colors"
+            >
+              <Upload size={12} /> Import Document File
+            </button>
+          </div>
+        )}
+      </div>
 
-      {/* RIGHT: Document Workspace Area */}
       <div className="flex-1 min-w-0 flex flex-col bg-[#09090b]">
         {loadingDoc ? (
           <div className="flex-1 flex items-center justify-center text-zinc-500 text-xs gap-2">
@@ -149,7 +200,7 @@ export function VentureDocumentsTab({ slug, isOwner }: Props) {
             </div>
             <h3 className="text-[15px] font-bold text-white mb-1">No Document Selected</h3>
             <p className="text-[12.5px] text-zinc-400 max-w-sm mb-6">
-              Select a document from the sidebar to view or edit knowledge base articles.
+              Select a document from the sidebar directory folder structure to render knowledge content assets.
             </p>
             {isOwner && (
               <button
@@ -162,7 +213,6 @@ export function VentureDocumentsTab({ slug, isOwner }: Props) {
           </div>
         )}
       </div>
-
     </div>
   )
 }

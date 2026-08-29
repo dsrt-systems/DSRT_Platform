@@ -37,6 +37,7 @@ export function Step01_Venture() {
         <div className="mt-3">
           <LogoUploader
             ventureId={venture.id}
+            ventureSlug={venture.slug}
             ventureName={s.name}
             currentUrl={s.logo_url}
             onChange={(url: string | null) => updateStepField(1, { logo_url: url })}

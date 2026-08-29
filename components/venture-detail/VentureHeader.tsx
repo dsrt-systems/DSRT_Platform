@@ -1,11 +1,13 @@
 ﻿'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Camera, Heart, Share, DotsThree, X, Check } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { ConnectButton } from '@/components/shared/ConnectButton'
 import { AssessmentBadge } from '@/components/venture-assessment/AssessmentBadge'
+import { BrandAssetCropper } from './brand/BrandAssetCropper'
 
 interface Props {
   venture: any
@@ -34,7 +36,7 @@ const STAGES = [
 ]
 
 export function VentureHeader({
-  venture,
+  venture: initialVenture,
   founder,
   isOwner,
   isFollowing,
@@ -43,41 +45,56 @@ export function VentureHeader({
   stats,
 }: Props) {
   const router = useRouter()
-  const [uploading, setUploading] = useState<'cover' | 'logo' | null>(null)
+  const supabase = createClient()
+  const [venture, setVenture] = useState(initialVenture)
+
+  const [cropperOpen, setCropperOpen] = useState<'logo' | 'cover' | null>(null)
   const [editingName, setEditingName] = useState(false)
   const [editingTagline, setEditingTagline] = useState(false)
   const [editingStage, setEditingStage] = useState(false)
   const [nameDraft, setNameDraft] = useState(venture.name)
   const [taglineDraft, setTaglineDraft] = useState(venture.tagline || '')
   const [stageDraft, setStageDraft] = useState(venture.stage || 'idea')
-  const [cropperFile, setCropperFile] = useState<{ file: File; kind: 'cover' | 'logo' } | null>(null)
-  const coverInputRef = useRef<HTMLInputElement>(null)
-  const logoInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>, kind: 'cover' | 'logo') => {
-    const file = e.target.files?.[0]
-    if (file) setCropperFile({ file, kind })
-    e.target.value = ''
-  }
+  // ─── Real-time sync: listen for venture updates from anywhere ───
+  useEffect(() => {
+    if (!venture.id) return
 
-  const uploadCropped = async (blob: Blob, kind: 'cover' | 'logo') => {
-    setUploading(kind)
-    try {
-      const fd = new FormData()
-      fd.append('file', blob, kind + '.jpg')
-      fd.append('kind', kind)
-      const res = await fetch('/api/ventures/' + venture.slug + '/media', { method: 'POST', body: fd })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Upload failed')
-      const patchKey = kind === 'logo' ? 'logo_url' : 'cover_url'
-      await onUpdate({ [patchKey]: json.url })
-      toast.success((kind === 'logo' ? 'Logo' : 'Cover') + ' updated')
-    } catch (e: any) {
-      toast.error(e?.message || 'Upload failed')
-    } finally {
-      setUploading(null)
-      setCropperFile(null)
-    }
+    const channel = supabase
+      .channel(`venture:${venture.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'ventures',
+          filter: `id=eq.${venture.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as any
+          setVenture((prev: any) => ({ ...prev, ...updated }))
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [venture.id, supabase])
+
+  // Sync state when parent updates
+  useEffect(() => {
+    setVenture(initialVenture)
+    setNameDraft(initialVenture.name)
+    setTaglineDraft(initialVenture.tagline || '')
+    setStageDraft(initialVenture.stage || 'idea')
+  }, [initialVenture])
+
+  const handleAssetSuccess = (kind: 'logo' | 'cover', url: string) => {
+    setVenture((prev: any) => ({
+      ...prev,
+      [kind === 'logo' ? 'logo_url' : 'cover_url']: url,
+    }))
+    // Also propagate up so parent VentureDetailPage state stays in sync
+    onUpdate({ [kind === 'logo' ? 'logo_url' : 'cover_url']: url }).catch(() => {})
   }
 
   const currentStage = STAGES.find(s => s.value === (venture.stage || 'idea'))?.label || 'Idea'
@@ -118,17 +135,13 @@ export function VentureHeader({
           <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
 
           {isOwner && (
-            <>
-              <input ref={coverInputRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e, 'cover')} />
-              <button
-                onClick={() => coverInputRef.current?.click()}
-                disabled={uploading === 'cover'}
-                className="absolute top-4 right-4 flex items-center gap-1.5 text-[12px] font-semibold text-white bg-black/60 backdrop-blur-md border border-white/20 hover:bg-black/80 px-3 h-8 rounded-lg transition-colors z-20"
-              >
-                <Camera size={13} weight="regular" />
-                {uploading === 'cover' ? 'Uploading...' : 'Change cover'}
-              </button>
-            </>
+            <button
+              onClick={() => setCropperOpen('cover')}
+              className="absolute top-4 right-4 flex items-center gap-1.5 text-[12px] font-semibold text-white bg-black/60 backdrop-blur-md border border-white/20 hover:bg-black/80 px-3 h-8 rounded-lg transition-colors z-20"
+            >
+              <Camera size={13} weight="regular" />
+              {venture.cover_url ? 'Change cover' : 'Add cover'}
+            </button>
           )}
 
           <div className="absolute inset-x-0 bottom-0 px-6 md:px-8 pb-6 md:pb-7 z-10">
@@ -144,17 +157,13 @@ export function VentureHeader({
                   )}
                 </div>
                 {isOwner && (
-                  <>
-                    <input ref={logoInputRef} type="file" accept="image/*" hidden onChange={(e) => handleFile(e, 'logo')} />
-                    <button
-                      onClick={() => logoInputRef.current?.click()}
-                      disabled={uploading === 'logo'}
-                      className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/80 backdrop-blur-md border border-white/25 hover:bg-black flex items-center justify-center transition-colors"
-                      title="Change logo"
-                    >
-                      <Camera size={13} weight="regular" className="text-white" />
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setCropperOpen('logo')}
+                    className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/80 backdrop-blur-md border border-white/25 hover:bg-black flex items-center justify-center transition-colors"
+                    title="Change logo"
+                  >
+                    <Camera size={13} weight="regular" className="text-white" />
+                  </button>
                 )}
               </div>
 
@@ -293,7 +302,6 @@ export function VentureHeader({
                 </div>
               </div>
 
-              {/* Desktop action buttons */}
               <div className="hidden md:flex items-center gap-2 flex-shrink-0 self-end mb-1">
                 {!isOwner && (
                   <>
@@ -335,7 +343,6 @@ export function VentureHeader({
           </div>
         </div>
 
-        {/* Mobile action bar */}
         {!isOwner && (
           <div className="md:hidden px-4 py-3 border-t border-white/[0.06] grid grid-cols-2 gap-2">
             <ConnectButton
@@ -360,6 +367,19 @@ export function VentureHeader({
           </div>
         )}
       </div>
+
+      {/* ─── Cropper Modals ─── */}
+      {cropperOpen && (
+        <BrandAssetCropper
+          open={!!cropperOpen}
+          kind={cropperOpen}
+          slug={venture.slug}
+          currentUrl={cropperOpen === 'logo' ? venture.logo_url : venture.cover_url}
+          currentCropMetadata={cropperOpen === 'logo' ? venture.logo_crop_metadata : venture.cover_crop_metadata}
+          onClose={() => setCropperOpen(null)}
+          onSuccess={(url) => handleAssetSuccess(cropperOpen, url)}
+        />
+      )}
     </>
   )
 }

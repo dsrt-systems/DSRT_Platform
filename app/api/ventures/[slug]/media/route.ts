@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * GET /api/ventures/[slug]/media
+ * Query params: type, featured, limit, offset
+ */
 export async function GET(
   req: Request,
   context: { params: Promise<{ slug: string }> }
@@ -12,8 +16,10 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
 
   const { searchParams } = new URL(req.url)
-  const type = searchParams.get('type') // 'image' | 'video' | 'document' | 'all'
+  const type = searchParams.get('type')
   const featuredOnly = searchParams.get('featured') === '1'
+  const limit = Math.min(parseInt(searchParams.get('limit') || '48'), 100)
+  const offset = Math.max(parseInt(searchParams.get('offset') || '0'), 0)
 
   try {
     const { data: venture } = await supabase
@@ -24,20 +30,23 @@ export async function GET(
 
     if (!venture) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
 
-    const isMember = user && await supabase.rpc('is_venture_owner_or_member', {
-      p_venture_id: venture.id,
-      p_user_id: user.id
-    })
+    let isMember = false
+    if (user) {
+      const { data: memberCheck } = await supabase.rpc('is_venture_owner_or_member', {
+        p_venture_id: venture.id,
+        p_user_id: user.id
+      })
+      isMember = !!memberCheck
+    }
 
     let query = supabase
       .from('venture_media_assets')
-      .select('*')
+      .select('*, uploader:users!uploaded_by(id, full_name, username, avatar_url)', { count: 'exact' })
       .eq('venture_id', venture.id)
       .is('deleted_at', null)
       .order('position', { ascending: true })
       .order('created_at', { ascending: false })
 
-    // Privacy filter
     if (!isMember) {
       query = query.eq('visibility', 'public')
     }
@@ -50,17 +59,25 @@ export async function GET(
       query = query.eq('featured', true)
     }
 
-    const { data: media, error } = await query
+    const { data: media, count, error } = await query.range(offset, offset + limit - 1)
 
     if (error) throw error
 
-    return NextResponse.json({ media: media || [] })
+    return NextResponse.json({
+      media: media || [],
+      total: count || 0,
+      canEdit: isMember,
+    })
   } catch (e: any) {
     console.error('List media error:', e)
     return NextResponse.json({ error: e?.message || 'Failed to fetch media' }, { status: 500 })
   }
 }
 
+/**
+ * POST /api/ventures/[slug]/media
+ * Commits an uploaded asset (after direct storage upload)
+ */
 export async function POST(
   req: Request,
   context: { params: Promise<{ slug: string }> }
@@ -80,61 +97,69 @@ export async function POST(
 
     if (!venture) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
 
-    const isMember = await supabase.rpc('is_venture_owner_or_member', {
+    const { data: isMember } = await supabase.rpc('is_venture_owner_or_member', {
       p_venture_id: venture.id,
       p_user_id: user.id
     })
 
     if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const formData = await req.formData()
-    const file = formData.get('file') as File | null
-    const title = formData.get('title') as string || null
-    const description = formData.get('description') as string || null
-    const visibility = (formData.get('visibility') as string) || 'public'
-    const featured = formData.get('featured') === 'true'
+    const body = await req.json()
+    const {
+      public_url,
+      storage_path,
+      mime_type,
+      file_size,
+      media_type,
+      title,
+      description,
+      alt_text,
+      tags,
+      visibility,
+      featured,
+      width,
+      height,
+      duration_seconds,
+      crop_metadata,
+    } = body
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    if (!public_url || !storage_path || !mime_type) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Determine media type
-    let mediaType: 'image' | 'video' | 'document' | 'other' = 'other'
-    if (file.type.startsWith('image/')) mediaType = 'image'
-    else if (file.type.startsWith('video/')) mediaType = 'video'
-    else if (file.type.includes('pdf') || file.type.includes('word') || file.type.includes('document')) mediaType = 'document'
+    // Get next position for this venture
+    const { data: maxPos } = await supabase
+      .from('venture_media_assets')
+      .select('position')
+      .eq('venture_id', venture.id)
+      .is('deleted_at', null)
+      .order('position', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    // Upload to Supabase Storage
-    const ext = file.name.split('.').pop() || 'bin'
-    const storagePath = `${venture.id}/media/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const nextPosition = (maxPos?.position ?? -1) + 1
 
-    const { error: uploadErr } = await supabase.storage
-      .from('ventures')
-      .upload(storagePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type,
-      })
-
-    if (uploadErr) throw uploadErr
-
-    const { data: { publicUrl } } = supabase.storage.from('ventures').getPublicUrl(storagePath)
-
-    // Insert database record
     const { data: asset, error: dbErr } = await supabase
       .from('venture_media_assets')
       .insert({
         venture_id: venture.id,
         storage_bucket: 'ventures',
-        storage_path: storagePath,
-        asset_url: publicUrl,
-        media_type: mediaType,
-        mime_type: file.type,
-        file_size_bytes: file.size,
-        title: title || file.name,
-        description,
-        visibility,
-        featured,
+        storage_path,
+        asset_url: public_url,
+        media_type: media_type || 'other',
+        mime_type,
+        file_size_bytes: file_size || 0,
+        width: width || null,
+        height: height || null,
+        duration_seconds: duration_seconds || null,
+        title: title || null,
+        description: description || null,
+        alt_text: alt_text || null,
+        tags: tags || [],
+        crop_metadata: crop_metadata || {},
+        visibility: visibility || 'public',
+        featured: !!featured,
+        position: nextPosition,
         processing_status: 'ready',
         uploaded_by: user.id,
       })
@@ -143,18 +168,29 @@ export async function POST(
 
     if (dbErr) throw dbErr
 
-    // Audit & Outbox
-    await supabase.rpc('fn_venture_audit', {
-      p_venture_id: venture.id,
-      p_action: 'media.uploaded',
-      p_target_type: 'media',
-      p_target_id: asset.id,
-      p_after: asset
-    })
+    try {
+      await supabase.rpc('fn_venture_audit', {
+        p_venture_id: venture.id,
+        p_action: 'media.uploaded',
+        p_target_type: 'media',
+        p_target_id: asset.id,
+        p_after: asset
+      })
+    } catch {}
+
+    try {
+      await supabase.rpc('fn_venture_emit_event', {
+        p_venture_id: venture.id,
+        p_event_type: 'venture.media.created',
+        p_aggregate_type: 'media',
+        p_aggregate_id: asset.id,
+        p_payload: { media_type, public_url }
+      })
+    } catch {}
 
     return NextResponse.json({ success: true, asset })
   } catch (e: any) {
-    console.error('Upload media error:', e)
-    return NextResponse.json({ error: e?.message || 'Upload failed' }, { status: 500 })
+    console.error('Media commit error:', e)
+    return NextResponse.json({ error: e?.message || 'Failed to commit' }, { status: 500 })
   }
 }

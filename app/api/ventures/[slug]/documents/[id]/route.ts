@@ -25,12 +25,14 @@ export async function GET(
 
     if (error || !doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 
-    const isMember = user && await supabase.rpc('is_venture_owner_or_member', {
-      p_venture_id: venture.id,
-      p_user_id: user.id
-    })
+    const { data: isMemberResult } = user
+      ? await supabase.rpc('is_venture_owner_or_member', {
+          p_venture_id: venture.id,
+          p_user_id: user.id
+        })
+      : { data: false }
 
-    if (!isMember && doc.visibility !== 'public') {
+    if (!isMemberResult && doc.visibility !== 'public') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -54,12 +56,12 @@ export async function PATCH(
     const { data: venture } = await supabase.from('ventures').select('id').eq('slug', slug).single()
     if (!venture) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
 
-    const isMember = await supabase.rpc('is_venture_owner_or_member', {
+    const { data: isMemberResult } = await supabase.rpc('is_venture_owner_or_member', {
       p_venture_id: venture.id,
       p_user_id: user.id
     })
 
-    if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!isMemberResult) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()
     const allowed = [
@@ -77,7 +79,6 @@ export async function PATCH(
       if (key in body) patch[key] = body[key]
     }
 
-    // Auto-derive content_text if content_blocks provided
     if (Array.isArray(body.content_blocks)) {
       const textParts = body.content_blocks
         .map((b: any) => b.content || b.title || '')
@@ -85,16 +86,14 @@ export async function PATCH(
       patch.content_text = [body.title || '', ...textParts].join(' ')
     }
 
-    // Fetch existing for version increment
     const { data: before } = await supabase
       .from('venture_documents')
-      .select('version')
+      .select('version, title, icon, category, content_blocks, content_text')
       .eq('id', id)
       .single()
 
-    if (before) {
-      patch.version = (before.version || 1) + 1
-    }
+    const nextVersion = before ? (before.version || 1) + 1 : 1
+    patch.version = nextVersion
 
     const { data: doc, error } = await supabase
       .from('venture_documents')
@@ -106,13 +105,35 @@ export async function PATCH(
 
     if (error) throw error
 
-    await supabase.rpc('fn_venture_audit', {
-      p_venture_id: venture.id,
-      p_action: 'document.updated',
-      p_target_type: 'document',
-      p_target_id: id,
-      p_after: doc
-    })
+    // Snapshot the OLD state as a historical version (fixed: use upsert with ignoreDuplicates)
+    if (before) {
+      await supabase
+        .from('venture_document_versions')
+        .upsert(
+          {
+            document_id: id,
+            venture_id: venture.id,
+            version: before.version || 1,
+            title: before.title,
+            icon: before.icon,
+            category: before.category,
+            content_blocks: before.content_blocks || [],
+            content_text: before.content_text || '',
+            edited_by: user.id
+          },
+          { onConflict: 'document_id,version', ignoreDuplicates: true }
+        )
+    }
+
+    try {
+      await supabase.rpc('fn_venture_audit', {
+        p_venture_id: venture.id,
+        p_action: 'document.updated',
+        p_target_type: 'document',
+        p_target_id: id,
+        p_after: doc
+      })
+    } catch {}
 
     return NextResponse.json({ success: true, document: doc })
   } catch (e: any) {
@@ -134,12 +155,12 @@ export async function DELETE(
     const { data: venture } = await supabase.from('ventures').select('id').eq('slug', slug).single()
     if (!venture) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
 
-    const isMember = await supabase.rpc('is_venture_owner_or_member', {
+    const { data: isMemberResult } = await supabase.rpc('is_venture_owner_or_member', {
       p_venture_id: venture.id,
       p_user_id: user.id
     })
 
-    if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!isMemberResult) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { data: doc, error } = await supabase
       .from('venture_documents')
@@ -151,13 +172,15 @@ export async function DELETE(
 
     if (error) throw error
 
-    await supabase.rpc('fn_venture_audit', {
-      p_venture_id: venture.id,
-      p_action: 'document.deleted',
-      p_target_type: 'document',
-      p_target_id: id,
-      p_before: doc
-    })
+    try {
+      await supabase.rpc('fn_venture_audit', {
+        p_venture_id: venture.id,
+        p_action: 'document.deleted',
+        p_target_type: 'document',
+        p_target_id: id,
+        p_before: doc
+      })
+    } catch {}
 
     return NextResponse.json({ success: true })
   } catch (e: any) {

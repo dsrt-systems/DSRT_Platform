@@ -1,60 +1,92 @@
 ﻿'use client'
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Info, Question, Newspaper, Image as ImageIcon, BookOpen, UsersThree,
-  Gear, ShareNetwork, BookmarkSimple, DotsThreeOutline, ChartBar, Bell
+  Info,
+  Question,
+  Newspaper,
+  Image as ImageIcon,
+  BookOpen,
+  UsersThree,
+  Briefcase,
+  Gear,
+  ShareNetwork,
+  BookmarkSimple,
+  DotsThreeOutline,
+  ChartBar,
+  Bell,
+  Package,
+  ChartLineUp
 } from '@phosphor-icons/react'
 
 import { VentureHeader } from './VentureHeader'
 import { VentureSidebar } from './VentureSidebar'
 import { VentureOverview } from './VentureOverview'
 import { VentureQuestionsTab } from './questions/VentureQuestionsTab'
+import { VentureProducts } from './products/VentureProducts'
+import { VentureGrowth } from './growth/VentureGrowth'
 import { VentureUpdates } from './updates/VentureUpdates'
 import { VentureMediaTab } from './media/VentureMediaTab'
 import { VentureDocumentsTab } from './documents/VentureDocumentsTab'
 import { VentureTeamStructure } from './team/VentureTeamStructure'
+import { VentureOpenRolesTab } from './openroles/VentureOpenRolesTab'
 import { VentureAnalytics } from './VentureAnalytics'
 import { VentureNotificationsTab } from './notifications/VentureNotificationsTab'
 import { VentureSettings } from './VentureSettings'
 import { ConnectComposer } from '@/components/inbox/ConnectComposer'
 import { PostPublishWelcomeModal } from '@/components/venture-assessment/PostPublishWelcomeModal'
 
-interface Props { slug: string }
+interface Props {
+  slug: string
+}
+
+const DEPRECATED_TABS = ['funding', 'timeline', 'partners', 'assumptions', 'milestones', 'applicants']
 
 export function VentureDetailPage({ slug }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const t = params.get('tab')
-      if (t) return t
-    }
-    return 'overview'
-  })
+  const [activeTab, setActiveTab] = useState<string>('overview')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [connectOpen, setConnectOpen] = useState(false)
+
+  // Handle clean URL routing and redirection for deprecated tabs
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam) {
+      if (DEPRECATED_TABS.includes(tabParam.toLowerCase())) {
+        router.replace(`/ventures/${slug}?tab=overview`)
+        setActiveTab('overview')
+      } else {
+        setActiveTab(tabParam)
+      }
+    } else {
+      setActiveTab('overview')
+    }
+  }, [searchParams, slug, router])
 
   const fetchDetail = useCallback(async () => {
     try {
       const res = await fetch('/api/ventures/' + slug)
       if (!res.ok) {
-        if (res.status === 404) { router.push('/ventures'); return }
+        if (res.status === 404) {
+          router.push('/ventures')
+          return
+        }
         throw new Error('Failed to load')
       }
       const json = await res.json()
       setData(json)
-    } catch (e) { 
-      console.error('Fetch detail error:', e) 
-    } finally { 
-      setLoading(false) 
+    } catch (e) {
+      console.error('Fetch detail error:', e)
+    } finally {
+      setLoading(false)
     }
   }, [slug, router])
 
@@ -63,7 +95,6 @@ export function VentureDetailPage({ slug }: Props) {
     fetchDetail()
   }, [fetchDetail, supabase])
 
-  // ── Track venture view on mount ──
   useEffect(() => {
     if (!data?.venture?.id) return
     const sessionId = (() => {
@@ -98,8 +129,8 @@ export function VentureDetailPage({ slug }: Props) {
       if (!res.ok) throw new Error('Update failed')
       const json = await res.json()
       setData((prev: any) => ({ ...prev, venture: { ...prev.venture, ...json.venture } }))
-    } catch (e) { 
-      console.error('Patch venture error:', e) 
+    } catch (e) {
+      console.error('Patch venture error:', e)
     }
   }
 
@@ -110,11 +141,19 @@ export function VentureDetailPage({ slug }: Props) {
       setData((prev: any) => ({
         ...prev,
         isFollowing: json.following,
-        venture: { ...prev.venture, follower_count: (prev.venture.follower_count || 0) + (json.following ? 1 : -1) }
+        venture: {
+          ...prev.venture,
+          follower_count: (prev.venture.follower_count || 0) + (json.following ? 1 : -1)
+        }
       }))
-    } catch (e) { 
-      console.error('Toggle follow error:', e) 
+    } catch (e) {
+      console.error('Toggle follow error:', e)
     }
+  }
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId)
+    router.push(`/ventures/${slug}?tab=${tabId}`)
   }
 
   if (loading) {
@@ -138,30 +177,33 @@ export function VentureDetailPage({ slug }: Props) {
 
   if (!data?.venture) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f]">
+      <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
         <p className="text-[14px] text-white/50">Venture not found.</p>
       </div>
     )
   }
 
-  const { venture, team, lookingFor, updates, founder, isFollowing, isOwner } = data
+  const { venture, team, products, lookingFor, updates, metrics, founder, isFollowing, isOwner } = data
   const unreadNotifs = venture.unread_notifications || 0
+  const openRolesCount = (lookingFor || []).filter((r: any) => r.status === 'active' || r.status === 'open' || !r.status).length
 
   const headerStats = {
     team: team?.length || 0,
     followers: venture.follower_count || 0,
     applications: 0,
-    openRoles: (lookingFor || []).filter((r: any) => r.status === 'active' || !r.status).length,
+    openRoles: openRolesCount,
   }
 
-  // ─── STREAMLINED INFORMATION ARCHITECTURE TABS ───
   const tabs: { id: string; label: string; icon: any; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: Info },
     { id: 'questions', label: 'Questions', icon: Question },
+    { id: 'products', label: 'Products', icon: Package, badge: products?.length || 0 },
+    { id: 'growth', label: 'Growth', icon: ChartLineUp },
     { id: 'updates', label: 'Updates', icon: Newspaper, badge: updates?.length || 0 },
     { id: 'media', label: 'Media', icon: ImageIcon },
     { id: 'documents', label: 'Documents', icon: BookOpen },
-    { id: 'team', label: 'Team & Roles', icon: UsersThree, badge: (team?.length || 0) + (lookingFor?.length || 0) },
+    { id: 'team', label: 'Team & Roles', icon: UsersThree, badge: team?.length || 0 },
+    { id: 'roles', label: 'Open Roles', icon: Briefcase, badge: openRolesCount },
   ]
 
   if (isOwner) {
@@ -171,10 +213,8 @@ export function VentureDetailPage({ slug }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] pb-20 xl:pb-8 text-white">
+    <div className="min-h-screen bg-[#09090b] pb-20 xl:pb-8 text-white">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-
-        {/* Venture Header */}
         <VentureHeader
           venture={venture}
           founder={founder}
@@ -187,11 +227,8 @@ export function VentureDetailPage({ slug }: Props) {
           stats={headerStats}
         />
 
-        {/* Main Grid Layout */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 mt-6">
           <div className="min-w-0">
-            
-            {/* Top Sub-Navigation Bar */}
             <div className="flex items-center justify-between border-b border-white/[0.08] mb-6">
               <div className="flex gap-0.5 -mb-px overflow-x-auto scrollbar-hide">
                 {tabs.map(t => {
@@ -200,15 +237,15 @@ export function VentureDetailPage({ slug }: Props) {
                   return (
                     <button
                       key={t.id}
-                      onClick={() => setActiveTab(t.id)}
+                      onClick={() => handleTabChange(t.id)}
                       className={
-                        'px-4 py-3 text-[14px] font-medium whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ' +
+                        'px-4 py-3 text-[13.5px] font-medium whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ' +
                         (active
                           ? 'text-white border-white'
-                          : 'text-white/45 border-transparent hover:text-white/80')
+                          : 'text-zinc-500 border-transparent hover:text-white/80')
                       }
                     >
-                      <Icon size={15} weight={active ? 'fill' : 'regular'} />
+                      <Icon size={14} weight={active ? 'fill' : 'regular'} />
                       {t.label}
                       {t.badge !== undefined && t.badge > 0 && (
                         <span className="ml-0.5 text-[10px] font-bold bg-white/10 text-white/80 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
@@ -232,12 +269,17 @@ export function VentureDetailPage({ slug }: Props) {
               </div>
             </div>
 
-            {/* Active Tab Views */}
             {activeTab === 'overview' && (
               <VentureOverview venture={venture} isOwner={isOwner} onUpdate={patchVenture} />
             )}
             {activeTab === 'questions' && (
               <VentureQuestionsTab slug={slug} isOwner={isOwner} />
+            )}
+            {activeTab === 'products' && (
+              <VentureProducts venture={venture} products={products || []} slug={slug} isOwner={isOwner} />
+            )}
+            {activeTab === 'growth' && (
+              <VentureGrowth venture={venture} metrics={metrics || []} slug={slug} isOwner={isOwner} />
             )}
             {activeTab === 'updates' && (
               <VentureUpdates venture={venture} updates={updates || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
@@ -251,6 +293,13 @@ export function VentureDetailPage({ slug }: Props) {
             {activeTab === 'team' && (
               <VentureTeamStructure venture={venture} team={team || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
             )}
+            {activeTab === 'roles' && (
+              <VentureOpenRolesTab
+                slug={slug}
+                ventureId={venture.id}
+                isOwner={isOwner}
+              />
+            )}
             {activeTab === 'analytics' && isOwner && (
               <VentureAnalytics slug={slug} />
             )}
@@ -262,13 +311,12 @@ export function VentureDetailPage({ slug }: Props) {
             )}
           </div>
 
-          {/* Right Sidebar */}
           <div className="min-w-0">
             <VentureSidebar
               venture={venture}
               founder={founder}
               team={team || []}
-              products={[]}
+              products={products || []}
               roles={lookingFor || []}
               isOwner={isOwner}
               onUpdate={patchVenture}
@@ -277,7 +325,6 @@ export function VentureDetailPage({ slug }: Props) {
         </div>
       </div>
 
-      {/* Direct Contact Composer */}
       {connectOpen && (
         <ConnectComposer
           referenceType="venture"
@@ -291,7 +338,6 @@ export function VentureDetailPage({ slug }: Props) {
         />
       )}
 
-      {/* Post-Publish Welcome Flow */}
       {isOwner && (
         <Suspense fallback={null}>
           <PostPublishWelcomeModal

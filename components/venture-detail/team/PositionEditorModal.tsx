@@ -56,11 +56,11 @@ export function PositionEditorModal({ open, onClose, slug, existingPosition, onS
 
       if (!res.ok) throw new Error('Failed to save position')
       
-      toast.success(existingPosition ? 'Position updated' : 'Position created')
+      toast.success(existingPosition ? 'Position updated' : 'Position representation created')
       onSuccess()
       onClose()
     } catch (e) {
-      toast.error('Could not save position')
+      toast.error('Could not save structural position')
     } finally {
       setSaving(false)
     }
@@ -71,7 +71,7 @@ export function PositionEditorModal({ open, onClose, slug, existingPosition, onS
       <div className="bg-[#121215] border border-white/[0.1] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/30">
           <h2 className="text-[15px] font-bold text-white">
-            {existingPosition ? 'Edit Position' : 'Create New Position'}
+            {existingPosition ? 'Edit Position' : 'Create New Structural Unit'}
           </h2>
           <button onClick={onClose} className="text-zinc-500 hover:text-white"><X size={16} /></button>
         </div>
@@ -101,6 +101,7 @@ export function PositionEditorModal({ open, onClose, slug, existingPosition, onS
                 <option value="employee">Employee</option>
                 <option value="contractor">Contractor</option>
                 <option value="advisor">Advisor</option>
+                <option value="team_group">Department Group</option>
               </select>
             </div>
             <div>
@@ -122,7 +123,7 @@ export function PositionEditorModal({ open, onClose, slug, existingPosition, onS
             disabled={saving || !title.trim()}
             className="inline-flex items-center justify-center gap-1.5 px-5 h-9 bg-white text-black rounded-lg text-[12.5px] font-bold hover:bg-zinc-200 disabled:opacity-50"
           >
-            {saving ? <CircleNotch size={14} className="animate-spin" /> : 'Save Position'}
+            {saving ? <CircleNotch size={14} className="animate-spin" /> : 'Save Node Position'}
           </button>
         </div>
       </div>
