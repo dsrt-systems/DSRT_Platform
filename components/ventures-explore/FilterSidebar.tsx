@@ -71,7 +71,6 @@ export function FilterSidebar({ filters, onFilterChange, onClearFilters }: Filte
     filters.is_active_recently ||
     filters.is_newly_launched
 
-  // Build option arrays with counts
   const domainOptions = SECTORS.map(s => ({
     id: s.label,
     label: s.label,
@@ -106,7 +105,6 @@ export function FilterSidebar({ filters, onFilterChange, onClearFilters }: Filte
     count: facets.venture_types?.[t.id] || 0,
   }))
 
-  // Location options (top 20 from facets)
   const locationOptions = facets.locations
     ? Object.entries(facets.locations)
         .map(([loc, cnt]) => ({
@@ -120,7 +118,7 @@ export function FilterSidebar({ filters, onFilterChange, onClearFilters }: Filte
     : []
 
   return (
-    <aside className="w-full lg:w-[260px] shrink-0 space-y-3 select-none lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+    <div className="space-y-3 select-none">
       <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
         <h3 className="text-[11px] font-mono uppercase tracking-widest text-zinc-400 font-bold">
           Filters
@@ -190,50 +188,45 @@ export function FilterSidebar({ filters, onFilterChange, onClearFilters }: Filte
         onToggle={(id) => handleArrayToggle('funding_stages', id)}
       />
 
-      {/* Activity + Status Flags */}
-      <div className="pt-2 border-t border-white/[0.04] space-y-2">
+      {/* Activity & Status — RESTRAINED NEUTRAL DESIGN */}
+      <div className="pt-3 border-t border-white/[0.04] space-y-2">
         <h4 className="text-[12.5px] font-bold text-white py-1">Activity & Status</h4>
         
-        <div className="space-y-2 pt-1">
+        <div className="space-y-1.5 pt-1">
           <FlagCheckbox
             checked={!!filters.is_hiring}
             onChange={() => handleFlagToggle('is_hiring')}
             label="Actively hiring roles"
             count={facets.flags?.hiring}
-            color="emerald"
           />
           <FlagCheckbox
             checked={!!filters.is_seeking_investment}
             onChange={() => handleFlagToggle('is_seeking_investment')}
             label="Seeking investment"
             count={facets.flags?.investment}
-            color="purple"
           />
           <FlagCheckbox
             checked={!!filters.is_seeking_cofounder}
             onChange={() => handleFlagToggle('is_seeking_cofounder')}
             label="Seeking co-founder"
             count={facets.flags?.cofounder}
-            color="cyan"
           />
           <FlagCheckbox
             checked={!!filters.is_verified}
             onChange={() => handleFlagToggle('is_verified')}
             label="Verified ventures only"
             count={facets.flags?.verified}
-            color="blue"
           />
           <FlagCheckbox
             checked={!!filters.is_newly_launched}
             onChange={() => handleFlagToggle('is_newly_launched')}
             label="Newly launched (30 days)"
-            color="amber"
           />
         </div>
       </div>
 
-      <div className="h-4" />
-    </aside>
+      <div className="h-2" />
+    </div>
   )
 }
 
@@ -242,27 +235,18 @@ interface FlagCheckboxProps {
   onChange: () => void
   label: string
   count?: number
-  color: 'emerald' | 'purple' | 'blue' | 'cyan' | 'amber'
 }
 
-function FlagCheckbox({ checked, onChange, label, count, color }: FlagCheckboxProps) {
-  const colorMap = {
-    emerald: 'text-emerald-400',
-    purple: 'text-purple-400',
-    blue: 'text-blue-400',
-    cyan: 'text-cyan-400',
-    amber: 'text-amber-400',
-  }
-
+function FlagCheckbox({ checked, onChange, label, count }: FlagCheckboxProps) {
   return (
     <label className="flex items-center gap-2 text-[12px] text-zinc-400 hover:text-white cursor-pointer py-0.5 group">
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="w-3.5 h-3.5 rounded bg-zinc-900 border-zinc-700 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+        className="w-3.5 h-3.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
       />
-      <span className={`flex-1 font-medium ${colorMap[color]}`}>{label}</span>
+      <span className={`flex-1 ${checked ? 'text-white font-medium' : ''}`}>{label}</span>
       {typeof count === 'number' && count > 0 && (
         <span className="text-[10px] font-mono text-zinc-600 group-hover:text-zinc-400 transition-colors">
           {count}

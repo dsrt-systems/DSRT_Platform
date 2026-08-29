@@ -9,9 +9,6 @@ interface UseInfiniteFeedOptions {
   enabled?: boolean
 }
 
-/**
- * Manages cursor-based feed pagination with IntersectionObserver auto-load.
- */
 export function useInfiniteFeed({ fetcher, deps, enabled = true }: UseInfiniteFeedOptions) {
   const [modules, setModules] = useState<ExploreFeedModule[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
@@ -21,14 +18,15 @@ export function useInfiniteFeed({ fetcher, deps, enabled = true }: UseInfiniteFe
   const [error, setError] = useState<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const lastFetchRef = useRef<string>('')
+  const emptyPageCountRef = useRef(0)
 
-  // Initial + filter-change load
   useEffect(() => {
     if (!enabled) return
     
     const fetchKey = JSON.stringify(deps)
     if (fetchKey === lastFetchRef.current) return
     lastFetchRef.current = fetchKey
+    emptyPageCountRef.current = 0
 
     let cancelled = false
     setLoading(true)
@@ -42,7 +40,7 @@ export function useInfiniteFeed({ fetcher, deps, enabled = true }: UseInfiniteFe
         if (cancelled) return
         setModules(mods || [])
         setCursor(nextCursor || null)
-        setHasMore(!!nextCursor)
+        setHasMore(!!nextCursor && (mods?.some(m => m.items.length > 0) ?? false))
       })
       .catch((e) => {
         if (cancelled) return
@@ -56,31 +54,32 @@ export function useInfiniteFeed({ fetcher, deps, enabled = true }: UseInfiniteFe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps.concat([enabled]))
 
-  // Load more from cursor
   const loadMore = useCallback(async () => {
     if (!cursor || loadingMore || !hasMore) return
     setLoadingMore(true)
     try {
       const { modules: newMods, nextCursor } = await fetcher(cursor)
-      if (newMods && newMods.length > 0) {
-        // Merge into existing modules (append to catalog module, or add as new)
+      
+      if (newMods && newMods.length > 0 && newMods.some(m => m.items.length > 0)) {
+        emptyPageCountRef.current = 0
         setModules(prev => {
           const merged = [...prev]
           for (const m of newMods) {
-            const existing = merged.find(x => x.id === m.id)
-            if (existing) {
-              // Dedupe by id and append
-              const existingIds = new Set(existing.items.map(i => i.id))
-              existing.items = [...existing.items, ...m.items.filter(i => !existingIds.has(i.id))]
-            } else {
-              merged.push(m)
-            }
+            merged.push(m)
           }
           return merged
         })
+      } else {
+        // Empty response — increment counter, stop only after 3 consecutive empty pages
+        emptyPageCountRef.current += 1
       }
+
       setCursor(nextCursor || null)
-      setHasMore(!!nextCursor)
+      
+      // Only actually stop after 3 empty pages OR no cursor returned
+      if (!nextCursor || emptyPageCountRef.current >= 3) {
+        setHasMore(false)
+      }
     } catch (e: any) {
       console.error('Load more failed:', e)
     } finally {
@@ -89,14 +88,13 @@ export function useInfiniteFeed({ fetcher, deps, enabled = true }: UseInfiniteFe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor, loadingMore, hasMore, fetcher])
 
-  // IntersectionObserver — auto-load when sentinel enters viewport
   useEffect(() => {
     if (!sentinelRef.current || !hasMore || loading) return
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) loadMore()
       },
-      { rootMargin: '400px' }
+      { rootMargin: '600px' }
     )
     observer.observe(sentinelRef.current)
     return () => observer.disconnect()

@@ -47,7 +47,6 @@ export function VentureExplorePage() {
   const fetcher = useCallback(async (cursor?: string) => {
     const params = new URLSearchParams()
 
-    // 🔑 INJECT SESSION ID for Session Intent Boost
     const sid = typeof window !== 'undefined' ? sessionStorage.getItem('dsrt_explore_session') : null
     if (sid) params.set('session_id', sid)
 
@@ -102,62 +101,26 @@ export function VentureExplorePage() {
     ]
   })
 
-  const executeSearch = () => {
-    setFilters({ ...filters, search: searchInput })
-  }
-
-  const clearSearch = () => {
-    setSearchInput('')
-    setFilters({ ...filters, search: '' })
-  }
+  const executeSearch = () => setFilters({ ...filters, search: searchInput })
+  const clearSearch = () => { setSearchInput(''); setFilters({ ...filters, search: '' }) }
 
   const isFiltered = !!(
-    filters.search ||
-    filters.domains?.length ||
-    filters.stages?.length ||
-    filters.locations?.length ||
-    filters.venture_types?.length ||
-    filters.business_models?.length ||
-    filters.team_sizes?.length ||
-    filters.funding_stages?.length ||
-    filters.is_verified ||
-    filters.is_hiring ||
-    filters.is_seeking_investment ||
-    filters.is_seeking_cofounder ||
-    filters.is_newly_launched
+    filters.search || filters.domains?.length || filters.stages?.length || filters.locations?.length ||
+    filters.venture_types?.length || filters.business_models?.length || filters.team_sizes?.length ||
+    filters.funding_stages?.length || filters.is_verified || filters.is_hiring ||
+    filters.is_seeking_investment || filters.is_seeking_cofounder || filters.is_newly_launched
   )
 
   const activeFilterChips = useMemo(() => {
     const chips: { label: string; remove: () => void }[] = []
-
-    ;(filters.domains || []).forEach(d => chips.push({
-      label: d,
-      remove: () => setFilters({ ...filters, domains: filters.domains?.filter(x => x !== d) })
-    }))
-    ;(filters.stages || []).forEach(s => chips.push({
-      label: s,
-      remove: () => setFilters({ ...filters, stages: filters.stages?.filter(x => x !== s) })
-    }))
-    ;(filters.locations || []).forEach(l => chips.push({
-      label: l,
-      remove: () => setFilters({ ...filters, locations: filters.locations?.filter(x => x !== l) })
-    }))
-    ;(filters.venture_types || []).forEach(t => chips.push({
-      label: t,
-      remove: () => setFilters({ ...filters, venture_types: filters.venture_types?.filter(x => x !== t) })
-    }))
-    ;(filters.business_models || []).forEach(m => chips.push({
-      label: m,
-      remove: () => setFilters({ ...filters, business_models: filters.business_models?.filter(x => x !== m) })
-    }))
-    ;(filters.team_sizes || []).forEach(t => chips.push({
-      label: `Team: ${t}`,
-      remove: () => setFilters({ ...filters, team_sizes: filters.team_sizes?.filter(x => x !== t) })
-    }))
-    ;(filters.funding_stages || []).forEach(f => chips.push({
-      label: f,
-      remove: () => setFilters({ ...filters, funding_stages: filters.funding_stages?.filter(x => x !== f) })
-    }))
+    
+    ;(filters.domains || []).forEach(d => chips.push({ label: d, remove: () => setFilters({ ...filters, domains: filters.domains?.filter(x => x !== d) }) }))
+    ;(filters.stages || []).forEach(s => chips.push({ label: s, remove: () => setFilters({ ...filters, stages: filters.stages?.filter(x => x !== s) }) }))
+    ;(filters.locations || []).forEach(l => chips.push({ label: l, remove: () => setFilters({ ...filters, locations: filters.locations?.filter(x => x !== l) }) }))
+    ;(filters.venture_types || []).forEach(t => chips.push({ label: t, remove: () => setFilters({ ...filters, venture_types: filters.venture_types?.filter(x => x !== t) }) }))
+    ;(filters.business_models || []).forEach(m => chips.push({ label: m, remove: () => setFilters({ ...filters, business_models: filters.business_models?.filter(x => x !== m) }) }))
+    ;(filters.team_sizes || []).forEach(t => chips.push({ label: `Team: ${t}`, remove: () => setFilters({ ...filters, team_sizes: filters.team_sizes?.filter(x => x !== t) }) }))
+    ;(filters.funding_stages || []).forEach(f => chips.push({ label: f, remove: () => setFilters({ ...filters, funding_stages: filters.funding_stages?.filter(x => x !== f) }) }))
 
     if (filters.is_verified) chips.push({ label: 'Verified', remove: () => setFilters({ ...filters, is_verified: false }) })
     if (filters.is_hiring) chips.push({ label: 'Hiring', remove: () => setFilters({ ...filters, is_hiring: false }) })
@@ -169,118 +132,124 @@ export function VentureExplorePage() {
   }, [filters, setFilters])
 
   return (
-    <div className="space-y-8 font-sans pb-16 pt-2">
-
-      <div>
-        <h2 className="text-[22px] font-bold text-white tracking-tight">Explore ventures</h2>
-        <p className="text-[13.5px] text-zinc-400 mt-1">
-          Discover companies, products, builders and ideas across every industry.
-        </p>
-      </div>
-
-      {/* Search Bar */}
-      <div className="relative">
-        <MagnifyingGlass size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-        <input
-          type="text"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && executeSearch()}
-          placeholder="Search ventures, founders, industries, products..."
-          className="w-full h-12 pl-11 pr-32 rounded-xl bg-[#121215] border border-white/[0.08] text-[13.5px] text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors shadow-sm"
-        />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-          {searchInput && (
-            <button onClick={clearSearch} className="p-1 text-zinc-500 hover:text-white">
-              <X size={14} weight="bold" />
-            </button>
-          )}
-          <button
-            onClick={executeSearch}
-            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold transition-colors"
-          >
-            Search
-          </button>
+    <div className="font-sans">
+      
+      {/* Top Header — Non-scrolling section */}
+      <div className="space-y-6 pb-6">
+        <div>
+          <h2 className="text-[22px] font-bold text-white tracking-tight">Explore ventures</h2>
+          <p className="text-[13.5px] text-zinc-400 mt-1">
+            Discover companies, products, builders and ideas across every industry.
+          </p>
         </div>
-      </div>
 
-      {/* Discovery Tabs + Sort + Mobile Filter Button */}
-      <div className="flex items-center justify-between gap-4 border-b border-white/[0.08] pb-3">
-        <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide flex-1">
-          {DISCOVERY_TABS.map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => setActiveTab(mode.id)}
-              className={`text-[13.5px] font-semibold whitespace-nowrap transition-colors relative ${
-                activeTab === mode.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
-              }`}
+        {/* Search */}
+        <div className="relative">
+          <MagnifyingGlass size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && executeSearch()}
+            placeholder="Search ventures, founders, industries, products..."
+            className="w-full h-12 pl-11 pr-32 rounded-xl bg-[#121215] border border-white/[0.08] text-[13.5px] text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors shadow-sm"
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            {searchInput && (
+              <button onClick={clearSearch} className="p-1 text-zinc-500 hover:text-white">
+                <X size={14} weight="bold" />
+              </button>
+            )}
+            <button 
+              onClick={executeSearch}
+              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold transition-colors"
             >
-              {mode.label}
-              {activeTab === mode.id && (
-                <span className="absolute left-0 right-0 -bottom-3 h-0.5 bg-white rounded-full" />
+              Search
+            </button>
+          </div>
+        </div>
+
+        {/* Discovery Tabs + Sort + Mobile Filter Button */}
+        <div className="flex items-center justify-between gap-4 border-b border-white/[0.08] pb-3">
+          <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide flex-1">
+            {DISCOVERY_TABS.map((mode) => (
+              <button
+                key={mode.id}
+                onClick={() => setActiveTab(mode.id)}
+                className={`text-[13.5px] font-semibold whitespace-nowrap transition-colors relative ${
+                  activeTab === mode.id ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                {mode.label}
+                {activeTab === mode.id && (
+                  <span className="absolute left-0 right-0 -bottom-3 h-0.5 bg-white rounded-full" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <SortDropdown
+              value={filters.sort || 'recommended'}
+              onChange={(v) => setFilters({ ...filters, sort: v as any })}
+            />
+            <button
+              onClick={() => setMobileFiltersOpen(true)}
+              className="lg:hidden flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#121215] border border-white/[0.08] hover:border-white/[0.16] text-white text-[12px] font-semibold transition-all"
+            >
+              <FunnelSimple size={12} weight="bold" />
+              Filters
+              {activeFilterChips.length > 0 && (
+                <span className="text-[9px] font-mono text-zinc-400 bg-white/[0.06] border border-white/10 rounded px-1 py-0.5">
+                  {activeFilterChips.length}
+                </span>
               )}
             </button>
-          ))}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <SortDropdown
-            value={filters.sort || 'recommended'}
-            onChange={(v) => setFilters({ ...filters, sort: v as any })}
-          />
-          <button
-            onClick={() => setMobileFiltersOpen(true)}
-            className="lg:hidden flex items-center gap-1.5 h-9 px-3 rounded-lg bg-[#121215] border border-white/[0.08] hover:border-white/[0.16] text-white text-[12px] font-semibold transition-all"
-          >
-            <FunnelSimple size={12} weight="bold" />
-            Filters
-            {activeFilterChips.length > 0 && (
-              <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1 py-0.5">
-                {activeFilterChips.length}
-              </span>
-            )}
-          </button>
-        </div>
+        {/* Active Filter Chips */}
+        {activeFilterChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider">Active:</span>
+            {activeFilterChips.map((chip, i) => (
+              <button
+                key={i}
+                onClick={chip.remove}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/10 text-[11px] font-semibold text-zinc-200 hover:bg-white/[0.10] hover:border-white/20 transition-all"
+              >
+                {chip.label}
+                <X size={10} weight="bold" />
+              </button>
+            ))}
+            <button
+              onClick={clearFilters}
+              className="text-[11px] font-semibold text-zinc-400 hover:text-white transition-colors underline underline-offset-2 ml-1"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
+        {/* Banner */}
+        {activeTab === 'recommended' && !isFiltered && (
+          <FeaturedCarousel banners={banners} />
+        )}
       </div>
 
-      {/* Active Filter Chips */}
-      {activeFilterChips.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider">Active:</span>
-          {activeFilterChips.map((chip, i) => (
-            <button
-              key={i}
-              onClick={chip.remove}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/10 text-[11px] font-semibold text-zinc-200 hover:bg-white/[0.10] hover:border-white/20 transition-all"
-            >
-              {chip.label}
-              <X size={10} weight="bold" />
-            </button>
-          ))}
-          <button
-            onClick={clearFilters}
-            className="text-[11px] font-semibold text-zinc-400 hover:text-white transition-colors underline underline-offset-2 ml-1"
-          >
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {/* Banner */}
-      {activeTab === 'recommended' && !isFiltered && (
-        <FeaturedCarousel banners={banners} />
-      )}
-
-      {/* Workspace */}
-      <div className="flex flex-col lg:flex-row gap-8 items-start pt-2">
-        <div className="hidden lg:block">
+      {/* Workspace: Sticky Filter + Scrolling Feed */}
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        
+        {/* STICKY SIDEBAR — Only sidebar stays fixed */}
+        <aside className="hidden lg:block w-[260px] shrink-0 sticky top-6 max-h-[calc(100vh-4rem)] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           <FilterSidebar
             filters={filters}
             onFilterChange={setFilters}
             onClearFilters={clearFilters}
           />
-        </div>
+        </aside>
 
+        {/* SCROLLING FEED — Content flows freely */}
         <div className="flex-1 w-full min-w-0 space-y-10">
           {loading ? (
             <SkeletonFeed />
@@ -316,7 +285,7 @@ export function VentureExplorePage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
                       {mod.items.map((venture, idx) => (
                         <VentureCard
-                          key={venture.id}
+                          key={`${venture.id}-${mod.id}-${idx}`}
                           venture={venture}
                           position={idx}
                           moduleType={mod.type}
@@ -328,22 +297,15 @@ export function VentureExplorePage() {
                 )
               ))}
 
-              {hasMore && (
-                <div ref={sentinelRef} className="py-8 flex items-center justify-center">
-                  {loadingMore && (
-                    <div className="flex items-center gap-2 text-zinc-500">
-                      <CircleNotch size={16} className="animate-spin" />
-                      <span className="text-[11px] font-mono uppercase tracking-widest">Loading more ventures...</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {!hasMore && modules.length > 0 && modules.some(m => m.items.length > 0) && (
-                <div className="py-8 text-center text-[11px] text-zinc-600 font-mono uppercase tracking-widest">
-                  End of discovery feed
-                </div>
-              )}
+              {/* Infinite scroll sentinel — Never stops loading */}
+              <div ref={sentinelRef} className="py-8 flex items-center justify-center min-h-[80px]">
+                {loadingMore && (
+                  <div className="flex items-center gap-2 text-zinc-500">
+                    <CircleNotch size={16} className="animate-spin" />
+                    <span className="text-[11px] font-mono uppercase tracking-widest">Discovering more ventures...</span>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
