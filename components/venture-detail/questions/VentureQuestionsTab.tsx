@@ -6,7 +6,7 @@ import {
   CircleNotch, PencilSimple, CheckCircle, ArrowRight,
   Warning, Lightbulb, Target, UsersThree, Package,
   ChartLineUp, Handshake, Flag, MagnifyingGlass,
-  CaretDown, CaretRight
+  CaretDown, CaretRight, Question
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { QuestionRichEditor } from './QuestionRichEditor'
@@ -41,7 +41,6 @@ interface SectionDef {
 }
 
 // ─── TAXONOMIES ───
-
 const IMPACT_TAG_OPTIONS = [
   { value: 'time_loss', label: 'Time loss' },
   { value: 'money_loss', label: 'Money loss' },
@@ -99,14 +98,9 @@ const RISK_CATEGORY_OPTIONS = [
 ]
 
 // ─── SECTION DEFINITIONS ───
-
 const SECTIONS: SectionDef[] = [
   {
-    id: 'problem',
-    step: 2,
-    title: 'The Problem',
-    subtitle: 'What you\'re solving and who it hurts',
-    icon: Target,
+    id: 'problem', step: 2, title: 'The Problem', subtitle: 'What you\'re solving and who it hurts', icon: Target,
     fields: [
       { table: 'venture_problems', field: 'problem_statement', label: 'What specific problem are you solving?', hint: 'One or two concrete sentences.', type: 'rich', placeholder: 'Describe the exact problem — not the industry, not the trend.' },
       { table: 'venture_problems', field: 'affected_audience', label: 'Who experiences this problem most strongly?', hint: 'A specific first target — not "everyone."', type: 'rich', placeholder: 'e.g. Small-clinic operations managers with 5–15 staff.' },
@@ -118,11 +112,7 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
-    id: 'insight',
-    step: 3,
-    title: 'The Insight',
-    subtitle: 'Why you believe this should exist',
-    icon: Lightbulb,
+    id: 'insight', step: 3, title: 'The Insight', subtitle: 'Why you believe this should exist', icon: Lightbulb,
     fields: [
       { table: 'venture_insights', field: 'why_worth_solving', label: 'Why do you believe this problem is worth solving?', type: 'rich', placeholder: 'What makes this urgent, important, or worth years of your life?' },
       { table: 'venture_insights', field: 'supporting_observations', label: 'What have you observed that supports your belief?', hint: 'Facts, patterns, conversations, data.', type: 'rich' },
@@ -132,27 +122,15 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
-    id: 'customer',
-    step: 4,
-    title: 'Customer',
-    subtitle: 'Who you serve and how they cope today',
-    icon: UsersThree,
+    id: 'customer', step: 4, title: 'Customer', subtitle: 'Who you serve and how they cope today', icon: UsersThree,
     fields: [
       { table: 'venture_customer_profiles', field: 'first_customer', label: 'Who is your first real customer or user?', type: 'rich', placeholder: 'One specific persona or company profile.' },
       { table: 'venture_customer_profiles', field: 'why_change_behavior', label: 'Why would someone change their current behavior?', type: 'rich' },
-      {
-        table: 'venture_customer_profiles', field: '__grid_persona', label: 'User, decision maker, and buyer',
-        hint: 'Especially important for B2B. In B2C these can be the same.',
-        type: 'grid',
-      },
+      { table: 'venture_customer_profiles', field: '__grid_persona', label: 'User, decision maker, and buyer', hint: 'Especially important for B2B. In B2C these can be the same.', type: 'grid' },
     ],
   },
   {
-    id: 'solution',
-    step: 5,
-    title: 'The Solution',
-    subtitle: 'What you\'re building and how it works',
-    icon: Package,
+    id: 'solution', step: 5, title: 'The Solution', subtitle: 'What you\'re building and how it works', icon: Package,
     fields: [
       { table: 'venture_solutions', field: 'solution_description', label: 'What is your solution?', type: 'rich' },
       { table: 'venture_solutions', field: 'how_it_solves_problem', label: 'How does it solve the specific problem?', type: 'rich' },
@@ -166,11 +144,7 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
-    id: 'market',
-    step: 6,
-    title: 'Market',
-    subtitle: 'Size, opportunity, and distribution',
-    icon: ChartLineUp,
+    id: 'market', step: 6, title: 'Market', subtitle: 'Size, opportunity, and distribution', icon: ChartLineUp,
     fields: [
       { table: 'venture_markets', field: 'initial_market', label: 'Who is your initial market?', type: 'rich' },
       { table: 'venture_markets', field: 'market_size_estimate', label: 'How many potential customers?', hint: 'Number, order of magnitude, or a range.', type: 'text', maxLen: 200 },
@@ -182,11 +156,7 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
-    id: 'competition',
-    step: 7,
-    title: 'Competition',
-    subtitle: 'Your edge, honest weaknesses, and moat',
-    icon: Handshake,
+    id: 'competition', step: 7, title: 'Competition', subtitle: 'Your edge, honest weaknesses, and moat', icon: Handshake,
     fields: [
       { table: 'venture_differentiation', field: 'why_choose_us', label: 'Why might someone choose your approach?', type: 'rich' },
       { table: 'venture_differentiation', field: 'why_reject_us', label: 'Why might they reject it?', hint: 'Honesty here is a signal of strength.', type: 'rich' },
@@ -194,11 +164,7 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
-    id: 'founder',
-    step: 8,
-    title: 'Founder & Team',
-    subtitle: 'The people behind it and capability gaps',
-    icon: UsersThree,
+    id: 'founder', step: 8, title: 'Founder & Team', subtitle: 'The people behind it and capability gaps', icon: UsersThree,
     fields: [
       { table: 'venture_founder_answers', field: 'why_solve_this', label: 'Why do you want to solve this problem?', type: 'rich' },
       { table: 'venture_founder_answers', field: 'relevant_experience', label: 'What experience do you have?', type: 'rich' },
@@ -208,11 +174,7 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
-    id: 'risks',
-    step: 9,
-    title: 'Reality Check',
-    subtitle: 'Biggest risks and strategy pivots',
-    icon: Warning,
+    id: 'risks', step: 9, title: 'Reality Check', subtitle: 'Biggest risks and strategy pivots', icon: Warning,
     fields: [
       { table: 'venture_risks', field: 'biggest_risk', label: 'What is currently the biggest risk?', type: 'rich' },
       { table: 'venture_risks', field: 'risk_category', label: 'Risk category', type: 'select', options: RISK_CATEGORY_OPTIONS },
@@ -220,11 +182,7 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
-    id: 'next_move',
-    step: 10,
-    title: 'Next Move',
-    subtitle: 'What you\'ll prove and do next',
-    icon: Flag,
+    id: 'next_move', step: 10, title: 'Next Move', subtitle: 'What you\'ll prove and do next', icon: Flag,
     fields: [
       { table: 'venture_next_moves', field: 'most_important_proof', label: 'What is the most important thing to prove next?', type: 'rich' },
       { table: 'venture_next_moves', field: 'proof_action_plan', label: 'What will you do to prove it?', type: 'rich' },
@@ -247,11 +205,18 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
     setError(null)
     try {
       const res = await fetch(`/api/ventures/${slug}/assessment`)
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || 'Failed to load')
-      }
       const json = await res.json()
+      
+      // ── NEW LOGIC: Gracefully handle unpublished state for viewers ──
+      if (json.unpublished) {
+        setData({ unpublished: true })
+        return
+      }
+
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to load')
+      }
+      
       setData(json)
     } catch (e: any) {
       setError(e.message || 'Failed to load')
@@ -263,7 +228,7 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
   useEffect(() => { load() }, [load])
 
   const getValue = useCallback((table: string, field: string): any => {
-    if (!data) return null
+    if (!data || data.unpublished) return null
     if (table === 'ventures') return data.venture?.[field]
 
     const map: Record<string, string> = {
@@ -344,7 +309,7 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
   }, [slug])
 
   const sectionCounts = useMemo(() => {
-    if (!data) return {}
+    if (!data || data.unpublished) return {}
     const counts: Record<string, { filled: number; total: number }> = {}
     for (const s of SECTIONS) {
       let filled = 0
@@ -382,14 +347,23 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
     })).filter(s => s.fields.length > 0)
   }, [search, getValue])
 
-  const totalFilled = Object.values(sectionCounts).reduce((s, c) => s + c.filled, 0)
-  const totalFields = Object.values(sectionCounts).reduce((s, c) => s + c.total, 0)
-  const overallPct = totalFields ? Math.round((totalFilled / totalFields) * 100) : 0
-
   if (loading) {
     return (
       <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-12 flex items-center justify-center gap-2 text-[13px] text-white/50">
         <CircleNotch size={16} className="animate-spin" /> Loading questions…
+      </div>
+    )
+  }
+
+  // ── NEW LOGIC: Empty state for public viewers when unpublished ──
+  if (data?.unpublished) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.01] p-16 text-center mt-6">
+        <Question size={32} className="text-white/20 mx-auto mb-3" />
+        <h3 className="text-[15px] font-bold text-white mb-1">Assessment not published</h3>
+        <p className="text-[12.5px] text-white/45 max-w-sm mx-auto">
+          This venture has not published their assessment answers yet. When they do, their insights, market analysis, and approach will appear here.
+        </p>
       </div>
     )
   }
@@ -409,12 +383,14 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
     )
   }
 
+  const totalFilled = Object.values(sectionCounts).reduce((s, c) => s + c.filled, 0)
+  const totalFields = Object.values(sectionCounts).reduce((s, c) => s + c.total, 0)
+  const overallPct = totalFields ? Math.round((totalFilled / totalFields) * 100) : 0
   const assessmentStatus = data?.assessment?.status || 'not_started'
   const hasAnyAnswers = totalFilled > 0
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <div className="flex items-start justify-between gap-4 flex-wrap mb-2">
           <div>
@@ -435,7 +411,6 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
           )}
         </div>
 
-        {/* Progress meter */}
         <div className="mt-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -461,7 +436,6 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
         </div>
       </div>
 
-      {/* Empty-state prompt */}
       {!hasAnyAnswers && assessmentStatus === 'not_started' && isOwner && (
         <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.03] to-white/[0.01] p-6">
           <div className="flex items-start gap-3">
@@ -485,7 +459,6 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
         </div>
       )}
 
-      {/* Search bar */}
       <div className="relative">
         <MagnifyingGlass size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
         <input
@@ -496,7 +469,6 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
         />
       </div>
 
-      {/* Sections */}
       <div className="space-y-3">
         {filteredSections.map(section => {
           const Icon = section.icon
@@ -569,18 +541,16 @@ export function VentureQuestionsTab({ slug, isOwner }: Props) {
         })}
       </div>
 
-      <div className="text-center pt-4">
-        <p className="text-[11.5px] text-white/40">
-          Changes save automatically and sync with your Overview.
-        </p>
-      </div>
+      {isOwner && (
+        <div className="text-center pt-4">
+          <p className="text-[11.5px] text-white/40">
+            Changes save automatically and sync with your Overview.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
-
-// ═══════════════════════════════════════════════════════════════
-// FIELD ROW
-// ═══════════════════════════════════════════════════════════════
 
 interface FieldRowProps {
   field: FieldDef

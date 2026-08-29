@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/ventures/[slug]/assessment
- * Returns the complete assessment state so the frontend can hydrate
- * the shell + all steps at once.
+ * Returns the complete assessment state.
+ * If requested by a non-owner and the assessment isn't published, returns { unpublished: true }.
  */
 export async function GET(
   req: Request,
@@ -15,12 +15,11 @@ export async function GET(
   const { slug } = await context.params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Fetch venture and verify ownership
   const { data: venture, error: vErr } = await supabase
     .from('ventures')
-    .select('id, slug, name, tagline, description, logo_url, cover_url, industry, sector, sub_category, stage, user_id, founder_id, assessment_status, assessment_current_step, assessment_schema_version, has_verified_assessment, intelligence_score, intelligence_vector')
+    .select('id, slug, name, tagline, description, logo_url, cover_url, industry, sector, sub_category, stage, user_id, founder_id, assessment_status, assessment_current_step, assessment_schema_version, has_verified_assessment, intelligence_score, intelligence_vector, show_in_explore')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -28,9 +27,12 @@ export async function GET(
     return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
   }
 
-  const isOwner = venture.user_id === user.id || venture.founder_id === user.id
-  if (!isOwner) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Check if current user is owner/member
+  const isOwner = Boolean(user && (venture.user_id === user.id || venture.founder_id === user.id))
+
+  // ─── NEW LOGIC: Protect unpublished drafts from public viewing ───
+  if (!isOwner && (!venture.has_verified_assessment || !venture.show_in_explore)) {
+    return NextResponse.json({ unpublished: true })
   }
 
   // Load all assessment tables in parallel
@@ -60,7 +62,7 @@ export async function GET(
     supabase.from('venture_markets').select('*').eq('venture_id', venture.id).maybeSingle(),
     supabase.from('venture_competitors').select('*').eq('venture_id', venture.id).order('position'),
     supabase.from('venture_differentiation').select('*').eq('venture_id', venture.id).maybeSingle(),
-    supabase.from('venture_founder_answers').select('*').eq('venture_id', venture.id).eq('user_id', user.id).maybeSingle(),
+    user ? supabase.from('venture_founder_answers').select('*').eq('venture_id', venture.id).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('venture_capabilities').select('*').eq('venture_id', venture.id).maybeSingle(),
     supabase.from('venture_assumptions').select('*').eq('venture_id', venture.id).order('position'),
     supabase.from('venture_risks').select('*').eq('venture_id', venture.id).maybeSingle(),
@@ -68,9 +70,9 @@ export async function GET(
     supabase.from('venture_next_moves').select('*').eq('venture_id', venture.id).maybeSingle(),
   ])
 
-  // If no assessment exists yet, create one (self-heal)
+  // If no assessment exists yet, create one (self-heal) ONLY IF OWNER
   let assessment = assessmentRes.data
-  if (!assessment) {
+  if (!assessment && isOwner && user) {
     const { data: newAssessment } = await supabase
       .from('venture_assessments')
       .insert({
