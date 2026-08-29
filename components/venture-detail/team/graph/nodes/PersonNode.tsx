@@ -3,7 +3,7 @@
 import { memo } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import Link from 'next/link'
-import { User, ArrowSquareOut, CheckCircle } from '@phosphor-icons/react'
+import { ArrowSquareOut, CheckCircle } from '@phosphor-icons/react'
 import type { NodeData } from '../types'
 
 export const PersonNode = memo(({ data, selected }: { data: NodeData; selected?: boolean }) => {
@@ -23,21 +23,18 @@ export const PersonNode = memo(({ data, selected }: { data: NodeData; selected?:
         className={
           'w-[260px] rounded-2xl overflow-hidden transition-all duration-200 ' +
           (selected
-            ? 'ring-2 ring-white shadow-2xl bg-[#18181b] border border-white/20'
-            : 'ring-1 ring-white/10 bg-[#121215] shadow-lg hover:ring-white/20')
+            ? 'ring-1 ring-white/30 shadow-2xl bg-[#121215]'
+            : 'ring-1 ring-white/[0.06] bg-[#121215] shadow-lg hover:ring-white/[0.12]')
         }
       >
-        {/* Top strip */}
-        <div className="h-1 w-full bg-gradient-to-r from-emerald-500/40 via-emerald-500/20 to-transparent" />
-
         <div className="p-4">
           {/* Avatar + Name */}
           <div className="flex items-start gap-3">
-            <div className="w-11 h-11 rounded-full overflow-hidden bg-zinc-800 flex items-center justify-center border-2 border-zinc-900 shadow-md flex-shrink-0">
+            <div className="w-11 h-11 rounded-full overflow-hidden bg-[#09090b] flex items-center justify-center border border-white/[0.06] shadow-sm flex-shrink-0">
               {primary?.avatar_url ? (
                 <img src={primary.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-[15px] font-bold text-white">
+                <span className="text-[14px] font-bold text-zinc-400">
                   {(primary?.full_name || 'M').charAt(0).toUpperCase()}
                 </span>
               )}
@@ -49,7 +46,7 @@ export const PersonNode = memo(({ data, selected }: { data: NodeData; selected?:
                   {primary?.full_name || 'Team Member'}
                 </p>
                 {occupants[0]?.status === 'active' && (
-                  <CheckCircle size={11} weight="fill" className="text-emerald-400 flex-shrink-0" />
+                  <CheckCircle size={11} weight="fill" className="text-zinc-500 flex-shrink-0" />
                 )}
               </div>
               <p className="text-[11px] text-zinc-400 truncate mt-0.5">
@@ -63,7 +60,7 @@ export const PersonNode = memo(({ data, selected }: { data: NodeData; selected?:
             </div>
 
             {additionalCount > 0 && (
-              <div className="text-[10px] font-bold text-zinc-400 bg-zinc-800 px-1.5 py-0.5 rounded-full flex-shrink-0">
+              <div className="text-[10px] font-bold text-zinc-400 bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 rounded-full flex-shrink-0">
                 +{additionalCount}
               </div>
             )}
@@ -91,16 +88,11 @@ export const PersonNode = memo(({ data, selected }: { data: NodeData; selected?:
               {position.required_skills.slice(0, 3).map((skill: string, i: number) => (
                 <span
                   key={i}
-                  className="text-[9.5px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide bg-white/[0.04] border border-white/[0.06] text-zinc-400"
+                  className="text-[9.5px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide bg-white/[0.02] border border-white/[0.04] text-zinc-400"
                 >
                   {skill}
                 </span>
               ))}
-              {position.required_skills.length > 3 && (
-                <span className="text-[9.5px] px-1.5 py-0.5 text-zinc-600">
-                  +{position.required_skills.length - 3}
-                </span>
-              )}
             </div>
           )}
 
@@ -109,7 +101,7 @@ export const PersonNode = memo(({ data, selected }: { data: NodeData; selected?:
             <Link
               href={`/profile/${primary.username}`}
               onClick={e => e.stopPropagation()}
-              className="mt-3 inline-flex items-center gap-1 text-[10.5px] font-semibold text-zinc-400 hover:text-white transition-colors group"
+              className="mt-3 inline-flex items-center gap-1 text-[10.5px] font-semibold text-zinc-500 hover:text-white transition-colors group"
             >
               View profile
               <ArrowSquareOut size={9} className="opacity-60 group-hover:opacity-100" />

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useCallback, useState, useEffect } from 'react'
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import {
   ReactFlow, Background, Controls, MiniMap,
   useNodesState, useEdgesState,
@@ -72,13 +72,22 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
   const autoLayout = useAutoLayout()
   const { saveLayout } = useLayoutPersistence(slug)
 
-  // FIX: Explicitly type the empty arrays so TypeScript doesn't infer `never[]`
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
-  // Master Sync: Rebuild nodes and edges whenever the parent data changes
+  // Prevent double-fitting on mount
+  const hasFittedView = useRef(false)
+
+  // Master Sync: Rebuild nodes and edges ONLY when stringified data changes
+  // This physically prevents infinite render loops
+  const dataString = JSON.stringify({
+    posCount: data?.positions?.length || 0,
+    relCount: data?.relationships?.length || 0,
+    memCount: data?.memberships?.length || 0,
+  })
+
   useEffect(() => {
-    if (!data.positions) return
+    if (!data || !data.positions) return
 
     const newNodes: Node[] = data.positions.map((pos: any, index: number) => {
       const occupants = data.memberships.filter((m: any) => m.position_id === pos.id && m.status === 'active')
@@ -91,7 +100,6 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
         nodeType = 'person'
       }
 
-      // If no layout exists, stack them safely so they don't overlap
       const defaultX = 100 + (index * 20)
       const defaultY = 100 + (index * 20)
 
@@ -124,18 +132,17 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
     setEdges(newEdges)
     history.clear()
     
-    // Auto fit view on first load if nodes exist
-    if (newNodes.length > 0) {
+    if (newNodes.length > 0 && !hasFittedView.current) {
+      hasFittedView.current = true
       setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 100)
     }
-  }, [data, isOwner, setNodes, setEdges, history, fitView])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataString, isOwner, setNodes, setEdges]) // Only re-run when counts change
 
-  // Selection handler
   const onSelectionChange = useCallback(({ nodes: selNodes }: { nodes: Node[] }) => {
     onNodeSelect(selNodes.length === 1 ? selNodes[0].id : null)
   }, [onNodeSelect])
 
-  // Drag handler — LAYOUT ONLY
   const handleNodeDragStop = useCallback(() => {
     if (!isOwner) return
     saveLayout(nodes)
@@ -231,6 +238,49 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
     }
   }, [history, nodes, edges, setNodes, setEdges, saveLayout])
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
+      if (target.isContentEditable) return
+
+      if (isOwner && (e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+        return
+      }
+      if (isOwner && (e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault()
+        handleRedo()
+        return
+      }
+
+      if (e.key === 'f' && !e.metaKey && !e.ctrlKey) {
+        fitView({ duration: 400, padding: 0.2 })
+        return
+      }
+
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const selectedNode = nodes.find(n => n.selected)
+        if (!selectedNode) return
+
+        const target = findNearestNode(selectedNode, nodes, e.key)
+        if (target) {
+          e.preventDefault()
+          setNodes(nds => nds.map(n => ({ ...n, selected: n.id === target.id })))
+          onNodeSelect(target.id)
+        }
+      }
+
+      if (e.key === 'Escape') {
+        setNodes(nds => nds.map(n => ({ ...n, selected: false })))
+        onNodeSelect(null)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isOwner, nodes, handleUndo, handleRedo, fitView, setNodes, onNodeSelect])
+
   const containerClass = fullscreen
     ? 'fixed inset-0 z-[100] bg-[#09090b]'
     : 'relative w-full h-full'
@@ -312,7 +362,6 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
         />
       </ReactFlow>
 
-      {/* Modals */}
       <EdgeTypeModal
         open={!!pendingConnection}
         onClose={() => setPendingConnection(null)}
@@ -330,4 +379,34 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
       />
     </div>
   )
+}
+
+function findNearestNode(current: Node, all: Node[], direction: string): Node | null {
+  const others = all.filter(n => n.id !== current.id)
+  if (others.length === 0) return null
+
+  const cx = current.position.x
+  const cy = current.position.y
+
+  const candidates = others.filter(n => {
+    const dx = n.position.x - cx
+    const dy = n.position.y - cy
+    switch (direction) {
+      case 'ArrowUp': return dy < -50
+      case 'ArrowDown': return dy > 50
+      case 'ArrowLeft': return dx < -50
+      case 'ArrowRight': return dx > 50
+      default: return false
+    }
+  })
+
+  if (candidates.length === 0) return null
+
+  candidates.sort((a, b) => {
+    const da = Math.hypot(a.position.x - cx, a.position.y - cy)
+    const db = Math.hypot(b.position.x - cx, b.position.y - cy)
+    return da - db
+  })
+
+  return candidates[0]
 }

@@ -22,22 +22,18 @@ export interface EdgeData {
   onEdit?: (edgeId: string) => void
 }
 
-export interface LayoutSnapshot {
-  positions: Record<string, { x: number; y: number }>
-  timestamp: number
-}
-
+// ALL DSRT MONOCHROMATIC/PROFESSIONAL COLORS
 export const RELATIONSHIP_TYPES: {
   value: RelationshipType
   label: string
   description: string
   color: string
 }[] = [
-  { value: 'reports_to', label: 'Reports To', description: 'Direct manager relationship', color: '#60a5fa' },
-  { value: 'manages', label: 'Manages', description: 'Manages the target', color: '#60a5fa' },
-  { value: 'belongs_to', label: 'Belongs To', description: 'Member of a team/group', color: '#a78bfa' },
-  { value: 'leads', label: 'Leads', description: 'Leadership role', color: '#f59e0b' },
-  { value: 'advises', label: 'Advises', description: 'Advisory relationship', color: '#10b981' },
-  { value: 'collaborates_with', label: 'Collaborates With', description: 'Peer collaboration', color: '#8b5cf6' },
-  { value: 'responsible_for', label: 'Responsible For', description: 'Owns an area', color: '#ec4899' },
+  { value: 'reports_to', label: 'Reports To', description: 'Direct manager relationship', color: '#a1a1aa' },
+  { value: 'manages', label: 'Manages', description: 'Manages the target', color: '#a1a1aa' },
+  { value: 'belongs_to', label: 'Belongs To', description: 'Member of a team/group', color: '#71717a' },
+  { value: 'leads', label: 'Leads', description: 'Leadership role', color: '#d4d4d8' },
+  { value: 'advises', label: 'Advises', description: 'Advisory relationship', color: '#71717a' },
+  { value: 'collaborates_with', label: 'Collaborates With', description: 'Peer collaboration', color: '#71717a' },
+  { value: 'responsible_for', label: 'Responsible For', description: 'Owns an area', color: '#a1a1aa' },
 ]

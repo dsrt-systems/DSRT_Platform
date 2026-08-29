@@ -146,6 +146,7 @@ export async function PATCH(
         .maybeSingle()
 
       if (pos) {
+        // FIXED: Replaced .onConflictDoNothing() with standard .upsert
         await supabase
           .from('venture_team_memberships')
           .upsert(
@@ -159,7 +160,7 @@ export async function PATCH(
               source: 'join_request',
               status: 'active'
             },
-            { ignoreDuplicates: true }
+            { onConflict: 'venture_id,user_id', ignoreDuplicates: true }
           )
       }
     }

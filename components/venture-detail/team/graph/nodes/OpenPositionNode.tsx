@@ -26,24 +26,24 @@ export const OpenPositionNode = memo(({ data, selected }: { data: NodeData; sele
         className={
           'w-[260px] rounded-2xl overflow-hidden transition-all duration-200 ' +
           (selected
-            ? 'ring-2 ring-white shadow-2xl bg-[#0d0d10] border-2 border-dashed border-white/30'
-            : 'bg-transparent border-2 border-dashed border-zinc-700 hover:border-zinc-500')
+            ? 'ring-1 ring-white/30 shadow-2xl bg-[#09090b] border border-dashed border-white/20'
+            : 'bg-transparent border border-dashed border-white/[0.15] hover:border-white/[0.25]')
         }
       >
         <div className="p-4">
           {/* Icon + Badge */}
           <div className="flex items-start justify-between mb-3">
-            <div className="w-10 h-10 rounded-lg bg-zinc-900/50 border border-dashed border-zinc-600 flex items-center justify-center text-zinc-500">
-              <Briefcase size={18} />
+            <div className="w-10 h-10 rounded-lg bg-[#121215] border border-white/[0.06] flex items-center justify-center text-zinc-500">
+              <Briefcase size={16} weight="fill" />
             </div>
 
-            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-              Recruiting
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-white/[0.04] border border-white/[0.08] text-zinc-300">
+              Open Role
             </span>
           </div>
 
           {/* Title */}
-          <p className="text-[13px] font-bold text-zinc-300 truncate">
+          <p className="text-[13px] font-bold text-zinc-200 truncate">
             {position.title}
           </p>
           {position.team_name && (
@@ -60,33 +60,19 @@ export const OpenPositionNode = memo(({ data, selected }: { data: NodeData; sele
             </span>
           </div>
 
-          {/* Skills preview */}
-          {Array.isArray(position.required_skills) && position.required_skills.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1">
-              {position.required_skills.slice(0, 3).map((skill: string, i: number) => (
-                <span
-                  key={i}
-                  className="text-[9.5px] px-1.5 py-0.5 rounded font-mono uppercase tracking-wide bg-white/[0.04] border border-white/[0.06] text-zinc-500"
-                >
-                  {skill}
-                </span>
-              ))}
-            </div>
-          )}
-
           {/* Apply CTA if linked to opportunity */}
           {isLinked && linkedSlug ? (
             <Link
               href={`/looking-for/${linkedSlug}`}
               onClick={e => e.stopPropagation()}
-              className="mt-4 inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-[10.5px] font-bold text-emerald-300 transition-colors group"
+              className="mt-4 inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-white text-black text-[10.5px] font-bold hover:bg-zinc-200 transition-colors group"
             >
-              Apply Now
+              View Opening
               <ArrowRight size={10} weight="bold" className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
           ) : (
             <p className="mt-4 text-[10px] text-zinc-600 italic">
-              Not yet published to Looking For
+              Unpublished
             </p>
           )}
         </div>

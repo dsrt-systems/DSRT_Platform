@@ -20,40 +20,40 @@ export const TeamGroupNode = memo(({ data, selected }: { data: NodeData; selecte
 
       <div
         className={
-          'w-[280px] rounded-2xl overflow-hidden transition-all duration-200 ' +
+          'w-[280px] rounded-xl overflow-hidden transition-all duration-200 ' +
           (selected
-            ? 'ring-2 ring-white shadow-2xl bg-[#18181b] border border-white/15'
-            : 'bg-[#0d0d10] border-2 border-white/[0.06] shadow-md hover:border-white/[0.12]')
+            ? 'ring-1 ring-white/30 shadow-2xl bg-[#121215]'
+            : 'bg-[#0d0d10] border border-white/[0.06] shadow-md hover:border-white/[0.12]')
         }
       >
         <div className="p-4 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
-            <UsersThree size={20} className="text-zinc-400" />
+          <div className="w-10 h-10 rounded-lg bg-white/[0.02] border border-white/[0.04] flex items-center justify-center flex-shrink-0">
+            <UsersThree size={18} className="text-zinc-500" />
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-bold text-white truncate">
+            <p className="text-[13px] font-bold text-white truncate">
               {position.title || 'Team'}
             </p>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[10.5px] font-semibold text-zinc-400">
                 {memberCount} {memberCount === 1 ? 'member' : 'members'}
               </span>
               {openCount > 0 && (
                 <>
                   <span className="text-zinc-700 text-[10px]">·</span>
-                  <span className="text-[10.5px] font-semibold text-emerald-400">
+                  <span className="text-[10.5px] font-semibold text-zinc-300">
                     {openCount} open
                   </span>
                 </>
               )}
             </div>
-            <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mt-1">
-              Team Group
+            <p className="text-[9px] font-mono uppercase tracking-widest text-zinc-600 mt-1">
+              Department
             </p>
           </div>
 
-          <CaretDown size={12} className="text-zinc-600 flex-shrink-0" />
+          <CaretDown size={12} className="text-zinc-700 flex-shrink-0" />
         </div>
       </div>
 
