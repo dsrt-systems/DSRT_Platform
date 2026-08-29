@@ -72,11 +72,16 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
   const autoLayout = useAutoLayout()
   const { saveLayout } = useLayoutPersistence(slug)
 
-  // Build initial nodes
-  const initialNodes: Node[] = useMemo(() => {
-    return data.positions.map(pos => {
-      const occupants = data.memberships.filter(m => m.position_id === pos.id && m.status === 'active')
-      const layout = data.layout.find(l => l.position_id === pos.id)
+  const [nodes, setNodes, onNodesChange] = useNodesState([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+
+  // Master Sync: Rebuild nodes and edges whenever the parent data changes
+  useEffect(() => {
+    if (!data.positions) return
+
+    const newNodes: Node[] = data.positions.map((pos: any, index: number) => {
+      const occupants = data.memberships.filter((m: any) => m.position_id === pos.id && m.status === 'active')
+      const layout = data.layout.find((l: any) => l.position_id === pos.id)
 
       let nodeType: string = 'open_position'
       if (pos.position_type === 'team_group' || pos.position_type === 'department') {
@@ -85,21 +90,22 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
         nodeType = 'person'
       }
 
+      // If no layout exists, stack them safely so they don't overlap
+      const defaultX = 100 + (index * 20)
+      const defaultY = 100 + (index * 20)
+
       return {
         id: pos.id,
         type: nodeType,
         position: {
-          x: layout ? parseFloat(layout.x) : Math.random() * 400 - 200,
-          y: layout ? parseFloat(layout.y) : Math.random() * 300 - 150
+          x: layout ? parseFloat(layout.x) : defaultX,
+          y: layout ? parseFloat(layout.y) : defaultY
         },
         data: { position: pos, occupants, isOwner }
       }
     })
-  }, [data, isOwner])
 
-  // Build initial edges
-  const initialEdges: Edge[] = useMemo(() => {
-    return data.relationships.map(rel => ({
+    const newEdges: Edge[] = data.relationships.map((rel: any) => ({
       id: rel.id,
       source: rel.source_position_id,
       target: rel.target_position_id,
@@ -112,40 +118,35 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
         }
       }
     }))
-  }, [data.relationships, isOwner])
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
-
-  // Sync when data changes externally (real-time updates)
-  useEffect(() => {
-    setNodes(initialNodes)
-    setEdges(initialEdges)
+    setNodes(newNodes)
+    setEdges(newEdges)
     history.clear()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.positions.length, data.relationships.length, data.memberships.length])
+    
+    // Auto fit view on first load if nodes exist
+    if (newNodes.length > 0) {
+      setTimeout(() => fitView({ padding: 0.2, duration: 400 }), 100)
+    }
+  }, [data, isOwner, setNodes, setEdges, history, fitView])
 
   // Selection handler
   const onSelectionChange = useCallback(({ nodes: selNodes }: { nodes: Node[] }) => {
     onNodeSelect(selNodes.length === 1 ? selNodes[0].id : null)
   }, [onNodeSelect])
 
-  // Drag handler — LAYOUT ONLY, never structural
+  // Drag handler — LAYOUT ONLY
   const handleNodeDragStop = useCallback(() => {
     if (!isOwner) return
     saveLayout(nodes)
   }, [isOwner, nodes, saveLayout])
 
-  // Connection intercept — open modal to choose type
   const handleConnect = useCallback((connection: Connection) => {
     if (!isOwner) return
     setPendingConnection(connection)
   }, [isOwner])
 
-  // Confirm connection with chosen type
   const handleConfirmConnection = useCallback(async (type: RelationshipType) => {
     if (!pendingConnection) return
-
     try {
       const res = await fetch(`/api/ventures/${slug}/team/relationships`, {
         method: 'POST',
@@ -166,7 +167,6 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
     }
   }, [pendingConnection, slug, onRefresh])
 
-  // Edit existing edge type
   const handleEdgeUpdate = useCallback(async (newType: RelationshipType) => {
     if (!editingEdge) return
     try {
@@ -185,7 +185,6 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
     }
   }, [editingEdge, slug, onRefresh])
 
-  // Delete edge
   const handleEdgeDelete = useCallback(async () => {
     if (!editingEdge) return
     try {
@@ -202,7 +201,6 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
     }
   }, [editingEdge, slug, onRefresh])
 
-  // Auto-layout
   const handleAutoLayout = useCallback((mode: LayoutMode) => {
     history.recordSnapshot(nodes, edges, `auto-layout:${mode}`)
     const newNodes = autoLayout.apply(mode, nodes, edges)
@@ -212,7 +210,6 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
     toast.success(`Applied ${mode} layout`)
   }, [autoLayout, nodes, edges, setNodes, saveLayout, fitView, history])
 
-  // Undo
   const handleUndo = useCallback(() => {
     const snapshot = history.undo({ nodes, edges })
     if (snapshot) {
@@ -223,7 +220,6 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
     }
   }, [history, nodes, edges, setNodes, setEdges, saveLayout])
 
-  // Redo
   const handleRedo = useCallback(() => {
     const snapshot = history.redo({ nodes, edges })
     if (snapshot) {
@@ -233,55 +229,6 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
       toast('Redo', { icon: '↷' })
     }
   }, [history, nodes, edges, setNodes, setEdges, saveLayout])
-
-  // Keyboard shortcuts + navigation
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
-      if (target.isContentEditable) return
-
-      // Undo/Redo (owner only)
-      if (isOwner && (e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
-        handleUndo()
-        return
-      }
-      if (isOwner && (e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-        e.preventDefault()
-        handleRedo()
-        return
-      }
-
-      // Fit view
-      if (e.key === 'f' && !e.metaKey && !e.ctrlKey) {
-        fitView({ duration: 400, padding: 0.2 })
-        return
-      }
-
-      // Node navigation with arrow keys
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        const selectedNode = nodes.find(n => n.selected)
-        if (!selectedNode) return
-
-        // Find nearest node in the arrow direction
-        const target = findNearestNode(selectedNode, nodes, e.key)
-        if (target) {
-          e.preventDefault()
-          setNodes(nds => nds.map(n => ({ ...n, selected: n.id === target.id })))
-          onNodeSelect(target.id)
-        }
-      }
-
-      // Escape clears selection
-      if (e.key === 'Escape') {
-        setNodes(nds => nds.map(n => ({ ...n, selected: false })))
-        onNodeSelect(null)
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [isOwner, nodes, handleUndo, handleRedo, fitView, setNodes, onNodeSelect])
 
   const containerClass = fullscreen
     ? 'fixed inset-0 z-[100] bg-[#09090b]'
@@ -382,34 +329,4 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
       />
     </div>
   )
-}
-
-function findNearestNode(current: Node, all: Node[], direction: string): Node | null {
-  const others = all.filter(n => n.id !== current.id)
-  if (others.length === 0) return null
-
-  const cx = current.position.x
-  const cy = current.position.y
-
-  const candidates = others.filter(n => {
-    const dx = n.position.x - cx
-    const dy = n.position.y - cy
-    switch (direction) {
-      case 'ArrowUp': return dy < -50
-      case 'ArrowDown': return dy > 50
-      case 'ArrowLeft': return dx < -50
-      case 'ArrowRight': return dx > 50
-      default: return false
-    }
-  })
-
-  if (candidates.length === 0) return null
-
-  candidates.sort((a, b) => {
-    const da = Math.hypot(a.position.x - cx, a.position.y - cy)
-    const db = Math.hypot(b.position.x - cx, b.position.y - cy)
-    return da - db
-  })
-
-  return candidates[0]
 }

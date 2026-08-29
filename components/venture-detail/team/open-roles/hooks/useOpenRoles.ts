@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export interface OpenRole {
@@ -37,13 +37,6 @@ export interface OpenRole {
     interview: number
     hired: number
   }
-  linked_position?: {
-    id: string
-    title: string
-    team_name?: string
-    capacity?: number
-    occupied_count?: number
-  }
 }
 
 export interface OpenRolesData {
@@ -67,10 +60,11 @@ export function useOpenRoles(slug: string, ventureId: string, isOwner: boolean) 
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Ref to prevent double-fetching on mount
+  const hasLoaded = useRef(false)
 
   const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
     try {
       const res = await fetch(`/api/ventures/${slug}/open-roles`)
       if (!res.ok) throw new Error('Failed to load open roles')
@@ -82,36 +76,37 @@ export function useOpenRoles(slug: string, ventureId: string, isOwner: boolean) 
       const totalClosed = roles.filter(r =>
         ['closed', 'filled', 'archived', 'expired'].includes(r.status)
       ).length
-      const totalApplications = roles.reduce(
-        (sum, r) => sum + (r.application_stats?.total || 0), 0
-      )
-      const totalNewApplications = roles.reduce(
-        (sum, r) => sum + (r.application_stats?.new || 0), 0
-      )
+      const totalApplications = roles.reduce((sum, r) => sum + (r.application_stats?.total || 0), 0)
+      const totalNewApplications = roles.reduce((sum, r) => sum + (r.application_stats?.new || 0), 0)
 
       setData({ roles, totalActive, totalDrafts, totalClosed, totalApplications, totalNewApplications })
+      setError(null)
     } catch (e: any) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
-  }, [slug])
+  }, [slug]) // Only depend on slug (which is a primitive string)
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (!hasLoaded.current) {
+      hasLoaded.current = true
+      load()
+    }
+  }, [load])
 
-  // Real-time sync on opportunities and positions
+  // Real-time sync on opportunities (Optional, safe)
   useEffect(() => {
     if (!ventureId) return
 
     const channel = supabase
-      .channel(`open-roles:${ventureId}`)
+      .channel(`open-roles-sync:${ventureId}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'opportunities', filter: `venture_id=eq.${ventureId}` },
-        () => load()
-      )
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'venture_team_positions', filter: `venture_id=eq.${ventureId}` },
-        () => load()
+        () => {
+          console.log("Opportunity changed, reloading...")
+          load()
+        }
       )
       .subscribe()
 
