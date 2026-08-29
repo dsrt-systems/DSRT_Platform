@@ -8,10 +8,8 @@ import {
   Info,
   Question,
   Newspaper,
-  Image as ImageIcon,
   BookOpen,
   UsersThree,
-  Briefcase,
   Gear,
   ShareNetwork,
   BookmarkSimple,
@@ -29,10 +27,8 @@ import { VentureQuestionsTab } from './questions/VentureQuestionsTab'
 import { VentureProducts } from './products/VentureProducts'
 import { VentureGrowth } from './growth/VentureGrowth'
 import { VentureUpdates } from './updates/VentureUpdates'
-import { VentureMediaTab } from './media/VentureMediaTab'
 import { VentureDocumentsTab } from './documents/VentureDocumentsTab'
 import { VentureTeamStructure } from './team/VentureTeamStructure'
-import { VentureOpenRolesTab } from './openroles/VentureOpenRolesTab'
 import { VentureAnalytics } from './VentureAnalytics'
 import { VentureNotificationsTab } from './notifications/VentureNotificationsTab'
 import { VentureSettings } from './VentureSettings'
@@ -43,7 +39,16 @@ interface Props {
   slug: string
 }
 
-const DEPRECATED_TABS = ['funding', 'timeline', 'partners', 'assumptions', 'milestones', 'applicants']
+const DEPRECATED_TABS = [
+  'funding',
+  'timeline',
+  'partners',
+  'assumptions',
+  'milestones',
+  'applicants',
+  'media',
+  'roles'
+]
 
 export function VentureDetailPage({ slug }: Props) {
   const router = useRouter()
@@ -61,7 +66,7 @@ export function VentureDetailPage({ slug }: Props) {
     const tabParam = searchParams.get('tab')
     if (tabParam) {
       if (DEPRECATED_TABS.includes(tabParam.toLowerCase())) {
-        router.replace(`/ventures/${slug}?tab=overview`)
+        router.replace(`/ventures/${slug}?tab=overview`, { scroll: false })
         setActiveTab('overview')
       } else {
         setActiveTab(tabParam)
@@ -153,7 +158,7 @@ export function VentureDetailPage({ slug }: Props) {
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId)
-    router.push(`/ventures/${slug}?tab=${tabId}`)
+    router.push(`/ventures/${slug}?tab=${tabId}`, { scroll: false })
   }
 
   if (loading) {
@@ -200,10 +205,8 @@ export function VentureDetailPage({ slug }: Props) {
     { id: 'products', label: 'Products', icon: Package, badge: products?.length || 0 },
     { id: 'growth', label: 'Growth', icon: ChartLineUp },
     { id: 'updates', label: 'Updates', icon: Newspaper, badge: updates?.length || 0 },
-    { id: 'media', label: 'Media', icon: ImageIcon },
     { id: 'documents', label: 'Documents', icon: BookOpen },
-    { id: 'team', label: 'Team & Roles', icon: UsersThree, badge: team?.length || 0 },
-    { id: 'roles', label: 'Open Roles', icon: Briefcase, badge: openRolesCount },
+    { id: 'team', label: 'Team', icon: UsersThree, badge: team?.length || 0 },
   ]
 
   if (isOwner) {
@@ -284,21 +287,11 @@ export function VentureDetailPage({ slug }: Props) {
             {activeTab === 'updates' && (
               <VentureUpdates venture={venture} updates={updates || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
             )}
-            {activeTab === 'media' && (
-              <VentureMediaTab slug={slug} isOwner={isOwner} />
-            )}
             {activeTab === 'documents' && (
               <VentureDocumentsTab slug={slug} isOwner={isOwner} />
             )}
             {activeTab === 'team' && (
               <VentureTeamStructure venture={venture} team={team || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
-            )}
-            {activeTab === 'roles' && (
-              <VentureOpenRolesTab
-                slug={slug}
-                ventureId={venture.id}
-                isOwner={isOwner}
-              />
             )}
             {activeTab === 'analytics' && isOwner && (
               <VentureAnalytics slug={slug} />

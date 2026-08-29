@@ -1,15 +1,18 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { GridFour, Briefcase, User, CircleNotch, Plus } from '@phosphor-icons/react'
-import { toast } from 'sonner'
-import { TeamGraphCanvas } from './TeamGraphCanvas'
-import { PositionInspector } from './PositionInspector'
-import { PositionEditorModal } from './PositionEditorModal'
-import { TeamInviteModal } from './TeamInviteModal'
-import { LinkOpportunityModal } from './LinkOpportunityModal'
-import { TeamDirectory } from './TeamDirectory'
-import { TeamOpenRoles } from './TeamOpenRoles'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { CircleNotch, WarningCircle } from '@phosphor-icons/react'
+import { useTeamData } from './hooks/useTeamData'
+import { TeamSubNav, type TeamSection } from './TeamSubNav'
+import { GraphPanel } from './panels/GraphPanel'
+import { DirectoryPanel } from './panels/DirectoryPanel'
+import { StructurePanel } from './panels/StructurePanel'
+import { InvitationsPanel } from './panels/InvitationsPanel'
+import { RequestsPanel } from './panels/RequestsPanel'
+import { RolesPanel } from './panels/RolesPanel'
+import { OpenRolesPanel } from './panels/OpenRolesPanel'
+import { ActivityPanel } from './panels/ActivityPanel'
 
 interface Props {
   venture: any
@@ -19,157 +22,177 @@ interface Props {
   currentUserId: string | null
 }
 
+const VALID_SECTIONS: TeamSection[] = [
+  'graph',
+  'directory',
+  'structure',
+  'invitations',
+  'requests',
+  'roles',
+  'open-roles',
+  'activity',
+]
+
 export function VentureTeamStructure({ venture, slug, isOwner, currentUserId }: Props) {
-  const [view, setView] = useState<'graph' | 'members' | 'roles'>('graph')
-  const [loading, setLoading] = useState(true)
-  const [graphData, setGraphData] = useState<any>(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const [selectedPositionId, setSelectedPositionId] = useState<string | null>(null)
+  const [activeSection, setActiveSection] = useState<TeamSection>('graph')
 
-  // Modals
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [inviteModalOpen, setInviteModalOpen] = useState(false)
-  const [linkModalOpen, setLinkModalOpen] = useState(false)
-  const [editingPosition, setEditingPosition] = useState<any | null>(null)
-
-  const loadGraph = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/ventures/${slug}/team/graph`)
-      if (!res.ok) throw new Error('Failed to load team graph')
-      const json = await res.json()
-      setGraphData(json)
-    } catch (e) {
-      toast.error('Could not load team structure')
-    } finally {
-      setLoading(false)
+  // Sync URL param with active section
+  useEffect(() => {
+    const section = searchParams.get('section')
+    if (section && VALID_SECTIONS.includes(section as TeamSection)) {
+      setActiveSection(section as TeamSection)
     }
-  }, [slug])
+  }, [searchParams])
 
-  useEffect(() => { loadGraph() }, [loadGraph])
-
-  const selectedPosition = useMemo(() => {
-    if (!graphData || !selectedPositionId) return null
-    return graphData.positions.find((p: any) => p.id === selectedPositionId) || null
-  }, [graphData, selectedPositionId])
-
-  const handleEdit = (pos: any) => { setEditingPosition(pos); setEditModalOpen(true) }
-  const handleAdd = () => { setEditingPosition(null); setEditModalOpen(true) }
-  const handleInvite = (pos: any) => { setEditingPosition(pos); setInviteModalOpen(true) }
-  const handleLink = (pos: any) => { setEditingPosition(pos); setLinkModalOpen(true) }
-
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/ventures/${slug}/team/positions/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error()
-      setSelectedPositionId(null)
-      loadGraph()
-      toast.success('Position archived')
-    } catch {
-      toast.error('Failed to remove position')
-    }
+  const handleSectionChange = (section: TeamSection) => {
+    setActiveSection(section)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('section', section)
+    router.replace(`/ventures/${slug}?${params.toString()}`, { scroll: false })
   }
 
+  const {
+    graph,
+    invitations,
+    requests,
+    activity,
+    stats,
+    loading,
+    error,
+    reloadAll,
+    loadInvitations,
+    loadRequests,
+  } = useTeamData(slug, venture.id, isOwner)
+
   return (
-    <div className="relative">
-      <div className="flex items-end justify-between mb-5">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-[19px] font-bold text-white">Team Structure</h2>
-          <p className="text-[12.5px] text-white/45 mt-0.5">How the team is organized and what roles are open</p>
+          <h2 className="text-[20px] font-bold text-white">Team & Governance</h2>
+          <p className="text-[12.5px] text-zinc-400 mt-0.5">
+            Organizational structure, membership, invitations, and access control
+          </p>
         </div>
-        <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.08] rounded-lg p-1">
-          <button onClick={() => setView('graph')}
-            className={'flex items-center gap-1.5 text-[12px] font-semibold px-3 h-7 rounded-md transition-colors ' +
-              (view === 'graph' ? 'bg-white/[0.08] text-white' : 'text-white/50 hover:text-white')}>
-            <GridFour size={12} weight="fill" /> Graph
-          </button>
-          <button onClick={() => setView('members')}
-            className={'flex items-center gap-1.5 text-[12px] font-semibold px-3 h-7 rounded-md transition-colors ' +
-              (view === 'members' ? 'bg-white/[0.08] text-white' : 'text-white/50 hover:text-white')}>
-            <User size={12} weight="fill" /> Members
-          </button>
-          <button onClick={() => setView('roles')}
-            className={'flex items-center gap-1.5 text-[12px] font-semibold px-3 h-7 rounded-md transition-colors ' +
-              (view === 'roles' ? 'bg-white/[0.08] text-white' : 'text-white/50 hover:text-white')}>
-            <Briefcase size={12} weight="fill" /> Roles
-          </button>
+
+        {/* Live stats pill */}
+        <div className="flex items-center gap-4 text-[11.5px] text-zinc-500">
+          <span>
+            <span className="font-bold text-white">{stats.activeMembers}</span> active
+          </span>
+          {stats.pendingInvitations > 0 && (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span>
+                <span className="font-bold text-white">{stats.pendingInvitations}</span> pending
+              </span>
+            </>
+          )}
+          {stats.openPositions > 0 && (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span>
+                <span className="font-bold text-white">{stats.openPositions}</span> open
+              </span>
+            </>
+          )}
         </div>
       </div>
 
-      {loading ? (
-        <div className="h-[500px] rounded-2xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-center text-zinc-500">
-          <CircleNotch size={20} className="animate-spin mr-2" /> Loading structure...
-        </div>
-      ) : view === 'graph' && graphData ? (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 relative">
+      {/* Sub-Navigation */}
+      <TeamSubNav
+        activeSection={activeSection}
+        onSelect={handleSectionChange}
+        stats={stats}
+        isOwner={isOwner}
+      />
 
-          {isOwner && (
-            <button
-              onClick={handleAdd}
-              className="absolute top-4 left-4 z-10 flex items-center gap-1.5 bg-white text-black px-3 h-8 rounded-md text-[12px] font-bold shadow-lg hover:bg-zinc-200 transition-colors"
-            >
-              <Plus size={12} weight="bold" /> Add Position
-            </button>
+      {/* Content */}
+      {loading ? (
+        <div className="h-[500px] rounded-2xl border border-white/[0.06] bg-[#121215]/50 flex items-center justify-center text-zinc-500 text-xs gap-2">
+          <CircleNotch size={18} className="animate-spin" /> Loading team workspace…
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8 text-center">
+          <WarningCircle size={24} className="text-red-400 mx-auto mb-3" />
+          <h3 className="text-[14px] font-bold text-white mb-1">Failed to load team</h3>
+          <p className="text-[12px] text-zinc-400 mb-4">{error}</p>
+          <button
+            onClick={reloadAll}
+            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-[12.5px] font-semibold"
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
+        <div>
+          {activeSection === 'graph' && graph && (
+            <GraphPanel
+              slug={slug}
+              graphData={graph}
+              isOwner={isOwner}
+              onRefresh={reloadAll}
+              ventureName={venture.name}
+            />
           )}
 
-          <div className="bg-[#09090b] border border-white/[0.06] rounded-2xl overflow-hidden shadow-inner relative h-[600px]">
-            <TeamGraphCanvas
+          {activeSection === 'directory' && graph && (
+            <DirectoryPanel
               slug={slug}
-              data={graphData}
+              memberships={graph.memberships}
+              positions={graph.positions}
               isOwner={isOwner}
-              onNodeSelect={setSelectedPositionId}
-              onRefresh={loadGraph}
+              currentUserId={currentUserId}
+              onRefresh={reloadAll}
             />
-          </div>
+          )}
 
-          <div>
-            <PositionInspector
-              position={selectedPosition}
-              memberships={graphData.memberships.filter((m: any) => m.position_id === selectedPositionId)}
-              isOwner={isOwner}
-              slug={slug}
-              onRefresh={loadGraph}
-              onClose={() => setSelectedPositionId(null)}
-              onEdit={handleEdit}
-              onInvite={handleInvite}
-              onDelete={handleDelete}
-              onLinkOpportunity={handleLink}
+          {activeSection === 'structure' && graph && (
+            <StructurePanel
+              positions={graph.positions}
+              memberships={graph.memberships}
             />
-          </div>
+          )}
+
+          {activeSection === 'invitations' && isOwner && (
+            <InvitationsPanel
+              invitations={invitations}
+              onRefresh={loadInvitations}
+            />
+          )}
+
+          {activeSection === 'requests' && isOwner && (
+            <RequestsPanel
+              requests={requests}
+              slug={slug}
+              onRefresh={loadRequests}
+            />
+          )}
+
+          {activeSection === 'roles' && isOwner && (
+            <RolesPanel
+              slug={slug}
+              isOwner={isOwner}
+            />
+          )}
+
+          {activeSection === 'open-roles' && (
+            <OpenRolesPanel
+              slug={slug}
+              ventureId={venture.id}
+              isOwner={isOwner}
+              positions={graph?.positions || []}
+            />
+          )}
+
+          {activeSection === 'activity' && isOwner && (
+            <ActivityPanel activity={activity} />
+          )}
         </div>
-      ) : view === 'members' && graphData ? (
-        <TeamDirectory memberships={graphData.memberships} positions={graphData.positions} />
-      ) : view === 'roles' && graphData ? (
-        <TeamOpenRoles
-          positions={graphData.positions}
-          isOwner={isOwner}
-          slug={slug}
-          ventureId={venture.id}
-        />
-      ) : null}
-
-      {/* Modals */}
-      <PositionEditorModal
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        slug={slug}
-        existingPosition={editingPosition}
-        onSuccess={loadGraph}
-      />
-      <TeamInviteModal
-        open={inviteModalOpen}
-        onClose={() => setInviteModalOpen(false)}
-        slug={slug}
-        position={editingPosition}
-        onSuccess={loadGraph}
-      />
-      <LinkOpportunityModal
-        open={linkModalOpen}
-        onClose={() => setLinkModalOpen(false)}
-        slug={slug}
-        position={editingPosition}
-        onSuccess={loadGraph}
-      />
+      )}
     </div>
   )
 }

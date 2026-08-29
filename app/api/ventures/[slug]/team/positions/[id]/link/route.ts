@@ -12,60 +12,67 @@ export async function PATCH(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // 1. Verify venture ownership
-  const { data: venture } = await supabase.from('ventures').select('id').eq('slug', slug).single()
-  if (!venture) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
-
-  const isOwner = await supabase.rpc('is_venture_owner_or_member', {
-    p_venture_id: venture.id,
-    p_user_id: user.id
-  })
-  if (!isOwner) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
   try {
-    const body = await req.json()
-    const opportunityId = body.opportunity_id || null
+    const { data: venture } = await supabase.from('ventures').select('id').eq('slug', slug).single()
+    if (!venture) return NextResponse.json({ error: 'Venture not found' }, { status: 404 })
 
-    // 2. If linking, verify the opportunity belongs to this user/venture
-    if (opportunityId) {
+    const { data: isMember } = await supabase.rpc('is_venture_owner_or_member', {
+      p_venture_id: venture.id,
+      p_user_id: user.id
+    })
+    if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const body = await req.json()
+    const { opportunity_id } = body
+
+    // Verify opportunity belongs to same venture (if linking)
+    if (opportunity_id) {
       const { data: opp } = await supabase
         .from('opportunities')
-        .select('id, poster_user_id')
-        .eq('id', opportunityId)
+        .select('id, venture_id')
+        .eq('id', opportunity_id)
         .single()
-      
-      if (!opp || opp.poster_user_id !== user.id) {
-        return NextResponse.json({ error: 'Invalid or unauthorized opportunity' }, { status: 403 })
+
+      if (!opp) return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 })
+      if (opp.venture_id !== venture.id) {
+        return NextResponse.json({ error: 'Opportunity does not belong to this venture' }, { status: 403 })
       }
     }
 
-    // 3. Update Position -> Opportunity link
-    const { data: position, error: posErr } = await supabase
+    // Update position
+    const { data: position, error } = await supabase
       .from('venture_team_positions')
-      .update({ linked_opportunity_id: opportunityId, updated_at: new Date().toISOString() })
+      .update({
+        linked_opportunity_id: opportunity_id || null,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id)
       .eq('venture_id', venture.id)
       .select()
       .single()
 
-    if (posErr) throw posErr
+    if (error) throw error
 
-    // 4. Update Opportunity -> Position link (bidirectional integrity)
-    if (opportunityId) {
+    // Log activity
+    try {
+      await supabase.from('venture_team_activity').insert({
+        venture_id: venture.id,
+        actor_id: user.id,
+        action: opportunity_id ? 'position.linked_opportunity' : 'position.unlinked_opportunity',
+        target_type: 'position',
+        target_id: id,
+        metadata: { opportunity_id }
+      })
+    } catch {}
+
+    // Sync opportunity positions_open with new position capacity
+    if (opportunity_id) {
+      const remaining = Math.max(0, (position.capacity || 1) - (position.occupied_count || 0))
       await supabase
         .from('opportunities')
-        .update({ linked_position_id: id })
-        .eq('id', opportunityId)
+        .update({ positions_open: remaining, updated_at: new Date().toISOString() })
+        .eq('id', opportunity_id)
     }
-
-    // 5. Audit
-    await supabase.rpc('fn_venture_audit', {
-      p_venture_id: venture.id,
-      p_action: opportunityId ? 'position.opportunity_linked' : 'position.opportunity_unlinked',
-      p_target_type: 'position',
-      p_target_id: id,
-      p_metadata: { opportunity_id: opportunityId }
-    })
 
     return NextResponse.json({ success: true, position })
   } catch (e: any) {

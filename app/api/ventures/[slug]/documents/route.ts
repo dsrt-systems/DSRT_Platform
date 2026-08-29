@@ -100,11 +100,14 @@ export async function POST(
       }
     ]
 
+    // Replace the insert block in POST /api/ventures/[slug]/documents/route.ts:
+
     const { data: doc, error } = await supabase
       .from('venture_documents')
       .insert({
         venture_id: venture.id,
-        title,
+        name: title,  // <-- Added 'name' to satisfy legacy NOT NULL constraint
+        title: title,
         icon: body.icon || '📄',
         category,
         parent_document_id: parentId,

@@ -20,7 +20,7 @@ export async function GET(req: Request, context: { params: Promise<{ slug: strin
     supabase.from('venture_team_members').select('*, users(id, full_name, username, avatar_url, tagline)').eq('venture_id', venture.id).order('position'),
     supabase.from('venture_products').select('*').eq('venture_id', venture.id).order('position'),
     supabase.from('venture_looking_for').select('*').eq('venture_id', venture.id).eq('status', 'open').order('position'),
-    supabase.from('venture_updates').select('*, users(full_name, avatar_url)').eq('venture_id', venture.id).eq('is_public', true).order('created_at', { ascending: false }).limit(10),
+    supabase.from('venture_updates').select('*, author:users!user_id(id, full_name, username, avatar_url)').eq('venture_id', venture.id).eq('is_public', true).order('created_at', { ascending: false }).limit(10),
     supabase.from('venture_metrics').select('*, venture_metric_entries(value, date, note)').eq('venture_id', venture.id).eq('is_public', true).order('position'),
     supabase.from('venture_timeline').select('*').eq('venture_id', venture.id).eq('is_public', true).order('event_date', { ascending: false }),
     supabase.from('venture_partners').select('*').eq('venture_id', venture.id).order('position'),

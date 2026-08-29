@@ -16,7 +16,7 @@ export async function GET(
 
     const { data: update, error } = await supabase
       .from('venture_updates')
-      .select('*, author:users!user_id(id, full_name, username, avatar_url)')
+      .select('*, author:users!created_by(id, full_name, username, avatar_url)')
       .eq('id', id)
       .eq('venture_id', venture.id)
       .is('deleted_at', null)
@@ -24,7 +24,6 @@ export async function GET(
 
     if (error || !update) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    // Increment view count (fire-and-forget)
     supabase
       .from('venture_updates')
       .update({ view_count: (update.view_count || 0) + 1 })
@@ -55,37 +54,32 @@ export async function PATCH(
       p_venture_id: venture.id,
       p_user_id: user.id
     })
-
     if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()
     const allowedFields = [
       'title', 'content_blocks', 'content_text', 'status', 'visibility',
-      'cover_asset_id', 'is_pinned'
+      'cover_asset_id', 'is_pinned', 'type'
     ]
 
     const patch: Record<string, any> = {
       updated_at: new Date().toISOString(),
       last_edited_by: user.id,
     }
-
     for (const key of allowedFields) {
       if (key in body) patch[key] = body[key]
     }
 
-    // Derive content_text from blocks if provided
     if (Array.isArray(body.content_blocks)) {
       patch.content_text = body.content_blocks
         .map((b: any) => b.content || '')
         .filter(Boolean)
         .join(' ')
         .slice(0, 3000)
-      // Keep legacy content column in sync
       patch.content = patch.content_text
     }
 
-    // Handle state transitions
-    if (body.status === 'published' && !body.published_at) {
+    if (body.status === 'published') {
       const { data: existing } = await supabase
         .from('venture_updates')
         .select('status, published_at')
@@ -104,7 +98,7 @@ export async function PATCH(
       .update(patch)
       .eq('id', id)
       .eq('venture_id', venture.id)
-      .select('*, author:users!user_id(id, full_name, username, avatar_url)')
+      .select('*, author:users!created_by(id, full_name, username, avatar_url)')
       .single()
 
     if (error) throw error
@@ -143,7 +137,6 @@ export async function DELETE(
       p_venture_id: venture.id,
       p_user_id: user.id
     })
-
     if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { error } = await supabase

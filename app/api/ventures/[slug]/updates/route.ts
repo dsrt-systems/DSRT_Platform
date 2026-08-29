@@ -36,32 +36,28 @@ export async function GET(
 
     let query = supabase
       .from('venture_updates')
-      .select('*, author:users!user_id(id, full_name, username, avatar_url)', { count: 'exact' })
+      .select('*, author:users!created_by(id, full_name, username, avatar_url)', { count: 'exact' })
       .eq('venture_id', venture.id)
       .is('deleted_at', null)
       .order('is_pinned', { ascending: false })
       .order('published_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
 
-    // Only owners see drafts/archived
     if (isMember && (status === 'draft' || status === 'archived' || status === 'all')) {
       if (status !== 'all') query = query.eq('status', status)
     } else {
       query = query.eq('status', 'published')
-      // Non-members only see public updates
       if (!isMember) query = query.eq('visibility', 'public')
     }
 
     const { data: updates, count, error } = await query.range(offset, offset + limit - 1)
     if (error) throw error
 
-    // Enrich with user's reactions & saves
     let userReactions: Record<string, string[]> = {}
     let userSaves: Set<string> = new Set()
 
     if (user && updates && updates.length > 0) {
       const updateIds = updates.map(u => u.id)
-
       const [reactionsRes, savesRes] = await Promise.all([
         supabase
           .from('venture_update_reactions')
@@ -79,7 +75,6 @@ export async function GET(
         if (!userReactions[r.update_id]) userReactions[r.update_id] = []
         userReactions[r.update_id].push(r.reaction_type)
       })
-
       userSaves = new Set((savesRes.data || []).map((s: any) => s.update_id))
     }
 
@@ -89,11 +84,7 @@ export async function GET(
       is_saved: userSaves.has(u.id),
     }))
 
-    return NextResponse.json({
-      updates: enriched,
-      total: count || 0,
-      can_edit: isMember,
-    })
+    return NextResponse.json({ updates: enriched, total: count || 0, can_edit: isMember })
   } catch (e: any) {
     console.error('List updates error:', e)
     return NextResponse.json({ error: e?.message || 'Failed' }, { status: 500 })
@@ -118,7 +109,6 @@ export async function POST(
       p_venture_id: venture.id,
       p_user_id: user.id
     })
-
     if (!isMember) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()
@@ -132,12 +122,13 @@ export async function POST(
 
     const insert: Record<string, any> = {
       venture_id: venture.id,
-      user_id: user.id,
+      created_by: user.id,        // ✅ CORRECT COLUMN
       last_edited_by: user.id,
       title: (body.title || '').trim().slice(0, 300) || null,
-      content: contentText, // For legacy compatibility
+      content: contentText,
       content_blocks: contentBlocks,
       content_text: contentText,
+      type: body.type || 'general',
       status,
       visibility: body.visibility || 'public',
       cover_asset_id: body.cover_asset_id || null,
@@ -151,7 +142,7 @@ export async function POST(
     const { data: update, error } = await supabase
       .from('venture_updates')
       .insert(insert)
-      .select('*, author:users!user_id(id, full_name, username, avatar_url)')
+      .select('*, author:users!created_by(id, full_name, username, avatar_url)')
       .single()
 
     if (error) throw error

@@ -16,9 +16,10 @@ export async function GET(
 
     let query = supabase.from('venture_team_invitations').select(`
       *,
-      venture:ventures(id, slug, name, tagline, logo_url, cover_url, stage, industry, headquarters),
+      venture:ventures(id, slug, name, tagline, logo_url, cover_url, stage, industry, headquarters, description),
       invited_by:users!invited_by_user_id(id, full_name, username, avatar_url, tagline),
-      position:venture_team_positions(id, title, description, position_type, team_name, department, capacity, occupied_count, responsibilities)
+      invited_user:users!invited_user_id(id, full_name, username, avatar_url),
+      position:venture_team_positions(id, title, description, position_type, team_name, department, capacity, occupied_count, responsibilities, required_skills)
     `)
 
     if (isUUID) {
@@ -33,24 +34,46 @@ export async function GET(
       return NextResponse.json({ error: 'Invitation not found' }, { status: 404 })
     }
 
-    // Access control: Inviter, Venture owner/member, or Invited user
+    // Access control: recipient, inviter, or venture member
     const isInvitedUser = user && user.id === invitation.invited_user_id
-    const isOwnerOrMember = user && await supabase.rpc('is_venture_owner_or_member', {
-      p_venture_id: invitation.venture_id,
-      p_user_id: user.id
-    })
+    let isOwnerOrMember = false
+
+    if (user) {
+      const { data: memberCheck } = await supabase.rpc('is_venture_owner_or_member', {
+        p_venture_id: invitation.venture_id,
+        p_user_id: user.id
+      })
+      isOwnerOrMember = !!memberCheck
+    }
 
     if (!isInvitedUser && !isOwnerOrMember) {
       return NextResponse.json({ error: 'Unauthorized to view this invitation' }, { status: 403 })
     }
 
-    const isExpired = new Date(invitation.expires_at) < new Date() && ['sent', 'viewed', 'held'].includes(invitation.status)
+    // Check expiration state
+    const isExpired = invitation.expires_at
+      && new Date(invitation.expires_at) < new Date()
+      && ['sent', 'viewed', 'held'].includes(invitation.status)
+
+    // Auto-transition expired invitations
+    if (isExpired && invitation.status !== 'expired') {
+      await supabase
+        .from('venture_team_invitations')
+        .update({ status: 'expired' })
+        .eq('id', invitation.id)
+      invitation.status = 'expired'
+    }
 
     return NextResponse.json({
       invitation,
       is_invited_user: isInvitedUser,
       is_owner_or_member: isOwnerOrMember,
       is_expired: isExpired,
+      can_accept: isInvitedUser && ['sent', 'viewed', 'held'].includes(invitation.status) && !isExpired,
+      can_hold: isInvitedUser && ['sent', 'viewed'].includes(invitation.status) && !isExpired,
+      can_reject: isInvitedUser && ['sent', 'viewed', 'held'].includes(invitation.status) && !isExpired,
+      can_revoke: isOwnerOrMember && ['draft', 'sent', 'viewed', 'held'].includes(invitation.status),
+      can_resend: isOwnerOrMember && ['sent', 'viewed', 'held', 'expired'].includes(invitation.status),
     })
   } catch (e: any) {
     console.error('Fetch invitation error:', e)

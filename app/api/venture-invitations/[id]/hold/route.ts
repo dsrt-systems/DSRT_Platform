@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { getVentureServices } from '@/lib/venture'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -8,45 +8,47 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params
-  const supabase = await createClient()
+  const { supabase, invitations } = await getVentureServices()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const body = await req.json().catch(() => ({}))
-    const { data: inv } = await supabase
-      .from('venture_team_invitations')
-      .select('id, invited_user_id, status, venture_id')
-      .or(`id.eq.${id},secure_token.eq.${id}`)
-      .maybeSingle()
+    const message = body.message?.trim() || null
 
-    if (!inv) return NextResponse.json({ error: 'Invitation not found' }, { status: 404 })
-    if (inv.invited_user_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (message && message.length > 1000) {
+      return NextResponse.json({ error: 'Message too long (max 1000 chars)' }, { status: 400 })
+    }
 
-    const { data: updated, error } = await supabase
-      .from('venture_team_invitations')
-      .update({
-        status: 'held',
-        hold_message: body.message?.trim() || null,
-        held_at: new Date().toISOString(),
+    const invitation = await invitations.holdInvitation(id, user.id, message)
+
+    // Log activity
+    try {
+      await supabase.from('venture_team_activity').insert({
+        venture_id: invitation.venture_id,
+        actor_id: user.id,
+        action: 'invitation.held',
+        target_type: 'invitation',
+        target_id: id,
+        metadata: { has_message: !!message }
       })
-      .eq('id', inv.id)
-      .select()
-      .single()
+    } catch {}
 
-    if (error) throw error
+    // Append system event to mail thread
+    try {
+      const { mailBridge } = await getVentureServices()
+      await mailBridge.appendSystemEvent(id, 'invitation.held', {
+        has_message: !!message
+      })
+    } catch {}
 
-    await supabase.rpc('fn_venture_emit_event', {
-      p_venture_id: inv.venture_id,
-      p_event_type: 'invitation.held',
-      p_aggregate_type: 'invitation',
-      p_aggregate_id: inv.id,
-      p_payload: { message: body.message || null }
-    })
-
-    return NextResponse.json({ success: true, invitation: updated })
+    return NextResponse.json({ success: true, invitation })
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Failed to hold invitation' }, { status: 500 })
+    console.error('Hold invitation error:', e)
+    return NextResponse.json({
+      success: false,
+      error: e?.message || 'Failed to hold invitation'
+    }, { status: 400 })
   }
 }
