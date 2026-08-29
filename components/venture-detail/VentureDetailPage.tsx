@@ -9,7 +9,6 @@ import {
   Question,
   Newspaper,
   BookOpen,
-  UsersThree,
   Gear,
   ShareNetwork,
   BookmarkSimple,
@@ -28,7 +27,6 @@ import { VentureProducts } from './products/VentureProducts'
 import { VentureGrowth } from './growth/VentureGrowth'
 import { VentureUpdates } from './updates/VentureUpdates'
 import { VentureDocumentsTab } from './documents/VentureDocumentsTab'
-import { VentureTeamStructure } from './team/VentureTeamStructure'
 import { VentureAnalytics } from './VentureAnalytics'
 import { VentureNotificationsTab } from './notifications/VentureNotificationsTab'
 import { VentureSettings } from './VentureSettings'
@@ -47,7 +45,8 @@ const DEPRECATED_TABS = [
   'milestones',
   'applicants',
   'media',
-  'roles'
+  'roles',
+  'team' // Added team to redirect away if someone has an old link
 ]
 
 export function VentureDetailPage({ slug }: Props) {
@@ -188,15 +187,14 @@ export function VentureDetailPage({ slug }: Props) {
     )
   }
 
-  const { venture, team, products, lookingFor, updates, metrics, founder, isFollowing, isOwner } = data
+  const { venture, products, updates, metrics, founder, isFollowing, isOwner } = data
   const unreadNotifs = venture.unread_notifications || 0
-  const openRolesCount = (lookingFor || []).filter((r: any) => r.status === 'active' || r.status === 'open' || !r.status).length
 
   const headerStats = {
-    team: team?.length || 0,
+    team: 0,
     followers: venture.follower_count || 0,
     applications: 0,
-    openRoles: openRolesCount,
+    openRoles: 0,
   }
 
   const tabs: { id: string; label: string; icon: any; badge?: number }[] = [
@@ -206,7 +204,6 @@ export function VentureDetailPage({ slug }: Props) {
     { id: 'growth', label: 'Growth', icon: ChartLineUp },
     { id: 'updates', label: 'Updates', icon: Newspaper, badge: updates?.length || 0 },
     { id: 'documents', label: 'Documents', icon: BookOpen },
-    { id: 'team', label: 'Team', icon: UsersThree, badge: team?.length || 0 },
   ]
 
   if (isOwner) {
@@ -290,9 +287,6 @@ export function VentureDetailPage({ slug }: Props) {
             {activeTab === 'documents' && (
               <VentureDocumentsTab slug={slug} isOwner={isOwner} />
             )}
-            {activeTab === 'team' && (
-              <VentureTeamStructure venture={venture} team={team || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
-            )}
             {activeTab === 'analytics' && isOwner && (
               <VentureAnalytics slug={slug} />
             )}
@@ -308,9 +302,9 @@ export function VentureDetailPage({ slug }: Props) {
             <VentureSidebar
               venture={venture}
               founder={founder}
-              team={team || []}
+              team={[]}
               products={products || []}
-              roles={lookingFor || []}
+              roles={[]}
               isOwner={isOwner}
               onUpdate={patchVenture}
             />
