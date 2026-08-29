@@ -72,8 +72,9 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
   const autoLayout = useAutoLayout()
   const { saveLayout } = useLayoutPersistence(slug)
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  // FIX: Explicitly type the empty arrays so TypeScript doesn't infer `never[]`
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
 
   // Master Sync: Rebuild nodes and edges whenever the parent data changes
   useEffect(() => {
@@ -114,7 +115,7 @@ function CanvasCore({ slug, data, isOwner, onNodeSelect, onRefresh }: Props) {
         label: rel.relationship_type || 'reports_to',
         isOwner,
         onEdit: (edgeId: string) => {
-          setEditingEdge({ id: edgeId, type: rel.relationship_type })
+          setEditingEdge({ id: edgeId, type: rel.relationship_type as RelationshipType })
         }
       }
     }))
