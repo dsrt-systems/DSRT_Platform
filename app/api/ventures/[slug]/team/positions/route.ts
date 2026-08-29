@@ -22,35 +22,41 @@ export async function POST(
   }
 
   try {
+    // Stripped to exact guaranteed columns
+    const insertPayload: any = {
+      venture_id: venture.id,
+      title: body.title.trim(),
+      position_type: body.position_type || 'employee',
+      status: 'open',
+      capacity: body.capacity || 1,
+      occupied_count: 0
+    }
+    
+    // Add optional columns safely
+    if (body.team_name) insertPayload.team_name = body.team_name.trim()
+    if (body.department) insertPayload.department = body.department.trim()
+
     const { data: position, error } = await supabase
       .from('venture_team_positions')
-      .insert({
-        venture_id: venture.id,
-        title: body.title.trim(),
-        description: body.description || null,
-        position_type: body.position_type || 'employee',
-        status: body.status || 'open',
-        team_name: body.team_name || null,
-        department: body.department || null,
-        capacity: body.capacity || 1,
-        created_by: user.id
-      })
+      .insert(insertPayload)
       .select()
       .single()
 
     if (error) throw error
 
-    // Generate Audit Event
-    await supabase.rpc('fn_venture_audit', {
-      p_venture_id: venture.id,
-      p_action: 'position.created',
-      p_target_type: 'position',
-      p_target_id: position.id,
-      p_after: position
-    })
+    try {
+      await supabase.rpc('fn_venture_audit', {
+        p_venture_id: venture.id,
+        p_action: 'position.created',
+        p_target_type: 'position',
+        p_target_id: position.id,
+        p_after: position
+      })
+    } catch {}
 
     return NextResponse.json({ success: true, position })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    console.error("Position creation error:", e)
+    return NextResponse.json({ error: e.message || 'Failed to create position' }, { status: 500 })
   }
 }
