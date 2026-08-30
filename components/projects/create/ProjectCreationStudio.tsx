@@ -1,12 +1,11 @@
-// components/projects/create/ProjectCreationStudio.tsx
 'use client'
 
 import { useEffect, useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Loader2, LogOut } from 'lucide-react'
+import { WarningCircle } from '@phosphor-icons/react'
 import { DsrtLogo } from '@/components/ui/DsrtLogo'
-import { createClient } from '@/lib/supabase/client'
 import { useProjectCreationStore, ProjectStepKey } from '@/stores/projectCreationStore'
 
 import { ProjectCreationSidebar, PROJECT_STEPS } from './ProjectCreationSidebar'
@@ -41,10 +40,16 @@ const STEP_HEADINGS: Record<ProjectStepKey, { heading: string; description: stri
   },
 }
 
-export function ProjectCreationStudio() {
+interface Props {
+  continueDraftId?: string | null
+}
+
+export function ProjectCreationStudio({ continueDraftId }: Props) {
   const router = useRouter()
-  const supabase = createClient()
   const [mounted, setMounted] = useState(false)
+  const [initializing, setInitializing] = useState(true)
+  const [draftCount, setDraftCount] = useState<number>(0)
+  const [showLimitWarning, setShowLimitWarning] = useState(false)
 
   const {
     data,
@@ -56,13 +61,56 @@ export function ProjectCreationStudio() {
     setSaving,
     markSaved,
     canNavigateToStep,
+    reset,
+    hydrateFromServer,
   } = useProjectCreationStore()
 
+  // ─── FRESH vs CONTINUE INITIALIZATION ───
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    const init = async () => {
+      // Fetch draft count first
+      try {
+        const countRes = await fetch('/api/projects/drafts/count')
+        const countData = await countRes.json()
+        setDraftCount(countData.count || 0)
 
-  // Continuous Auto-Save
+        if (continueDraftId) {
+          // CONTINUE existing draft
+          const res = await fetch(`/api/projects/draft/${continueDraftId}`)
+          if (res.ok) {
+            const json = await res.json()
+            if (json.draft) {
+              reset() // Clear old state first
+              hydrateFromServer(json.draft)
+              toast.success(`Resumed draft: ${json.draft.name}`)
+            }
+          } else {
+            toast.error('Could not load draft')
+            router.push('/projects/create')
+            return
+          }
+        } else {
+          // NEW project - reset the store completely
+          reset()
+
+          // Check limit BEFORE letting them start
+          if ((countData.count || 0) >= (countData.limit || 10)) {
+            setShowLimitWarning(true)
+          }
+        }
+      } catch (err) {
+        console.error('Init error:', err)
+      } finally {
+        setInitializing(false)
+        setMounted(true)
+      }
+    }
+
+    init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [continueDraftId])
+
+  // ─── AUTO-SAVE ───
   const triggerAutoSave = useCallback(
     async (isExiting = false) => {
       if (!data.name || data.name.trim().length < 2) return
@@ -76,23 +124,34 @@ export function ProjectCreationStudio() {
         })
         const result = await res.json()
 
-        if (res.ok && result.project?.id && !data.id) {
+        if (!res.ok) {
+          if (result.code === 'DRAFT_LIMIT_REACHED') {
+            toast.error(result.error, { duration: 6000 })
+            setShowLimitWarning(true)
+            if (isExiting) router.push('/projects')
+            return
+          }
+          throw new Error(result.error || 'Save failed')
+        }
+
+        if (result.project?.id && !data.id) {
           useProjectCreationStore.getState().updateData({ id: result.project.id })
         }
 
         markSaved()
         if (isExiting) {
           toast.success('Project draft saved')
+          reset() // Clear store so next visit is fresh
           router.push('/projects')
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Autosave error:', e)
-        if (isExiting) toast.error('Failed to save draft')
+        if (isExiting) toast.error(e.message || 'Failed to save draft')
       } finally {
         setSaving(false)
       }
     },
-    [data, markSaved, router, setSaving]
+    [data, markSaved, router, setSaving, reset]
   )
 
   useEffect(() => {
@@ -123,7 +182,7 @@ export function ProjectCreationStudio() {
     if (idx > 0) setCurrentStep(steps[idx - 1])
   }
 
-  if (!mounted) {
+  if (!mounted || initializing) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center gap-4">
         <DsrtLogo size={48} showText={false} />
@@ -137,10 +196,12 @@ export function ProjectCreationStudio() {
   const { heading, description } = STEP_HEADINGS[currentStep]
   const currentStepNumber = PROJECT_STEPS.findIndex(s => s.key === currentStep) + 1
   const canContinueCurrent = completedSteps[currentStep] || currentStep === 'publish' || currentStep === 'build' || currentStep === 'collaboration'
+  
+  const isNearLimit = draftCount >= 8 && draftCount < 10 && !continueDraftId
+  const isAtLimit = draftCount >= 10 && !continueDraftId
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col selection:bg-white/20">
-      {/* ── HEADER ── */}
       <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-white/[0.06] h-16 flex items-center px-6 lg:px-10">
         <div className="max-w-[1200px] w-full mx-auto flex items-center justify-between">
           <DsrtLogo size={26} showText />
@@ -166,12 +227,20 @@ export function ProjectCreationStudio() {
         </div>
       </header>
 
-      {/* ── MAIN WORKSPACE ── */}
+      {/* ─── DRAFT LIMIT WARNING BANNER (Auto-dismisses) ─── */}
+      {(showLimitWarning || isNearLimit || isAtLimit) && (
+        <DraftLimitBanner
+          count={draftCount}
+          limit={10}
+          isAtLimit={isAtLimit}
+          onDismiss={() => setShowLimitWarning(false)}
+          onGoBack={() => router.push('/projects')}
+        />
+      )}
+
       <main className="flex-1 py-10 lg:py-14 px-6 lg:px-10">
         <div className="max-w-[1200px] mx-auto">
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-16">
-            
-            {/* Left Sidebar */}
             <ProjectCreationSidebar
               currentStep={currentStep}
               completedSteps={completedSteps}
@@ -179,7 +248,6 @@ export function ProjectCreationStudio() {
               onStepClick={setCurrentStep}
             />
 
-            {/* Main Center Form */}
             <div className="flex-1 min-w-0 max-w-[640px]">
               <div className="mb-8">
                 <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase mb-2">
@@ -204,7 +272,7 @@ export function ProjectCreationStudio() {
               <ProjectCreationFooter
                 currentStep={currentStep}
                 isSaving={isSaving}
-                canContinue={canContinueCurrent}
+                canContinue={canContinueCurrent && !isAtLimit}
                 onBack={handleBack}
                 onContinue={handleNext}
                 onPublish={() => {
@@ -212,10 +280,75 @@ export function ProjectCreationStudio() {
                 }}
               />
             </div>
-
           </div>
         </div>
       </main>
+    </div>
+  )
+}
+
+// ─── AUTO-DISMISS WARNING BANNER ───
+function DraftLimitBanner({
+  count,
+  limit,
+  isAtLimit,
+  onDismiss,
+  onGoBack,
+}: {
+  count: number
+  limit: number
+  isAtLimit: boolean
+  onDismiss: () => void
+  onGoBack: () => void
+}) {
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    if (!isAtLimit) {
+      // Only auto-dismiss the "nearing" warning, not the hard block
+      const timer = setTimeout(() => {
+        setVisible(false)
+        onDismiss()
+      }, 8000)
+      return () => clearTimeout(timer)
+    }
+  }, [isAtLimit, onDismiss])
+
+  if (!visible && !isAtLimit) return null
+
+  return (
+    <div className={`border-b transition-all ${isAtLimit ? 'bg-[#1a0f0f] border-red-500/20' : 'bg-[#181410] border-white/[0.06]'}`}>
+      <div className="max-w-[1200px] mx-auto px-6 lg:px-10 py-3 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <WarningCircle className={`w-4 h-4 shrink-0 ${isAtLimit ? 'text-red-400' : 'text-white/60'}`} />
+          <p className="text-[13px] text-white/80">
+            {isAtLimit ? (
+              <>
+                <strong className="text-white">Draft limit reached.</strong> You have {count}/{limit} active drafts. Publish or delete one to create a new project.
+              </>
+            ) : (
+              <>
+                You have <strong className="text-white">{count} of {limit}</strong> draft projects active. Consider publishing or deleting older drafts.
+              </>
+            )}
+          </p>
+        </div>
+        {isAtLimit ? (
+          <button
+            onClick={onGoBack}
+            className="text-[12px] font-medium text-white/80 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 h-7 px-3 rounded-md transition-all"
+          >
+            Manage drafts
+          </button>
+        ) : (
+          <button
+            onClick={() => { setVisible(false); onDismiss() }}
+            className="text-[11px] font-medium text-white/40 hover:text-white transition-colors"
+          >
+            Dismiss
+          </button>
+        )}
+      </div>
     </div>
   )
 }

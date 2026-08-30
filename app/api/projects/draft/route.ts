@@ -1,9 +1,9 @@
-// app/api/projects/draft/route.ts
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import slugify from 'slugify'
 
 export const dynamic = 'force-dynamic'
+const DRAFT_LIMIT = 10
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -24,7 +24,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
 
-    // Comprehensive field mapping to exact database schema
     const updatePayload: Record<string, any> = {
       name: name.trim(),
       tagline: tagline?.trim() || null,
@@ -64,6 +63,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, project: data })
     }
 
+    // ─── ENFORCE 10 DRAFT LIMIT ───
+    const { count: draftCount } = await supabase
+      .from('projects')
+      .select('id', { count: 'exact', head: true })
+      .eq('founder_id', user.id)
+      .eq('status', 'draft')
+
+    if ((draftCount || 0) >= DRAFT_LIMIT) {
+      return NextResponse.json({ 
+        error: `You've reached the ${DRAFT_LIMIT} draft project limit. Please publish or delete an existing draft first.`,
+        code: 'DRAFT_LIMIT_REACHED',
+        limit: DRAFT_LIMIT,
+        current: draftCount
+      }, { status: 429 })
+    }
+
     // CREATE NEW DRAFT
     let slug = slugify(name, { lower: true, strict: true }).slice(0, 40)
     const { data: existing } = await supabase.from('projects').select('id').eq('slug', slug).maybeSingle()
@@ -77,22 +92,21 @@ export async function POST(request: Request) {
         founder_id: user.id,
         user_id: user.id,
         status: 'draft',
-        is_public: false, // Force private while in draft
+        is_public: false,
       })
       .select('id, slug')
       .single()
 
     if (error) throw error
 
-    // Ensure creator is owner (wrapped safely in try/catch instead of .catch())
     try {
       await supabase.from('project_members').insert({
         project_id: data.id,
         user_id: user.id,
         role: 'owner',
       })
-    } catch (memberError) {
-      // Ignore if it fails, trigger might have handled it
+    } catch {
+      // Non-critical
     }
 
     return NextResponse.json({ success: true, project: data })

@@ -4,11 +4,18 @@ import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
-export default async function CreateProjectPage() {
+interface Props {
+  searchParams: Promise<{ continue?: string }>
+}
+
+export default async function CreateProjectPage({ searchParams }: Props) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+  
+  const params = await searchParams
+  const continueDraftId = params.continue || null
 
-  return <ProjectCreationStudio />
+  return <ProjectCreationStudio continueDraftId={continueDraftId} />
 }

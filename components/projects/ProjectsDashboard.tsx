@@ -10,9 +10,8 @@ import { ProjectExplorePage } from '@/components/projects-explore/ProjectExplore
 
 import {
   Plus, FolderSimple, Compass, Heart, Briefcase,
-  Buildings, Users, ArrowRight, CircleNotch,
-  CaretDown, WarningCircle, DotsThree, MapPin,
-  ArrowSquareOut, Star, BookmarkSimple,
+  Users, ArrowRight, CircleNotch, CaretDown, WarningCircle,
+  DotsThree, MapPin, ArrowSquareOut, Star, BookmarkSimple,
   Wrench, GitBranch, CheckCircle
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
@@ -119,6 +118,7 @@ function ProjectsDashboardContent() {
   const [drafts, setDrafts] = useState<Project[]>([])
   const [followingProjects, setFollowingProjects] = useState<Project[]>([])
   const [resources, setResources] = useState<any[]>([])
+  const [draftLimitInfo, setDraftLimitInfo] = useState<{ count: number; limit: number } | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -145,12 +145,13 @@ function ProjectsDashboardContent() {
         setUser(profile ? { ...authUser, profile } : authUser)
       }
 
-      const [dashRes, resourcesRes] = await Promise.all([
+      const [dashRes, resourcesRes, draftCountRes] = await Promise.all([
         fetch('/api/projects/dashboard'),
         supabase
           .from('founder_resources')
           .select('*')
           .order('display_order', { ascending: true }),
+        fetch('/api/projects/drafts/count').then(r => r.json()).catch(() => null)
       ])
 
       if (dashRes.ok) {
@@ -163,6 +164,10 @@ function ProjectsDashboardContent() {
 
       if (resourcesRes.data) {
         setResources(resourcesRes.data)
+      }
+
+      if (draftCountRes && typeof draftCountRes.count === 'number') {
+        setDraftLimitInfo({ count: draftCountRes.count, limit: draftCountRes.limit || 10 })
       }
     } catch (e) {
       console.error('Projects dashboard fetch error:', e)
@@ -205,7 +210,7 @@ function ProjectsDashboardContent() {
       setDeleteConfirmInput('')
     } catch (e: any) {
       toast.error(e.message || 'Could not archive project')
-    } fontally: {
+    } finally {
       setDeleting(false)
     }
   }
@@ -309,7 +314,6 @@ function ProjectsDashboardContent() {
             </p>
           </div>
 
-          {/* FIX: Opens the new 5-step Studio page directly */}
           <button
             onClick={() => router.push('/projects/create')}
             className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold shadow-sm transition-all active:scale-95 shrink-0"
@@ -317,6 +321,26 @@ function ProjectsDashboardContent() {
             <Plus size={14} weight="bold" /> New project
           </button>
         </div>
+
+        {/* ── DRAFT LIMIT WARNING BANNER ─────────────────── */}
+        {draftLimitInfo && draftLimitInfo.count >= 8 && (
+          <div className={`mb-6 p-3.5 rounded-lg border flex items-center justify-between ${
+            draftLimitInfo.count >= draftLimitInfo.limit
+              ? 'bg-[#1a0f0f] border-red-500/20'
+              : 'bg-white/[0.03] border-white/[0.08]'
+          }`}>
+            <div className="flex items-center gap-2.5">
+              <WarningCircle size={16} className={draftLimitInfo.count >= draftLimitInfo.limit ? 'text-red-400' : 'text-white/60'} />
+              <p className="text-[13px] text-white/80">
+                {draftLimitInfo.count >= draftLimitInfo.limit ? (
+                  <><strong className="text-white">Draft limit reached ({draftLimitInfo.count}/{draftLimitInfo.limit}).</strong> Publish or delete an existing draft to create new ones.</>
+                ) : (
+                  <>You have <strong className="text-white">{draftLimitInfo.count} of {draftLimitInfo.limit}</strong> active draft projects.</>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ── TABS ──────────────────────────────────────── */}
         <div className="border-b border-white/[0.08] mb-8">
@@ -382,7 +406,6 @@ function ProjectsDashboardContent() {
                 <p className="text-[13.5px] text-zinc-400 max-w-md mx-auto mb-6 leading-relaxed">
                   Turn your ideas, experiments, or technical work into a project others can discover, follow, or contribute to.
                 </p>
-                {/* FIX: Routes to /projects/create */}
                 <button
                   onClick={() => router.push('/projects/create')}
                   className="flex items-center gap-1.5 h-10 px-5 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-zinc-500 text-white font-semibold text-[13px] transition-colors"
@@ -391,7 +414,7 @@ function ProjectsDashboardContent() {
                 </button>
               </div>
 
-              {/* Drafts carousel */}
+              {/* Drafts carousel with route parameter support */}
               {drafts.length > 0 && (
                 <section className="mb-8">
                   <div className="flex items-end justify-between mb-3">
@@ -506,7 +529,6 @@ function ProjectsDashboardContent() {
                     <Wrench size={32} className="text-zinc-600 mx-auto" />
                     <h3 className="text-[15px] font-bold text-white">You haven't created a project yet.</h3>
                     <p className="text-[13px] text-zinc-500 max-w-sm mx-auto">Build something worth sharing.</p>
-                    {/* FIX: Routes to /projects/create */}
                     <button onClick={() => router.push('/projects/create')} className="mt-2 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold transition-colors">
                       <Plus size={14} weight="bold" /> Create your first project
                     </button>
@@ -784,21 +806,34 @@ function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project;
 function ProjectDraftCard({ project }: { project: Project }) {
   const router = useRouter()
   return (
-    <div onClick={() => router.push(`/projects/create`)} className="w-[240px] flex-shrink-0 bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden hover:border-amber-500/25 hover:bg-white/[0.04] transition-all cursor-pointer group">
+    <div 
+      onClick={() => router.push(`/projects/create?continue=${project.slug}`)} 
+      className="w-[240px] flex-shrink-0 bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden hover:border-white/20 hover:bg-white/[0.04] transition-all cursor-pointer group"
+    >
       <div className="relative h-[90px] overflow-hidden">
         {project.cover_image_url ? (
           <img src={project.cover_image_url} alt="" className="w-full h-full object-cover opacity-60" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-zinc-800/60 to-zinc-900/60 flex items-center justify-center"><Wrench size={22} className="text-white/25" /></div>
+          <div className="w-full h-full bg-gradient-to-br from-zinc-800/60 to-zinc-900/60 flex items-center justify-center">
+            <Wrench size={22} className="text-white/25" />
+          </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-        <span className="absolute top-2 left-2 text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded uppercase tracking-wider">Draft</span>
+        <span className="absolute top-2 left-2 text-[9px] font-bold text-white/80 bg-white/10 border border-white/20 px-2 py-0.5 rounded uppercase tracking-wider">
+          Draft
+        </span>
       </div>
       <div className="p-3">
         <h4 className="text-[13px] font-bold text-white truncate mb-0.5">{project.name}</h4>
-        {project.project_number && <p className="text-[10.5px] text-white/40 font-mono mb-2">{project.project_number}</p>}
-        <p className="text-[10.5px] text-white/50 mb-2">Last edited {timeAgo(project.updated_at || project.created_at)}</p>
-        <button className="w-full flex items-center justify-center gap-1 text-[11px] font-semibold text-white bg-white/[0.06] group-hover:bg-white group-hover:text-black px-2.5 h-7 rounded-md transition-colors">Continue <ArrowRight size={10} weight="bold" /></button>
+        {project.project_number && (
+          <p className="text-[10.5px] text-white/40 font-mono mb-2">{project.project_number}</p>
+        )}
+        <p className="text-[10.5px] text-white/50 mb-2">
+          Last edited {timeAgo(project.updated_at || project.created_at)}
+        </p>
+        <button className="w-full flex items-center justify-center gap-1 text-[11px] font-semibold text-white bg-white/[0.06] group-hover:bg-white group-hover:text-black px-2.5 h-7 rounded-md transition-colors">
+          Continue <ArrowRight size={10} weight="bold" />
+        </button>
       </div>
     </div>
   )
@@ -828,9 +863,14 @@ function ProjectTechnicalMarquee({ resources }: { resources: any[] }) {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    fetch('/api/projects/resources/save')
+    fetch('/api/resources/save')
       .then(r => r.json())
-      .then(d => setSavedIds(new Set(d.saved || [])))
+      .then(d => {
+        const founderSaves = (d.saved || [])
+          .filter((s: any) => s.source_type === 'founder')
+          .map((s: any) => s.resource_id)
+        setSavedIds(new Set(founderSaves))
+      })
       .catch(() => {})
   }, [])
 
@@ -842,12 +882,12 @@ function ProjectTechnicalMarquee({ resources }: { resources: any[] }) {
       return next
     })
     try {
-      await fetch('/api/projects/resources/save', {
+      await fetch('/api/resources/save', {
         method: isSaved ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resource_id: resourceId })
+        body: JSON.stringify({ resource_id: resourceId, source_type: 'founder' })
       })
-      toast.success(isSaved ? 'Removed from saved' : 'Saved to your technical library')
+      toast.success(isSaved ? 'Removed from library' : 'Saved to library')
     } catch {
       setSavedIds(prev => {
         const next = new Set(prev)
@@ -885,21 +925,23 @@ function ProjectTechnicalMarquee({ resources }: { resources: any[] }) {
           {duplicated.map((item, idx) => {
             const isSaved = savedIds.has(item.id)
             return (
-              <a key={`${item.id}-${idx}`} href={item.url} target="_blank" rel="noopener noreferrer" className="group flex-shrink-0 w-[300px] p-5 bg-[#121215] border border-white/[0.06] hover:border-white/[0.16] rounded-xl transition-all block relative">
+              <div key={`${item.id}-${idx}`} className="group flex-shrink-0 w-[300px] p-5 bg-[#121215] border border-white/[0.06] hover:border-white/[0.16] rounded-xl transition-all block relative">
                 <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleSave(item.id, isSaved) }} className={`absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isSaved ? 'bg-white/[0.08] text-white' : 'bg-transparent text-zinc-600 hover:bg-white/[0.06] hover:text-white'}`}>
                   <BookmarkSimple size={13} weight={isSaved ? 'fill' : 'regular'} />
                 </button>
-                <div className="flex items-center gap-2 mb-3 pr-8">
-                  <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold flex-1 truncate">{item.category}</p>
-                  {item.is_hidden_gem && <Star size={11} weight="fill" className="text-zinc-400 shrink-0" />}
-                </div>
-                <p className="text-[13.5px] font-bold text-white group-hover:text-zinc-200 transition-colors leading-snug mb-2 line-clamp-2 min-h-[38px]">{item.title}</p>
-                {item.description && <p className="text-[11.5px] text-zinc-500 leading-relaxed line-clamp-2 mb-3 min-h-[30px]">{item.description}</p>}
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.04]">
-                  <p className="text-[11px] text-zinc-400 font-semibold truncate">{item.provider}</p>
-                  <ArrowSquareOut size={11} className="text-zinc-600 group-hover:text-white transition-colors" />
-                </div>
-              </a>
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className="block">
+                  <div className="flex items-center gap-2 mb-3 pr-8">
+                    <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold flex-1 truncate">{item.category}</p>
+                    {item.is_hidden_gem && <Star size={11} weight="fill" className="text-zinc-400 shrink-0" />}
+                  </div>
+                  <p className="text-[13.5px] font-bold text-white group-hover:text-zinc-200 transition-colors leading-snug mb-2 line-clamp-2 min-h-[38px]">{item.title}</p>
+                  {item.description && <p className="text-[11.5px] text-zinc-500 leading-relaxed line-clamp-2 mb-3 min-h-[30px]">{item.description}</p>}
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.04]">
+                    <p className="text-[11px] text-zinc-400 font-semibold truncate">{item.provider}</p>
+                    <ArrowSquareOut size={11} className="text-zinc-600 group-hover:text-white transition-colors" />
+                  </div>
+                </a>
+              </div>
             )
           })}
         </div>

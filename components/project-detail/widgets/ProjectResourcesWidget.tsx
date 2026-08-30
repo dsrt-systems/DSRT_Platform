@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import {
-  GithubLogo, Globe, FileText, Flask, Database,
-  VideoCamera, PaintBrush, Link as LinkIcon, Plus, ArrowSquareOut, Trash
+  GithubLogo, Globe, FileText, Database,
+  VideoCamera, PaintBrush, Link as LinkIcon, Plus, ArrowSquareOut, Trash,
+  ArrowRight
 } from '@phosphor-icons/react'
 
 interface TypedResource {
@@ -58,9 +60,17 @@ export function ProjectResourcesWidget({ slug, isOwner }: Props) {
           <LinkIcon size={14} weight="fill" className="text-white/50" />
           Resources
         </h3>
-        {resources.length > 0 && (
-          <span className="text-[11px] text-white/40 font-mono">{resources.length}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {resources.length > 0 && (
+            <span className="text-[11px] text-white/40 font-mono">{resources.length}</span>
+          )}
+          <Link
+            href="/resources"
+            className="text-[10px] font-mono uppercase tracking-wider text-white/40 hover:text-white transition-colors flex items-center gap-0.5"
+          >
+            Hub <ArrowRight size={9} />
+          </Link>
+        </div>
       </div>
 
       {loading ? (
