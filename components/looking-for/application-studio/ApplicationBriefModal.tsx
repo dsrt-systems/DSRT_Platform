@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   X,
@@ -24,6 +25,12 @@ export function ApplicationBriefModal({ opportunityId, onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  // Ensure portal only renders after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     fetch(`/api/opportunities/${opportunityId}/apply/brief`)
@@ -38,21 +45,23 @@ export function ApplicationBriefModal({ opportunityId, onClose }: Props) {
 
   const handleStart = () => {
     setStarting(true)
-    // The ApplyInit route we built in Phase 1 handles creating the draft and redirecting safely
     router.push(`/looking-for/${opportunityId}/apply`)
   }
 
-  return (
+  if (!mounted) return null
+
+  // We portal the modal to document.body to escape any parent overflow:hidden containers
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-[#0c0d10] shadow-[0_20px_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col"
+        className="relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-[#0c0d10] shadow-[0_20px_80px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-zinc-800/80 bg-[#090a0c]">
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-zinc-800/80 bg-[#090a0c] shrink-0">
           <div className="flex items-center gap-2 text-zinc-100">
             <ListChecks size={18} className="text-zinc-400" />
             <span className="text-[14px] font-bold tracking-wide">
@@ -69,7 +78,7 @@ export function ApplicationBriefModal({ opportunityId, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div className="p-6 md:p-8">
+        <div className="p-6 md:p-8 overflow-y-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-10 space-y-4">
               <CircleNotch size={24} className="text-zinc-600 animate-spin" />
@@ -158,7 +167,7 @@ export function ApplicationBriefModal({ opportunityId, onClose }: Props) {
 
         {/* Footer */}
         {!loading && !error && (
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800/80 bg-[#090a0c]">
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800/80 bg-[#090a0c] shrink-0">
             <button
               onClick={onClose}
               disabled={starting}
@@ -169,23 +178,24 @@ export function ApplicationBriefModal({ opportunityId, onClose }: Props) {
             <button
               onClick={handleStart}
               disabled={starting}
-              className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-white text-black hover:bg-zinc-200 text-[13px] font-bold transition-all shadow-[0_2px_12px_rgba(255,255,255,0.15)] disabled:opacity-60"
+              className="inline-flex items-center gap-2 h-10 px-6 rounded-xl bg-white text-black hover:bg-zinc-200 text-[13px] font-bold transition-all shadow-[0_2px_12px_rgba(255,255,255,0.15)] disabled:opacity-60 whitespace-nowrap"
             >
               {starting ? (
                 <>
-                  <CircleNotch size={14} className="animate-spin" />
+                  <CircleNotch size={14} className="animate-spin shrink-0" />
                   Preparing...
                 </>
               ) : (
                 <>
                   Start Application
-                  <ArrowRight size={14} weight="bold" />
+                  <ArrowRight size={14} weight="bold" className="shrink-0" />
                 </>
               )}
             </button>
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

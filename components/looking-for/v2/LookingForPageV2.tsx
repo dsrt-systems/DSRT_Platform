@@ -9,6 +9,7 @@ import { FiltersPanel, type FilterState } from './FiltersPanel'
 import { OpportunityFeed } from './OpportunityFeed'
 import { SortDropdown } from './SortDropdown'
 import { CompactBanners } from './CompactBanners'
+import { LookingForResourcesMarquee } from './LookingForResourcesMarquee'
 import { ApplicationsTab } from './tabs/ApplicationsTab'
 import { SavedTab } from './tabs/SavedTab'
 import { SuggestedTab } from './tabs/SuggestedTab'
@@ -18,7 +19,6 @@ import { CategoriesTab } from './tabs/CategoriesTab'
 export function LookingForPageV2() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  // Default to explore if the URL had 'my-opportunities' left over from old links
   const initialTab = searchParams.get('tab') as TabId
   const validTab = ['explore', 'applications', 'saved', 'suggested', 'people', 'categories'].includes(initialTab) ? initialTab : 'explore'
   
@@ -49,8 +49,8 @@ export function LookingForPageV2() {
   const isExplore = activeTab === 'explore'
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
-      <div className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-5 md:py-6">
+    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col">
+      <div className="max-w-[1600px] w-full mx-auto px-4 md:px-6 lg:px-8 py-5 md:py-6 flex-1 flex flex-col">
         <LookingForHeader onCreate={goCreate} />
 
         <div className="mt-5"><CompactBanners /></div>
@@ -61,22 +61,41 @@ export function LookingForPageV2() {
         </div>
 
         {isExplore ? (
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
-            <aside className="lg:sticky lg:top-6 h-fit">
-              <FiltersPanel filters={filters} onChange={setFilters} />
-            </aside>
-            <main className="min-w-0 w-full">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-[13px] text-zinc-400 font-medium">
-                  {feedLoading ? 'Loading opportunities...' : totalCount !== null ? `${totalCount.toLocaleString()} ${totalCount === 1 ? 'opportunity' : 'opportunities'} found` : 'Opportunities'}
+          <div className="mt-6 flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-8 items-start">
+              {/* Left Filters Panel: Fixed width 280px so it NEVER compresses */}
+              <aside className="w-full lg:w-[280px] shrink-0 lg:sticky lg:top-6 h-fit z-10">
+                <FiltersPanel filters={filters} onChange={setFilters} />
+              </aside>
+
+              {/* Right Feed Area */}
+              <main className="min-w-0 w-full flex-1">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-[13px] text-zinc-400 font-medium">
+                    {feedLoading
+                      ? 'Loading opportunities...'
+                      : totalCount !== null
+                      ? `${totalCount.toLocaleString()} ${totalCount === 1 ? 'opportunity' : 'opportunities'} found`
+                      : 'Opportunities'}
+                  </div>
+                  <SortDropdown value={sort} onChange={setSort} />
                 </div>
-                <SortDropdown value={sort} onChange={setSort} />
-              </div>
-              <OpportunityFeed query={query} filters={filters} sort={sort} tab={activeTab} onCountChange={handleCountChange} />
-            </main>
+
+                <OpportunityFeed
+                  query={query}
+                  filters={filters}
+                  sort={sort}
+                  tab={activeTab}
+                  onCountChange={handleCountChange}
+                />
+              </main>
+            </div>
+
+            {/* Auto-scrolling Resources Marquee Band - Full width below feed & filters */}
+            <LookingForResourcesMarquee />
           </div>
         ) : (
-          <div className="mt-6">
+          <div className="mt-6 flex-1">
             {activeTab === 'applications' && <ApplicationsTab />}
             {activeTab === 'saved' && <SavedTab />}
             {activeTab === 'suggested' && <SuggestedTab />}
