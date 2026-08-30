@@ -3,17 +3,22 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * UI filter key → DB pipeline_stage values.
+ * DB constraint allows: draft, applied, submitted, pending, reviewing,
+ *                       screening, interviewing, offered, hired, rejected, withdrawn
+ */
 const STAGE_GROUPS: Record<string, string[]> = {
-  open: ['submitted', 'viewed', 'under-review', 'shortlisted', 'interview', 'offer'],
-  active_pipeline: ['under-review', 'shortlisted', 'interview', 'offer'],
-  new: ['submitted'],
-  reviewing: ['under-review'],
-  shortlisted: ['shortlisted'],
-  interview: ['interview'],
-  offer: ['offer'],
-  accepted: ['accepted'],
-  declined: ['declined'],
-  withdrawn: ['withdrawn'],
+  open:            ['submitted', 'applied', 'pending', 'reviewing', 'screening', 'interviewing', 'offered'],
+  active_pipeline: ['reviewing', 'screening', 'interviewing', 'offered'],
+  new:             ['submitted', 'applied', 'pending'],
+  reviewing:       ['reviewing'],
+  shortlisted:     ['screening'],
+  interview:       ['interviewing'],
+  offer:           ['offered'],
+  accepted:        ['hired'],
+  declined:        ['rejected'],
+  withdrawn:       ['withdrawn'],
 }
 
 export async function GET(req: NextRequest) {
@@ -27,8 +32,8 @@ export async function GET(req: NextRequest) {
   const q = sp.get('q')?.trim() || ''
   const stage = sp.get('stage') || 'all'
   const opportunityId = sp.get('opportunity_id')
-  const reviewer = sp.get('reviewer') // 'unassigned' | uid | null
-  const verified = sp.get('verified') // 'true' | 'false' | null
+  const reviewer = sp.get('reviewer')
+  const verified = sp.get('verified')
   const days = parseInt(sp.get('days') || '0', 10)
   const skillsCsv = sp.get('skills') || ''
   const skills = skillsCsv
@@ -37,10 +42,10 @@ export async function GET(req: NextRequest) {
     .filter(Boolean)
   const sort = sp.get('sort') || 'newest'
   const limit = Math.min(parseInt(sp.get('limit') || '30', 10), 60)
-  const cursor = sp.get('cursor') // ISO created_at
+  const cursor = sp.get('cursor')
 
   try {
-    // 1) Resolve opportunities the user can manage: owned OR member (with role granularity)
+    // Resolve manageable opps: owned OR member
     const [ownedRes, membershipRes] = await Promise.all([
       supabase.from('opportunities').select('id').eq('poster_user_id', user.id),
       supabase
@@ -53,7 +58,6 @@ export async function GET(req: NextRequest) {
     const ownedIds = new Set<string>((ownedRes.data || []).map((o: any) => o.id))
     const memberships = (membershipRes.data || []) as any[]
 
-    // Full-access opps: owner + admin + manager (can see every applicant)
     const fullAccessIds = new Set<string>([
       ...Array.from(ownedIds),
       ...memberships
@@ -61,7 +65,6 @@ export async function GET(req: NextRequest) {
         .map((m) => m.opportunity_id),
     ])
 
-    // Reviewer-only opps: user can see only the applications they are assigned to
     const reviewerOnlyIds = new Set<string>(
       memberships
         .filter((m) => m.role === 'reviewer' && !fullAccessIds.has(m.opportunity_id))
@@ -71,7 +74,6 @@ export async function GET(req: NextRequest) {
     const oppIds = new Set<string>([...fullAccessIds, ...reviewerOnlyIds])
 
     if (opportunityId) {
-      // Filter to specific opp, but only if allowed
       if (!oppIds.has(opportunityId)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
@@ -85,9 +87,6 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Determine reviewer-scoped constraint (if any)
-    // If the user has FULL access to the scoped opps, no extra filter.
-    // Otherwise pull the set of application_ids they are assigned to.
     const scopedIdsArr = opportunityId ? [opportunityId] : Array.from(oppIds)
     const needsReviewerScope = scopedIdsArr.some(
       (id) => reviewerOnlyIds.has(id) && !fullAccessIds.has(id)
@@ -108,34 +107,29 @@ export async function GET(req: NextRequest) {
 
     const scopedIds = scopedIdsArr
 
-    // 2) Applications
     let query = supabase
       .from('opportunity_applications')
       .select('*')
       .in('opportunity_id', scopedIds)
       .limit(limit + 1)
 
-    // Stage filter
+    // Stage filter — use real DB values
     if (stage !== 'all') {
       const grp = STAGE_GROUPS[stage]
-      if (grp) query = query.in('pipeline_stage', grp)
+      if (grp && grp.length > 0) {
+        query = query.in('pipeline_stage', grp)
+      }
     }
 
-    // Time window
     if (days > 0) {
       const since = new Date(Date.now() - days * 86400000).toISOString()
       query = query.gte('created_at', since)
     }
 
-    // Skills (highlighted_skills is text[])
     if (skills.length > 0) {
       query = query.overlaps('highlighted_skills', skills)
     }
 
-    // Optional free-text search (name / opportunity title handled client-side via enrichment if needed)
-    // Keep server lean; q is applied after enrichment below when present.
-
-    // Sort
     if (sort === 'oldest') {
       query = query.order('created_at', { ascending: true })
       if (cursor) query = query.gt('created_at', cursor)
@@ -143,15 +137,11 @@ export async function GET(req: NextRequest) {
       query = query.order('stage_updated_at', { ascending: false, nullsFirst: false })
       if (cursor) query = query.lt('stage_updated_at', cursor)
     } else {
-      // newest default
       query = query.order('created_at', { ascending: false })
       if (cursor) query = query.lt('created_at', cursor)
     }
 
-    // Enforce reviewer scope: for reviewer-only opps, restrict to assigned application_ids
     if (needsReviewerScope) {
-      // If reviewer has FULL access to some opps but reviewer-only to others,
-      // allow: (opp_id in full_ids) OR (id in assigned_ids)
       const fullIdsIn = scopedIdsArr.filter((id) => fullAccessIds.has(id))
       const ids = assignedAppIds || []
       if (fullIdsIn.length > 0 && ids.length > 0) {
@@ -163,7 +153,6 @@ export async function GET(req: NextRequest) {
       } else if (ids.length > 0) {
         query = query.in('id', ids)
       } else {
-        // reviewer has zero assignments and zero full access → empty result
         return NextResponse.json({
           applications: [],
           stats: emptyStats(),
@@ -179,7 +168,6 @@ export async function GET(req: NextRequest) {
     const hasMore = rows.length > limit
     const trimmed = hasMore ? rows.slice(0, limit) : rows
 
-    // 3) Enrich: opp meta, applicant profile, reviewer assignments, verified filter
     const applicantIds = [
       ...new Set(trimmed.map((a: any) => a.applicant_id).filter(Boolean)),
     ]
@@ -218,23 +206,15 @@ export async function GET(req: NextRequest) {
       revByApp.set(r.application_id, arr)
     }
 
-    // Optional reviewer / verified / q filters
     let finalRows = trimmed.map((a: any) => {
       const u = userMap.get(a.applicant_id) || a.applicant_snapshot || null
       const opp = oppMap.get(a.opportunity_id) || null
       const revs = revByApp.get(a.id) || []
-      return {
-        ...a,
-        applicant: u,
-        opportunity: opp,
-        reviewers: revs,
-      }
+      return { ...a, applicant: u, opportunity: opp, reviewers: revs }
     })
 
     if (reviewer === 'unassigned') {
-      finalRows = finalRows.filter(
-        (a: any) => !a.reviewers || a.reviewers.length === 0
-      )
+      finalRows = finalRows.filter((a: any) => !a.reviewers || a.reviewers.length === 0)
     } else if (reviewer) {
       finalRows = finalRows.filter((a: any) =>
         a.reviewers?.some((r: any) => r.reviewer_id === reviewer)
@@ -250,22 +230,13 @@ export async function GET(req: NextRequest) {
     if (q) {
       const qq = q.toLowerCase()
       finalRows = finalRows.filter((a: any) => {
-        const name = (
-          a.applicant?.full_name ||
-          a.applicant?.username ||
-          ''
-        ).toLowerCase()
+        const name = (a.applicant?.full_name || a.applicant?.username || '').toLowerCase()
         const title = (a.opportunity?.title || '').toLowerCase()
-        const skillsHit = (a.highlighted_skills || [])
-          .join(' ')
-          .toLowerCase()
-          .includes(qq)
+        const skillsHit = (a.highlighted_skills || []).join(' ').toLowerCase().includes(qq)
         return name.includes(qq) || title.includes(qq) || skillsHit
       })
     }
 
-    // Stats across the *scoped* set (respect opportunity_id; ignore stage filter for chip counts)
-    // For reviewers, scope stats to full-access opps + their assigned apps' opps
     let statsOppIds = scopedIds
     if (needsReviewerScope) {
       const fullIdsIn = scopedIdsArr.filter((id) => fullAccessIds.has(id))
@@ -313,25 +284,18 @@ async function computeStats(
 ) {
   if (oppIds.length === 0) return emptyStats()
   const stats = emptyStats()
-  const stages: (keyof ReturnType<typeof emptyStats>)[] = [
-    'new',
-    'reviewing',
-    'shortlisted',
-    'interview',
-    'offer',
-    'accepted',
-    'declined',
-    'withdrawn',
-  ]
-  const stageToDb: Record<string, string> = {
-    new: 'submitted',
-    reviewing: 'under-review',
-    shortlisted: 'shortlisted',
-    interview: 'interview',
-    offer: 'offer',
-    accepted: 'accepted',
-    declined: 'declined',
-    withdrawn: 'withdrawn',
+
+  // Map UI stat key → DB stage list (must match STAGE_GROUPS)
+  const stageMap: Record<keyof ReturnType<typeof emptyStats>, string[]> = {
+    total:       [],
+    new:         ['submitted', 'applied', 'pending'],
+    reviewing:   ['reviewing'],
+    shortlisted: ['screening'],
+    interview:   ['interviewing'],
+    offer:       ['offered'],
+    accepted:    ['hired'],
+    declined:    ['rejected'],
+    withdrawn:   ['withdrawn'],
   }
 
   const since =
@@ -350,16 +314,24 @@ async function computeStats(
     stats.total = count || 0
   }
 
-  // Per stage
-  for (const s of stages) {
-    let q = supabase
-      .from('opportunity_applications')
-      .select('id', { count: 'exact', head: true })
-      .in('opportunity_id', oppIds)
-      .eq('pipeline_stage', stageToDb[s])
-    if (since) q = q.gte('created_at', since)
-    const { count } = await q
-    stats[s] = count || 0
+  // Per stage group (run in parallel for speed)
+  const keys = Object.keys(stageMap).filter(k => k !== 'total') as (keyof ReturnType<typeof emptyStats>)[]
+  const results = await Promise.all(
+    keys.map(async (k) => {
+      const stages = stageMap[k]
+      if (!stages || stages.length === 0) return { k, count: 0 }
+      let q = supabase
+        .from('opportunity_applications')
+        .select('id', { count: 'exact', head: true })
+        .in('opportunity_id', oppIds)
+        .in('pipeline_stage', stages)
+      if (since) q = q.gte('created_at', since)
+      const { count } = await q
+      return { k, count: count || 0 }
+    })
+  )
+  for (const r of results) {
+    stats[r.k] = r.count
   }
 
   return stats

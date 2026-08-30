@@ -22,15 +22,26 @@ import { WithdrawModal } from './WithdrawModal'
 import { ApplicantInvitationCard } from './ApplicantInvitationCard'
 
 const STAGE_META: Record<string, { label: string; Icon: any; color: string }> = {
-  draft: { label: 'Draft', Icon: PencilSimple, color: 'text-zinc-400' },
-  submitted: { label: 'Submitted', Icon: CheckCircle, color: 'text-zinc-300' },
-  'under-review': { label: 'Under Review', Icon: PauseCircle, color: 'text-blue-400' },
-  shortlisted: { label: 'Shortlisted', Icon: CheckCircle, color: 'text-cyan-400' },
-  interview: { label: 'Interviewing', Icon: ChatCircle, color: 'text-purple-400' },
-  offer: { label: 'Offer Received', Icon: Handshake, color: 'text-amber-400' },
-  accepted: { label: 'Accepted', Icon: CheckCircle, color: 'text-emerald-400' },
-  declined: { label: 'Rejected', Icon: XCircle, color: 'text-red-400' },
-  withdrawn: { label: 'Withdrawn', Icon: XCircle, color: 'text-zinc-500' },
+  // Current DB values
+  draft:        { label: 'Draft',           Icon: PencilSimple, color: 'text-zinc-400' },
+  submitted:    { label: 'Submitted',       Icon: CheckCircle,  color: 'text-zinc-300' },
+  applied:      { label: 'Submitted',       Icon: CheckCircle,  color: 'text-zinc-300' },
+  pending:      { label: 'Pending Review',  Icon: PauseCircle,  color: 'text-blue-400' },
+  reviewing:    { label: 'Reviewing',       Icon: PauseCircle,  color: 'text-blue-400' },
+  screening:    { label: 'Shortlisted',     Icon: CheckCircle,  color: 'text-cyan-400' },
+  interviewing: { label: 'Interviewing',    Icon: ChatCircle,   color: 'text-purple-400' },
+  offered:      { label: 'Offer Received',  Icon: Handshake,    color: 'text-amber-400' },
+  hired:        { label: 'Selected',        Icon: CheckCircle,  color: 'text-emerald-400' },
+  rejected:     { label: 'Rejected',        Icon: XCircle,      color: 'text-red-400' },
+  withdrawn:    { label: 'Withdrawn',       Icon: XCircle,      color: 'text-zinc-500' },
+
+  // Legacy aliases (for old history rows that predate the fix)
+  'under-review': { label: 'Reviewing',      Icon: PauseCircle,  color: 'text-blue-400' },
+  shortlisted:    { label: 'Shortlisted',    Icon: CheckCircle,  color: 'text-cyan-400' },
+  interview:      { label: 'Interviewing',   Icon: ChatCircle,   color: 'text-purple-400' },
+  offer:          { label: 'Offer Received', Icon: Handshake,    color: 'text-amber-400' },
+  accepted:       { label: 'Selected',       Icon: CheckCircle,  color: 'text-emerald-400' },
+  declined:       { label: 'Rejected',       Icon: XCircle,      color: 'text-red-400' },
 }
 
 function timeAgo(iso: string): string {
@@ -126,7 +137,7 @@ export function ApplicationDetailPage({ applicationId }: { applicationId: string
   const questions = data.questions || []
   const answers = app.answers || {}
   const meta = STAGE_META[app.pipeline_stage] || STAGE_META.submitted
-  const canWithdraw = !['withdrawn', 'declined', 'accepted', 'draft'].includes(app.pipeline_stage)
+  const canWithdraw = !['withdrawn', 'declined', 'accepted', 'rejected', 'hired', 'draft'].includes(app.pipeline_stage)
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-100">
@@ -212,18 +223,24 @@ export function ApplicationDetailPage({ applicationId }: { applicationId: string
                 )}
 
                 {/* History Events */}
-                {timeline.map((evt: any) => {
-                  const evtMeta = STAGE_META[evt.to_stage] || STAGE_META.submitted
-                  return (
-                    <TimelineItem
-                      key={evt.id}
-                      label={`Moved to ${evtMeta.label}`}
-                      date={evt.created_at}
-                      active={app.pipeline_stage === evt.to_stage}
-                      reason={evt.reason}
-                    />
-                  )
-                })}
+                {timeline
+                  .filter((evt: any) => evt.to_stage && evt.to_stage !== 'submitted')
+                  .map((evt: any) => {
+                    const evtMeta = STAGE_META[evt.to_stage] || {
+                      label: String(evt.to_stage).replace(/_/g, ' '),
+                      Icon: CheckCircle,
+                      color: 'text-zinc-300',
+                    }
+                    return (
+                      <TimelineItem
+                        key={evt.id}
+                        label={`Moved to ${evtMeta.label}`}
+                        date={evt.created_at}
+                        active={app.pipeline_stage === evt.to_stage}
+                        reason={evt.reason}
+                      />
+                    )
+                  })}
               </div>
             </div>
 

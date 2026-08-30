@@ -5,25 +5,26 @@ import { MagnifyingGlass, CaretDown, X } from '@phosphor-icons/react'
 
 export type ApplicationFilters = {
   q: string
-  stage: string           // all|new|reviewing|shortlisted|interview|offer|accepted|declined|withdrawn|active_pipeline|open
-  opportunity_id: string  // uuid or ''
-  reviewer: string        // '' | 'unassigned' | uid
-  verified: string        // '' | 'true' | 'false'
-  days: string            // '' | '7' | '30' | '90'
-  skills: string          // csv
-  sort: string            // newest | oldest | stage_recent
+  stage: string
+  opportunity_id: string
+  reviewer: string
+  verified: string
+  days: string
+  skills: string
+  sort: string
 }
 
+// Stage keys match the DB constraint exactly
 const STAGES = [
-  { key: 'all', label: 'All' },
-  { key: 'new', label: 'New' },
-  { key: 'reviewing', label: 'Reviewing' },
-  { key: 'shortlisted', label: 'Shortlisted' },
-  { key: 'interview', label: 'Interview' },
-  { key: 'offer', label: 'Offer' },
-  { key: 'accepted', label: 'Selected' },
-  { key: 'declined', label: 'Rejected' },
-  { key: 'withdrawn', label: 'Withdrawn' },
+  { key: 'all',          label: 'All' },
+  { key: 'new',          label: 'New' },          // → submitted / applied / pending
+  { key: 'reviewing',    label: 'Reviewing' },    // → reviewing
+  { key: 'shortlisted',  label: 'Shortlist' },    // → screening
+  { key: 'interview',    label: 'Interview' },    // → interviewing
+  { key: 'offer',        label: 'Offer' },        // → offered
+  { key: 'accepted',     label: 'Selected' },     // → hired
+  { key: 'declined',     label: 'Rejected' },     // → rejected
+  { key: 'withdrawn',    label: 'Withdrawn' },    // → withdrawn
 ]
 
 export function ApplicationsFilters({
@@ -51,7 +52,8 @@ export function ApplicationsFilters({
     (value.skills ? 1 : 0)
 
   return (
-    <div className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-[#18181b] via-[#121215] to-[#0f0f11] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_4px_20px_rgba(0,0,0,0.4)] overflow-hidden">
+    // z-40 elevates the whole filter card above the table below
+    <div className="relative z-40 rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-[#18181b] via-[#121215] to-[#0f0f11] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_4px_20px_rgba(0,0,0,0.4)]">
       <div className="p-3 md:p-4 flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[240px]">
           <MagnifyingGlass size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -73,9 +75,9 @@ export function ApplicationsFilters({
           onChange={(v) => onChange({ ...value, days: v === 'any' ? '' : v })}
           options={[
             { value: 'any', label: 'Any date' },
-            { value: '7', label: 'Last 7 days' },
-            { value: '30', label: 'Last 30 days' },
-            { value: '90', label: 'Last 90 days' },
+            { value: '7',   label: 'Last 7 days' },
+            { value: '30',  label: 'Last 30 days' },
+            { value: '90',  label: 'Last 90 days' },
           ]}
         />
 
@@ -83,8 +85,8 @@ export function ApplicationsFilters({
           value={value.verified || 'any'}
           onChange={(v) => onChange({ ...value, verified: v === 'any' ? '' : v })}
           options={[
-            { value: 'any', label: 'Any applicant' },
-            { value: 'true', label: 'Verified only' },
+            { value: 'any',   label: 'Any applicant' },
+            { value: 'true',  label: 'Verified only' },
             { value: 'false', label: 'Unverified only' },
           ]}
         />
@@ -93,7 +95,7 @@ export function ApplicationsFilters({
           value={value.reviewer || 'any'}
           onChange={(v) => onChange({ ...value, reviewer: v === 'any' ? '' : v })}
           options={[
-            { value: 'any', label: 'Any reviewer' },
+            { value: 'any',        label: 'Any reviewer' },
             { value: 'unassigned', label: 'Unassigned' },
           ]}
         />
@@ -118,8 +120,8 @@ export function ApplicationsFilters({
             value={value.sort}
             onChange={(v) => onChange({ ...value, sort: v })}
             options={[
-              { value: 'newest', label: 'Newest' },
-              { value: 'oldest', label: 'Oldest' },
+              { value: 'newest',       label: 'Newest' },
+              { value: 'oldest',       label: 'Oldest' },
               { value: 'stage_recent', label: 'Recently moved' },
             ]}
           />
@@ -180,7 +182,8 @@ function Select({
         <CaretDown size={11} weight="bold" className="text-zinc-500" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 min-w-[200px] rounded-xl border border-zinc-800 bg-[#0c0c0e] shadow-2xl z-30 py-1">
+        // z-50 puts the dropdown above filter card, table headers, and side panel
+        <div className="absolute right-0 top-full mt-1 min-w-[200px] rounded-xl border border-zinc-800 bg-[#0c0c0e] shadow-2xl z-50 py-1">
           {options.map(o => (
             <button
               key={o.value}
@@ -239,7 +242,8 @@ function OpportunityPicker({
         <CaretDown size={11} weight="bold" className="text-zinc-500 shrink-0" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-[320px] max-h-[360px] overflow-y-auto rounded-xl border border-zinc-800 bg-[#0c0c0e] shadow-2xl z-30 py-1">
+        // z-50 fix
+        <div className="absolute right-0 top-full mt-1 w-[320px] max-h-[360px] overflow-y-auto rounded-xl border border-zinc-800 bg-[#0c0c0e] shadow-2xl z-50 py-1">
           <button
             onClick={() => { onChange(''); setOpen(false) }}
             className={'w-full text-left px-3 py-2 text-[12.5px] ' + (!value ? 'bg-zinc-900 text-white font-semibold' : 'text-zinc-400 hover:text-white hover:bg-zinc-900')}
