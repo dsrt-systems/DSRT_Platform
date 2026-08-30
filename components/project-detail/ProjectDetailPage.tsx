@@ -6,9 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Info, Newspaper, UsersThree, BookOpen, Gear, ShareNetwork,
-  BookmarkSimple, DotsThreeOutline, Certificate, Plus, Trash, ChatCircleText,
-  Briefcase
+  BookmarkSimple, DotsThreeOutline, Briefcase, ChatCircleText
 } from '@phosphor-icons/react'
+
 import { ProjectHeader } from './ProjectHeader'
 import { ProjectSidebar } from './ProjectSidebar'
 import { ProjectCompletion } from './ProjectCompletion'
@@ -24,6 +24,10 @@ import { ApplicantsTab } from './applicants/ApplicantsTab'
 import { ConnectComposer } from '@/components/inbox/ConnectComposer'
 import { PermissionsPanel } from './applicants/PermissionsPanel'
 import { OpportunitiesSection } from '@/components/looking-for/embed/OpportunitiesSection'
+
+// NEW WIDGETS
+import { ProjectAnalyticsPanel } from './widgets/ProjectAnalyticsPanel'
+import { ProjectTipsPanel } from './widgets/ProjectTipsPanel'
 
 interface Props { slug: string }
 
@@ -71,26 +75,20 @@ export function ProjectDetailPage({ slug }: Props) {
     fetchDetail()
   }, [fetchDetail, supabase])
 
-  // ── Track project view (guarantees analytics flow) ──
   useEffect(() => {
     if (!data?.project?.id) return
-    // Owner views are counted too for analytics
     const trackView = async () => {
       try {
         await fetch('/api/projects/track-view', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            project_id: data.project.id,
-            source: 'direct',
-          }),
+          body: JSON.stringify({ project_id: data.project.id, source: 'direct' }),
         })
       } catch {}
     }
     trackView()
   }, [data?.project?.id, data?.is_owner])
 
-  // Poll pending applicants count every 30 seconds
   useEffect(() => {
     const fetchCount = () => {
       fetch('/api/projects/' + slug + '/applicants/count')
@@ -160,7 +158,7 @@ export function ProjectDetailPage({ slug }: Props) {
     } catch (e: any) { alert(e?.message || 'Failed') }
   }
 
-  const deleteLink = async (id: string) => {
+  const onDeleteLink = async (id: string) => {
     try {
       await fetch('/api/projects/' + slug + '/links?id=' + id, { method: 'DELETE' })
       setData((prev: any) => ({ ...prev, links: (prev.links || []).filter((l: any) => l.id !== id) }))
@@ -196,14 +194,6 @@ export function ProjectDetailPage({ slug }: Props) {
     } catch (e) { console.error(e) }
   }
 
-  const removeMember = async (memberId: string) => {
-    if (!confirm('Remove this member?')) return
-    try {
-      await fetch('/api/projects/' + slug + '/members?id=' + memberId, { method: 'DELETE' })
-      setData((prev: any) => ({ ...prev, team: (prev.team || []).filter((m: any) => m.id !== memberId) }))
-    } catch (e) { console.error(e) }
-  }
-
   const archiveProject = async () => {
     try {
       await fetch('/api/projects/' + slug, { method: 'DELETE' })
@@ -231,11 +221,7 @@ export function ProjectDetailPage({ slug }: Props) {
   }
 
   if (!data?.project) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-[14px] text-white/50">Project not found.</p>
-      </div>
-    )
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-[14px] text-white/50">Project not found.</p></div>
   }
 
   const project = data.project
@@ -250,11 +236,9 @@ export function ProjectDetailPage({ slug }: Props) {
   if (!project.short_description) completionSuggestions.push('Description')
   if (!project.about_content || project.about_content.length < 50) completionSuggestions.push('About')
   if (!project.industry) completionSuggestions.push('Industry')
-  if (!project.category || project.category.length < 3) completionSuggestions.push('Categories')
   if (links.length === 0) completionSuggestions.push('Links')
   if (team.length === 0) completionSuggestions.push('Team')
 
-  // Build tabs (Applicants for owner + permitted, Settings for owner only)
   const tabs: { id: string; label: string; icon: any; badge?: number }[] = [
     { id: 'overview', label: 'Overview', icon: Info },
     { id: 'updates', label: 'Updates', icon: Newspaper },
@@ -266,8 +250,6 @@ export function ProjectDetailPage({ slug }: Props) {
     tabs.push({ id: 'applicants', label: 'Applicants', icon: Briefcase, badge: pendingAppCount })
   }
   if (isOwner) tabs.push({ id: 'settings', label: 'Settings', icon: Gear })
-
-  const glanceInitialValue = glanceField ? (project as any)[glanceField] : null
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] pb-20 xl:pb-8">
@@ -286,13 +268,11 @@ export function ProjectDetailPage({ slug }: Props) {
           isOwner={isOwner}
           isFollowing={isFollowing}
           onFollowToggle={toggleFollow}
-          onMessage={() => setConnectOpen(true)}
           onCollaborate={() => setConnectOpen(true)}
           onUpdate={patchProject}
           onUploadMedia={(file, kind) => uploadMedia(file, kind)}
         />
 
-        {/* Batch 9e — Looking For opportunities embed */}
         <div className="mt-6">
           <OpportunitiesSection
             scope="project"
@@ -307,7 +287,7 @@ export function ProjectDetailPage({ slug }: Props) {
 
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 mt-6">
           <div className="min-w-0">
-            {/* Tabs */}
+            {/* TABS */}
             <div className="flex items-center justify-between border-b border-white/[0.08] mb-6">
               <div className="flex gap-0.5 -mb-px overflow-x-auto scrollbar-hide">
                 {tabs.map(t => {
@@ -347,8 +327,12 @@ export function ProjectDetailPage({ slug }: Props) {
               </div>
             </div>
 
+            {/* TAB CONTENT */}
             {activeTab === 'overview' && (
               <>
+                <ProjectAnalyticsPanel slug={slug} isOwner={isOwner} />
+                <ProjectTipsPanel stage={project.stage} projectType={project.project_type} domain={project.industry} isOwner={isOwner} />
+                
                 <ProjectAbout
                   slug={slug}
                   aboutContent={project.about_content}
@@ -359,6 +343,7 @@ export function ProjectDetailPage({ slug }: Props) {
                   onDeleteImage={deleteImage}
                   onUploadFile={(file, kind) => uploadMedia(file, kind)}
                 />
+                
                 <ProjectUpdates
                   slug={slug}
                   projectId={project.id}
@@ -384,30 +369,15 @@ export function ProjectDetailPage({ slug }: Props) {
             )}
 
             {activeTab === 'team' && (
-              <TeamStructureTab
-                slug={slug}
-                projectId={project.id}
-                isOwner={isOwner}
-                currentUserId={currentUserId}
-              />
+              <TeamStructureTab slug={slug} projectId={project.id} isOwner={isOwner} currentUserId={currentUserId} />
             )}
 
             {activeTab === 'reviews' && (
-              <ProjectReviews
-                slug={slug}
-                projectId={project.id}
-                currentUserId={currentUserId}
-                isOwner={isOwner}
-                isPublic={project.is_public}
-              />
+              <ProjectReviews slug={slug} projectId={project.id} currentUserId={currentUserId} isOwner={isOwner} isPublic={project.is_public} />
             )}
 
             {activeTab === 'documentation' && (
-              <ProjectDocumentation
-                slug={slug}
-                project={project}
-                isOwner={isOwner}
-              />
+              <ProjectDocumentation slug={slug} project={project} isOwner={isOwner} />
             )}
 
             {activeTab === 'applicants' && (canViewApplicants || isOwner) && (
@@ -416,12 +386,7 @@ export function ProjectDetailPage({ slug }: Props) {
 
             {activeTab === 'settings' && isOwner && (
               <div className="space-y-5">
-                <ProjectSettings
-                  slug={slug}
-                  project={project}
-                  onUpdate={patchProject}
-                  onArchive={archiveProject}
-                />
+                <ProjectSettings slug={slug} project={project} onUpdate={patchProject} onArchive={archiveProject} />
                 <PermissionsPanel slug={slug} />
               </div>
             )}
@@ -435,7 +400,7 @@ export function ProjectDetailPage({ slug }: Props) {
               isOwner={isOwner}
               onAddMember={() => setAddMemberOpen(true)}
               onAddLink={addLink}
-              onDeleteLink={deleteLink}
+              onDeleteLink={onDeleteLink}
               onEditGlance={(field) => setGlanceField(field)}
             />
           </div>
@@ -443,17 +408,13 @@ export function ProjectDetailPage({ slug }: Props) {
       </div>
 
       {addMemberOpen && (
-        <AddMemberModal
-          slug={slug}
-          onClose={() => setAddMemberOpen(false)}
-          onAdded={() => fetchDetail()}
-        />
+        <AddMemberModal slug={slug} onClose={() => setAddMemberOpen(false)} onAdded={() => fetchDetail()} />
       )}
 
       {glanceField && (
         <GlanceEditModal
           field={glanceField}
-          currentValue={glanceInitialValue}
+          currentValue={glanceField ? (project as any)[glanceField] : null}
           onClose={() => setGlanceField(null)}
           onSave={async (patch) => { await patchProject(patch) }}
         />

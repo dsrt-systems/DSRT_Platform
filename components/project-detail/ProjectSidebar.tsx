@@ -7,8 +7,13 @@ import {
   GithubLogo, TwitterLogo, LinkedinLogo, InstagramLogo,
   YoutubeLogo, FileText, PresentationChart, Link as LinkIcon,
   Plus, Trash, X, Certificate, Calendar, Flag, Check,
-  ArrowRight, ArrowSquareOut, DiscordLogo
+  ArrowRight, ArrowSquareOut
 } from '@phosphor-icons/react'
+
+import { ProjectKnowledgePanel } from './widgets/ProjectKnowledgePanel'
+import { ProjectMilestonesWidget } from './widgets/ProjectMilestonesWidget'
+import { ProjectResourcesWidget } from './widgets/ProjectResourcesWidget'
+import { ProjectDomainTechEditor } from './widgets/ProjectDomainTechEditor'
 
 interface ProjectLite {
   id: string
@@ -23,6 +28,7 @@ interface ProjectLite {
   is_public: boolean
   founder_id: string | null
   user_id: string | null
+  project_type?: string | null
 }
 
 interface TeamMember {
@@ -56,21 +62,20 @@ interface Props {
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  idea:'Idea', research:'Research', planning:'Planning', prototype:'Prototype',
-  mvp:'MVP', beta:'Beta', production:'Production', scaling:'Scaling',
-  completed:'Completed', 'on-hold':'On Hold'
+  idea: 'Idea', research: 'Research', planning: 'Planning', prototype: 'Prototype',
+  mvp: 'MVP', beta: 'Beta', production: 'Production', scaling: 'Scaling',
+  completed: 'Completed', 'on-hold': 'On Hold'
 }
 
-// Icon-based social/resource types
 const SOCIAL_LINK_TYPES = [
-  { id: 'website', label: 'Website', icon: Globe, color: 'text-white/80' },
-  { id: 'github', label: 'GitHub', icon: GithubLogo, color: 'text-white/80' },
-  { id: 'twitter', label: 'Twitter / X', icon: TwitterLogo, color: 'text-white/80' },
-  { id: 'linkedin', label: 'LinkedIn', icon: LinkedinLogo, color: 'text-white/80' },
-  { id: 'youtube', label: 'YouTube', icon: YoutubeLogo, color: 'text-white/80' },
-  { id: 'instagram', label: 'Instagram', icon: InstagramLogo, color: 'text-white/80' },
-  { id: 'documentation', label: 'Docs', icon: FileText, color: 'text-white/80' },
-  { id: 'pitch_deck', label: 'Pitch Deck', icon: PresentationChart, color: 'text-white/80' },
+  { id: 'website', label: 'Website', icon: Globe },
+  { id: 'github', label: 'GitHub', icon: GithubLogo },
+  { id: 'twitter', label: 'Twitter / X', icon: TwitterLogo },
+  { id: 'linkedin', label: 'LinkedIn', icon: LinkedinLogo },
+  { id: 'youtube', label: 'YouTube', icon: YoutubeLogo },
+  { id: 'instagram', label: 'Instagram', icon: InstagramLogo },
+  { id: 'documentation', label: 'Docs', icon: FileText },
+  { id: 'pitch_deck', label: 'Pitch Deck', icon: PresentationChart },
 ]
 
 function formatDate(d: string | null): string {
@@ -92,24 +97,17 @@ export function ProjectSidebar({
   const [newLinkUrl, setNewLinkUrl] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Map existing links by type
   const linksByType: Record<string, LinkRow | undefined> = {}
   const customLinks: LinkRow[] = []
   for (const l of links) {
-    if (SOCIAL_LINK_TYPES.some(t => t.id === l.type)) {
-      linksByType[l.type] = l
-    } else {
-      customLinks.push(l)
-    }
+    if (SOCIAL_LINK_TYPES.some(t => t.id === l.type)) linksByType[l.type] = l
+    else customLinks.push(l)
   }
 
   const promptForUrl = async (typeId: string, typeLabel: string) => {
     const existing = linksByType[typeId]
     if (existing) {
-      // Remove flow
-      if (confirm('Remove ' + typeLabel + ' link?')) {
-        await onDeleteLink(existing.id)
-      }
+      if (confirm('Remove ' + typeLabel + ' link?')) await onDeleteLink(existing.id)
       return
     }
     const url = window.prompt('Enter ' + typeLabel + ' URL:', 'https://')
@@ -130,8 +128,7 @@ export function ProjectSidebar({
 
   return (
     <div className="space-y-4">
-
-      {/* ═══ AT A GLANCE (compact 2-column) ═══ */}
+      {/* 1. At a Glance */}
       <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-white/[0.06]">
           <h3 className="text-[15px] font-semibold text-white">At a Glance</h3>
@@ -191,7 +188,10 @@ export function ProjectSidebar({
         </div>
       </div>
 
-      {/* ═══ TEAM MEMBERS ═══ */}
+      {/* 2. Domain & Technology Editor Widget (New in Phase 6) */}
+      <ProjectDomainTechEditor slug={project.slug} isOwner={isOwner} />
+
+      {/* 3. Team Members */}
       <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
           <h3 className="text-[15px] font-semibold text-white">
@@ -241,15 +241,22 @@ export function ProjectSidebar({
         )}
       </div>
 
-      {/* ═══ PROJECT LINKS (icon grid) ═══ */}
+      {/* 4. Milestones Widget (New in Phase 6) */}
+      <ProjectMilestonesWidget slug={project.slug} projectId={project.id} isOwner={isOwner} />
+
+      {/* 5. Typed Resources Widget (New in Phase 6) */}
+      <ProjectResourcesWidget slug={project.slug} isOwner={isOwner} />
+
+      {/* 6. Knowledge Overview Widget (New in Phase 6) */}
+      <ProjectKnowledgePanel slug={project.slug} projectId={project.id} isOwner={isOwner} />
+
+      {/* 7. General Links */}
       <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-white/[0.06]">
-          <h3 className="text-[15px] font-semibold text-white">Links</h3>
+          <h3 className="text-[15px] font-semibold text-white">Socials</h3>
         </div>
-
-        {/* Icon grid for standard social/resource links */}
         <div className="p-3 grid grid-cols-4 gap-1.5">
-          {SOCIAL_LINK_TYPES.map(t => {
+          {SOCIAL_LINK_TYPES.filter(t => t.id !== 'documentation' && t.id !== 'pitch_deck').map(t => {
             const existing = linksByType[t.id]
             const active = !!existing
             const Icon = t.icon
@@ -257,11 +264,8 @@ export function ProjectSidebar({
               <button
                 key={t.id}
                 onClick={() => {
-                  if (existing) {
-                    window.open(existing.url, '_blank', 'noopener,noreferrer')
-                  } else if (isOwner) {
-                    promptForUrl(t.id, t.label)
-                  }
+                  if (existing) window.open(existing.url, '_blank', 'noopener,noreferrer')
+                  else if (isOwner) promptForUrl(t.id, t.label)
                 }}
                 onContextMenu={(e) => {
                   if (isOwner && existing) {
@@ -288,27 +292,17 @@ export function ProjectSidebar({
           })}
         </div>
 
-        {/* Custom links */}
         {customLinks.length > 0 && (
           <div className="border-t border-white/[0.06] divide-y divide-white/[0.05]">
             {customLinks.map(l => (
               <div key={l.id} className="flex items-center gap-2 px-4 py-2.5 hover:bg-white/[0.02] group">
                 <LinkIcon size={13} className="text-white/40 flex-shrink-0" />
-                <a
-                  href={l.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 min-w-0 text-[13px] text-white/85 hover:text-white truncate"
-                >
+                <a href={l.url} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 text-[13px] text-white/85 hover:text-white truncate">
                   {l.label}
                 </a>
                 <ArrowSquareOut size={11} className="text-white/30 flex-shrink-0" />
                 {isOwner && (
-                  <button
-                    onClick={() => onDeleteLink(l.id)}
-                    className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 transition-all ml-1"
-                    aria-label="Remove"
-                  >
+                  <button onClick={() => onDeleteLink(l.id)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 transition-all ml-1">
                     <Trash size={11} />
                   </button>
                 )}
@@ -317,7 +311,6 @@ export function ProjectSidebar({
           </div>
         )}
 
-        {/* Add custom link */}
         {isOwner && (
           <div className="border-t border-white/[0.06]">
             {customLinkOpen ? (
@@ -325,7 +318,7 @@ export function ProjectSidebar({
                 <input
                   value={newLinkLabel}
                   onChange={(e) => setNewLinkLabel(e.target.value)}
-                  placeholder="Link title (e.g. Product Hunt)"
+                  placeholder="Link title (e.g. Discord)"
                   className="w-full text-[13px] bg-white/[0.04] border border-white/[0.1] text-white placeholder:text-white/30 rounded-md h-8 px-2.5 outline-none focus:border-white/25"
                 />
                 <input
@@ -335,17 +328,10 @@ export function ProjectSidebar({
                   className="w-full text-[13px] bg-white/[0.04] border border-white/[0.1] text-white placeholder:text-white/30 rounded-md h-8 px-2.5 outline-none focus:border-white/25"
                 />
                 <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => { setCustomLinkOpen(false); setNewLinkUrl(''); setNewLinkLabel('') }}
-                    className="flex-1 text-[12px] text-white/60 hover:text-white h-8 rounded border border-white/[0.1]"
-                  >
+                  <button onClick={() => { setCustomLinkOpen(false); setNewLinkUrl(''); setNewLinkLabel('') }} className="flex-1 text-[12px] text-white/60 hover:text-white h-8 rounded border border-white/[0.1]">
                     Cancel
                   </button>
-                  <button
-                    onClick={addCustom}
-                    disabled={saving || !newLinkUrl.trim() || !newLinkLabel.trim()}
-                    className="flex-1 text-[12px] font-semibold bg-white text-black hover:bg-white/90 h-8 rounded disabled:opacity-40"
-                  >
+                  <button onClick={addCustom} disabled={saving || !newLinkUrl.trim() || !newLinkLabel.trim()} className="flex-1 text-[12px] font-semibold bg-white text-black hover:bg-white/90 h-8 rounded disabled:opacity-40">
                     {saving ? 'Adding...' : 'Add'}
                   </button>
                 </div>
@@ -361,26 +347,15 @@ export function ProjectSidebar({
           </div>
         )}
       </div>
+
     </div>
   )
 }
 
-function GlanceItem({
-  icon, label, value, editable, onEdit, emptyValueLabel
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-  editable?: boolean
-  onEdit?: () => void
-  emptyValueLabel?: string
-}) {
+function GlanceItem({ icon, label, value, editable, onEdit, emptyValueLabel }: any) {
   const isEmpty = value === '—' || value === '0'
   return (
-    <div
-      className={'px-4 py-2.5 ' + (editable ? 'cursor-pointer hover:bg-white/[0.02]' : '')}
-      onClick={editable && onEdit ? onEdit : undefined}
-    >
+    <div className={'px-4 py-2.5 ' + (editable ? 'cursor-pointer hover:bg-white/[0.02]' : '')} onClick={editable && onEdit ? onEdit : undefined}>
       <div className="flex items-center gap-1.5 mb-1">
         {icon}
         <span className="text-[11px] text-white/45 uppercase tracking-wider font-medium">{label}</span>

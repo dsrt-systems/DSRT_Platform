@@ -1,293 +1,360 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, Suspense, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
+import { CreateProjectWizard } from '@/components/project-detail/CreateProjectWizard'
+
+// Explore page
+import { ProjectExplorePage } from '@/components/projects-explore/ProjectExplorePage'
+
 import {
-  MagnifyingGlass, Plus, FolderSimple, Lightning, Heart, Users,
-  Briefcase, UserPlus, BookmarkSimple, CaretRight, CaretLeft,
-  Command, ArrowRight, PencilSimpleLine, Rocket, Star,
-  ListChecks, UsersThree, TrendUp, TrendDown,
-  ArrowsClockwise, Compass,
-  DotsThreeOutline, X, Sparkle,
-  Eye, ChatCircle, Flame, Fire,
-  Bell, ArrowUpRight, Circle, ArrowsClockwise as Refresh
+  Plus, FolderSimple, Compass, Heart, Briefcase,
+  Buildings, Users, ArrowRight, CircleNotch,
+  CaretDown, WarningCircle, DotsThree, MapPin,
+  ArrowSquareOut, Star, BookmarkSimple, Sparkle,
+  Wrench, GitBranch, CheckCircle
 } from '@phosphor-icons/react'
-import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
-} from 'recharts'
-import { ExploreView } from '@/components/explore/ExploreView'
+import { toast } from 'sonner'
+
+// ═══════════════════════════════════════════════════════════════
+// TYPES & HELPERS
+// ═══════════════════════════════════════════════════════════════
 
 interface Project {
-  id: string; slug: string; name: string; description: string | null
-  tagline: string | null; icon: string; color: string; stage: string
-  status: string; visibility: string; is_public: boolean
-  project_number: string; cover_image_url: string | null
-  founder_id: string | null; user_id: string | null
-  team_size: number; open_roles: number; view_count: number
-  follower_count: number; traction_score: number
-  last_activity_at: string; updated_at: string; created_at: string
-  category: string[]; tech_stack: string[]; sector: string | null
-  project_members?: { id: string; user_id: string; role: string }[]
-  project_roles?: { id: string; user_id: string; role: string }[]
+  id: string
+  slug: string
+  name: string
+  tagline?: string | null
+  short_description?: string | null
+  description?: string | null
+  logo_url?: string | null
+  cover_image_url?: string | null
+  stage?: string
+  status?: string
+  industry?: string | null
+  location?: string | null
+  project_number?: string | null
+  project_type?: string | null
+  is_open_source?: boolean
+  is_dsrt_verified?: boolean
+  is_hiring?: boolean
+  team_size?: number
+  open_roles?: number
+  follower_count?: number
+  view_count?: number
+  tech_stack?: string[]
+  category?: string[]
+  updated_at?: string
+  created_at?: string
+  last_activity_at?: string
+  founder?: {
+    username: string
+    full_name: string
+    avatar_url?: string | null
+  }
 }
 
-interface FeedEvent {
-  id: string; type: string; title: string; subtitle: string | null
-  created_at: string; icon_type: string
-  actor: { id: string; full_name: string | null; username: string | null; avatar_url: string | null } | null
-  project: { id: string; name: string; slug: string; icon: string; color: string; project_number: string } | null
-  entity_url: string | null; entity_label: string | null; metadata?: any
-}
-
-interface AnalyticMetric { value: number; change: number }
-interface Analytics {
-  views: AnalyticMetric; unique_views: AnalyticMetric; followers: AnalyticMetric
-  applications: AnalyticMetric; profile_ctr: AnalyticMetric; saves: AnalyticMetric
-  shares: AnalyticMetric; messages: AnalyticMetric; overall_growth: AnalyticMetric
-  total_projects: number; active_projects: number; total_team_members: number
-  total_followers: number; total_applications: number
-}
-
-interface DashboardData {
-  projects: Project[]; drafts: Project[]; activity: any[]
-  analytics: Analytics
-  viewsOverTime: { date: string; views: number; unique_views: number }[]
-  trafficSources: { name: string; value: number; percentage: number }[]
-  audienceBreakdown: { name: string; value: number; percentage: number }[]
-  following: Project[]
-  stats: { totalProjects: number; activeProjects: number; totalFollowers: number; totalApplications: number; totalTeamMembers: number; totalRecruiting: number }
-}
+type TabId = 'my-projects' | 'explore' | 'following' | 'applications'
+type QuickStatus = 'all' | 'active' | 'completed' | 'archived'
+type SortOption = 'updated' | 'created' | 'name' | 'stage'
 
 const TABS = [
-  { id: 'my-projects', label: 'My Projects', icon: FolderSimple, mobileLabel: 'Projects' },
-  { id: 'explore', label: 'Explore', icon: Compass, mobileLabel: 'Explore' },
-  { id: 'following', label: 'Following', icon: Heart, mobileLabel: 'Following' },
-  { id: 'applications', label: 'Applications', icon: Briefcase, mobileLabel: 'Apps' },
-] as const
-
-type TabId = typeof TABS[number]['id']
-const MOBILE_PRIMARY_TABS: TabId[] = ['my-projects', 'explore', 'following', 'applications']
-
-const STAGE_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
-  idea: { bg: 'bg-purple-500/12', text: 'text-purple-200', dot: 'bg-purple-400' },
-  planning: { bg: 'bg-blue-500/12', text: 'text-blue-200', dot: 'bg-blue-400' },
-  building: { bg: 'bg-cyan-500/12', text: 'text-cyan-200', dot: 'bg-cyan-400' },
-  prototype: { bg: 'bg-orange-500/12', text: 'text-orange-200', dot: 'bg-orange-400' },
-  alpha: { bg: 'bg-emerald-500/12', text: 'text-emerald-200', dot: 'bg-emerald-400' },
-  beta: { bg: 'bg-yellow-500/12', text: 'text-yellow-200', dot: 'bg-yellow-400' },
-  mvp: { bg: 'bg-green-500/12', text: 'text-green-200', dot: 'bg-green-400' },
-  launched: { bg: 'bg-red-500/12', text: 'text-red-200', dot: 'bg-red-400' },
-  scaling: { bg: 'bg-pink-500/12', text: 'text-pink-200', dot: 'bg-pink-400' },
-  research: { bg: 'bg-indigo-500/12', text: 'text-indigo-200', dot: 'bg-indigo-400' },
-  production: { bg: 'bg-emerald-500/12', text: 'text-emerald-200', dot: 'bg-emerald-400' },
-  completed: { bg: 'bg-white/[0.08]', text: 'text-white/70', dot: 'bg-white/60' },
-  'on-hold': { bg: 'bg-zinc-500/12', text: 'text-zinc-300', dot: 'bg-zinc-400' },
-}
-
-const STAGE_LABELS: Record<string, string> = {
-  idea: 'IDEA', planning: 'PLANNING', building: 'BUILDING', prototype: 'PROTOTYPE',
-  alpha: 'ALPHA', beta: 'BETA', mvp: 'MVP', launched: 'LAUNCHED', scaling: 'SCALING',
-  research: 'RESEARCH', production: 'PRODUCTION', completed: 'COMPLETED', 'on-hold': 'ON HOLD',
-}
-
-function timeAgo(dateStr: string | undefined | null): string {
-  if (!dateStr) return ''
-  const now = new Date()
-  const date = new Date(dateStr)
-  const diffMs = now.getTime() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return 'now'
-  if (diffMin < 60) return diffMin + 'm ago'
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return diffHours + 'h ago'
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return diffDays + 'd ago'
-  return Math.floor(diffDays / 7) + 'w ago'
-}
-
-function formatNumber(n: number): string {
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
-  return n.toString()
-}
+  { id: 'my-projects', label: 'My Projects', icon: FolderSimple },
+  { id: 'explore',     label: 'Explore',     icon: Compass },
+  { id: 'following',   label: 'Following',   icon: Heart },
+  { id: 'applications', label: 'Applications', icon: Briefcase },
+]
 
 function greeting(): string {
   const h = new Date().getHours()
-  if (h < 5) return 'Still up'
   if (h < 12) return 'Good morning'
   if (h < 17) return 'Good afternoon'
   if (h < 21) return 'Good evening'
   return 'Good night'
 }
 
-function firstName(fullName: string | null | undefined): string {
-  if (!fullName) return 'Builder'
-  return fullName.split(' ')[0]
+function timeAgo(iso?: string | null): string {
+  if (!iso) return ''
+  const now = Date.now()
+  const then = new Date(iso).getTime()
+  const diff = Math.max(0, now - then)
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days}d ago`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) return `${weeks}w ago`
+  const months = Math.floor(days / 30)
+  return `${months}mo ago`
 }
 
-function getActivityIcon(type: string) {
-  const map: Record<string, React.ReactNode> = {
-    new_follower: <Heart weight="fill" className="text-rose-400" />,
-    member_joined: <UserPlus weight="fill" className="text-emerald-400" />,
-    project_saved: <BookmarkSimple weight="fill" className="text-amber-400" />,
-    task_created: <ListChecks weight="fill" className="text-blue-400" />,
-    task_status_changed: <ArrowsClockwise weight="fill" className="text-cyan-400" />,
-    application: <Briefcase weight="fill" className="text-purple-400" />,
-    role_application: <Briefcase weight="fill" className="text-purple-400" />,
-    stage_change: <Rocket weight="fill" className="text-orange-400" />,
-    featured: <Star weight="fill" className="text-yellow-400" />,
-    update_published: <PencilSimpleLine weight="fill" className="text-blue-400" />,
-    collaboration_request: <UsersThree weight="fill" className="text-emerald-400" />,
-    comment: <ChatCircle weight="fill" className="text-cyan-400" />,
-  }
-  return map[type] || <Sparkle weight="fill" className="text-white/50" />
-}
+// ═══════════════════════════════════════════════════════════════
+// EXPORTED DASHBOARD ENTRYPOINT
+// ═══════════════════════════════════════════════════════════════
 
 export function ProjectsDashboard() {
-  const router = useRouter()
-  const supabase = createClient()
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const draftsScrollRef = useRef<HTMLDivElement>(null)
-
-  const [activeTab, setActiveTab] = useState<TabId>('my-projects')
-  const [data, setData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [analyticsDays, setAnalyticsDays] = useState(30)
-  const [showAllProjects, setShowAllProjects] = useState(false)
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [feed, setFeed] = useState<FeedEvent[]>([])
-  const [feedLoading, setFeedLoading] = useState(true)
-  const [feedRefreshing, setFeedRefreshing] = useState(false)
-
-  const smartInsight = useMemo(() => {
-    if (!data?.stats || !data?.analytics) return null
-    const s = data.stats
-    const a = data.analytics
-    if ((s.totalProjects || 0) === 0) return { icon: Rocket, tint: 'text-purple-300', text: 'Ready to ship your first project? Start with one bold idea.' }
-    if ((a.views?.change || 0) > 20) return { icon: Fire, tint: 'text-orange-300', text: 'Views up ' + Math.abs(a.views.change) + '% this period.' }
-    if ((s.totalApplications || 0) > 0) return { icon: Bell, tint: 'text-cyan-300', text: s.totalApplications + ' pending application' + (s.totalApplications !== 1 ? 's' : '') + '.' }
-    if ((s.totalRecruiting || 0) > 0) return { icon: UsersThree, tint: 'text-emerald-300', text: s.totalRecruiting + ' open role' + (s.totalRecruiting !== 1 ? 's' : '') + ' live.' }
-    return null
-  }, [data])
-
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        const { data: profile } = await supabase.from('users').select('full_name, avatar_url, username, streak_days').eq('id', user.id).maybeSingle()
-        setCurrentUser(profile)
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#09090b] text-white p-10 flex items-center justify-center">
+          <CircleNotch size={24} className="animate-spin text-zinc-500 mr-2" />
+          <span className="text-xs text-zinc-500 font-mono">Loading workspace...</span>
+        </div>
       }
-    })
+    >
+      <ProjectsDashboardContent />
+    </Suspense>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN DASHBOARD CONTENT
+// ═══════════════════════════════════════════════════════════════
+
+function ProjectsDashboardContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const supabase = createClient()
+
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'explore' || tab === 'following' || tab === 'applications') return tab
+    return 'my-projects'
+  })
+
+  const [user, setUser] = useState<any>(null)
+  const [myProjects, setMyProjects] = useState<Project[]>([])
+  const [drafts, setDrafts] = useState<Project[]>([])
+  const [followingProjects, setFollowingProjects] = useState<Project[]>([])
+  const [resources, setResources] = useState<any[]>([])
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  const [quickStatus, setQuickStatus] = useState<QuickStatus>('all')
+  const [sortOption, setSortOption] = useState<SortOption>('updated')
+  const [sortOpen, setSortOpen] = useState(false)
+
+  const [deleteModalProject, setDeleteModalProject] = useState<Project | null>(null)
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  // ── Load workspace data ─────────────────────────────────
+  const loadWorkspaceData = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (authUser) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('full_name, avatar_url, username')
+          .eq('id', authUser.id)
+          .maybeSingle()
+        setUser(profile ? { ...authUser, profile } : authUser)
+      }
+
+      const [dashRes, resourcesRes] = await Promise.all([
+        fetch('/api/projects/dashboard'),
+        supabase
+          .from('founder_resources')
+          .select('*')
+          .order('display_order', { ascending: true }),
+      ])
+
+      if (dashRes.ok) {
+        const data = await dashRes.json()
+        setMyProjects(data.projects || [])
+        setDrafts(data.drafts || [])
+      } else {
+        setError(true)
+      }
+
+      if (resourcesRes.data) {
+        setResources(resourcesRes.data)
+      }
+    } catch (e) {
+      console.error('Projects dashboard fetch error:', e)
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
   }, [supabase])
 
-  const fetchDashboard = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await fetch('/api/projects/dashboard?days=' + analyticsDays)
-      if (!res.ok) throw new Error('Failed')
-      setData(await res.json())
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }, [analyticsDays])
-
-  useEffect(() => { fetchDashboard() }, [fetchDashboard])
-
-  const fetchFeed = useCallback(async (silent = false) => {
-    if (!silent) setFeedLoading(true); else setFeedRefreshing(true)
-    try {
-      const res = await fetch('/api/projects/activity?limit=40', { cache: 'no-store' })
-      if (res.ok) setFeed((await res.json()).activity || [])
-    } catch (e) { console.error(e) }
-    finally { setFeedLoading(false); setFeedRefreshing(false) }
-  }, [])
-
   useEffect(() => {
-    fetchFeed(false)
-    const interval = setInterval(() => fetchFeed(true), 30000)
-    return () => clearInterval(interval)
-  }, [fetchFeed])
+    loadWorkspaceData()
+  }, [loadWorkspaceData])
 
+  // ── Load following on tab change ─────────────────────────
   useEffect(() => {
-    if (searchQuery.length < 2) { setSearchResults([]); setSearchOpen(false); return }
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/projects/search?q=' + encodeURIComponent(searchQuery))
-        setSearchResults((await res.json()).results || [])
-        setSearchOpen(true)
-      } catch { setSearchResults([]) }
-    }, 250)
-    return () => clearTimeout(timer)
-  }, [searchQuery])
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.getElementById('project-search')?.focus() }
+    if (activeTab === 'following') {
+      fetch('/api/projects/dashboard')
+        .then(r => r.json())
+        .then(d => setFollowingProjects(d.following || []))
+        .catch(() => {})
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [activeTab])
 
-  const scroll = (ref: React.RefObject<HTMLDivElement | null>, dir: 'left' | 'right') => {
-    ref.current?.scrollBy({ left: dir === 'left' ? -340 : 340, behavior: 'smooth' })
+  // ── Handle delete ────────────────────────────────────────
+  const handleConfirmDelete = async () => {
+    if (!deleteModalProject || deleteConfirmInput.trim() !== deleteModalProject.name.trim()) {
+      toast.error('Project name does not match')
+      return
+    }
+
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/projects/${deleteModalProject.slug}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error('Failed to archive project')
+
+      toast.success('Project archived')
+      setMyProjects(prev => prev.filter(p => p.id !== deleteModalProject.id))
+      setDrafts(prev => prev.filter(p => p.id !== deleteModalProject.id))
+      setDeleteModalProject(null)
+      setDeleteConfirmInput('')
+    } catch (e: any) {
+      toast.error(e.message || 'Could not archive project')
+    } finally {
+      setDeleting(false)
+    }
   }
 
-  if (loading) {
-    return (
-      <div className="flex-1 min-h-screen bg-[#0a0a0f] pb-20">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-          <Skeleton className="h-10 w-72 bg-white/5 mb-3" />
-          <Skeleton className="h-5 w-96 bg-white/5 mb-6" />
-          <div className="grid grid-cols-3 gap-3 mb-8">
-            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[300px] bg-white/5 rounded-2xl" />)}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // ── Sort logic ───────────────────────────────────────────
+  const sortedProjects = useMemo(() => {
+    return [...myProjects].sort((a, b) => {
+      if (sortOption === 'created') {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      }
+      if (sortOption === 'name') {
+        return a.name.localeCompare(b.name)
+      }
+      if (sortOption === 'stage') {
+        return (a.stage || '').localeCompare(b.stage || '')
+      }
+      // Default: updated / last_activity
+      return (
+        new Date(b.last_activity_at || b.updated_at || b.created_at || 0).getTime() -
+        new Date(a.last_activity_at || a.updated_at || a.created_at || 0).getTime()
+      )
+    })
+  }, [myProjects, sortOption])
 
-  const projects = data?.projects || []
-  const drafts = data?.drafts || []
-  const analytics = data?.analytics
-  const stats = data?.stats
-  const viewsData = data?.viewsOverTime || []
-  const trafficData = data?.trafficSources || []
-  const audienceData = data?.audienceBreakdown || []
-  const streak = currentUser?.streak_days || 0
+  // ── Quick status filter ──────────────────────────────────
+  const filteredByStatus = useMemo(() => {
+    if (quickStatus === 'all') return sortedProjects
+    if (quickStatus === 'active') {
+      return sortedProjects.filter(p => p.status !== 'archived' && p.status !== 'completed')
+    }
+    if (quickStatus === 'completed') {
+      return sortedProjects.filter(p => p.status === 'completed')
+    }
+    if (quickStatus === 'archived') {
+      return sortedProjects.filter(p => p.status === 'archived')
+    }
+    return sortedProjects
+  }, [sortedProjects, quickStatus])
+
+  const statusCounts = useMemo(() => ({
+    all: sortedProjects.length,
+    active: sortedProjects.filter(p => p.status !== 'archived' && p.status !== 'completed').length,
+    completed: sortedProjects.filter(p => p.status === 'completed').length,
+    archived: sortedProjects.filter(p => p.status === 'archived').length,
+  }), [sortedProjects])
+
+  // ── Section groupings ──────────────────────
+  const sections = useMemo(() => {
+    const now = Date.now()
+    const twoWeeks = 14 * 24 * 60 * 60 * 1000
+
+    const actively_building = filteredByStatus.filter(p => {
+      const activeStages = ['idea', 'planning', 'prototype', 'development', 'building', 'testing', 'mvp']
+      return activeStages.includes(p.stage || '') && p.status !== 'archived' && p.status !== 'completed'
+    })
+
+    const recently_updated = filteredByStatus.filter(p => {
+      const ts = new Date(p.last_activity_at || p.updated_at || 0).getTime()
+      return ts > 0 && (now - ts) < twoWeeks && !actively_building.some(x => x.id === p.id)
+    })
+
+    const research_and_experiments = filteredByStatus.filter(p => {
+      const isResearch = p.project_type === 'research' || p.project_type === 'experiment' || p.stage === 'research'
+      return isResearch && !actively_building.some(x => x.id === p.id) && !recently_updated.some(x => x.id === p.id)
+    })
+
+    const open_source = filteredByStatus.filter(p => {
+      return p.is_open_source && !actively_building.some(x => x.id === p.id) &&
+             !recently_updated.some(x => x.id === p.id) &&
+             !research_and_experiments.some(x => x.id === p.id)
+    })
+
+    const shownIds = new Set([
+      ...actively_building.map(p => p.id),
+      ...recently_updated.map(p => p.id),
+      ...research_and_experiments.map(p => p.id),
+      ...open_source.map(p => p.id),
+    ])
+
+    const other = filteredByStatus.filter(p => !shownIds.has(p.id))
+
+    return { actively_building, recently_updated, research_and_experiments, open_source, other }
+  }, [filteredByStatus])
+
+  const firstName =
+    user?.profile?.full_name?.split(' ')[0] ||
+    user?.user_metadata?.full_name?.split(' ')[0] ||
+    'Builder'
 
   return (
-    <div className="flex-1 min-h-screen bg-[#0a0a0f] pb-20 xl:pb-0 text-white">
-      <div className="px-4 md:px-8 py-5 md:py-7 max-w-[1400px] mx-auto">
+    <div className="flex-1 min-h-screen bg-[#09090b] text-white pb-24 font-sans">
+      <div className="max-w-[1240px] mx-auto px-4 md:px-6 pt-8">
 
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        {/* ── HEADER ────────────────────────────────────── */}
+        <div className="flex items-end justify-between mb-8">
           <div>
-            <h1 className="text-[26px] md:text-[30px] font-bold tracking-tight leading-tight">
-              {greeting()}, <span className="bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">{firstName(currentUser?.full_name)}</span>
+            <h1 className="text-[26px] sm:text-[30px] font-bold tracking-tight text-white leading-snug">
+              {greeting()},{' '}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-200 to-zinc-400">
+                {firstName}
+              </span>.
             </h1>
-            <p className="text-[13px] text-white/50 mt-0.5 flex items-center gap-2 flex-wrap">
-              <span>Here is what is happening across your projects.</span>
-              {streak > 0 && <span className="inline-flex items-center gap-1 bg-orange-500/12 border border-orange-500/25 text-orange-300 rounded-full px-2 py-0.5 text-[11px] font-semibold"><Flame size={10} weight="fill" /> {streak}-day streak</span>}
+            <p className="text-[13.5px] text-zinc-400 mt-1">
+              Everything you're building, experimenting with, researching and creating.
             </p>
           </div>
-          <Button onClick={() => router.push('/projects/new')} className="hidden md:flex bg-white text-black hover:bg-white/90 text-[13px] font-semibold h-11 px-4 rounded-xl">
-            <Plus size={14} weight="bold" className="mr-1.5" /> New project
-          </Button>
+
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold shadow-sm transition-all active:scale-95 shrink-0"
+          >
+            <Plus size={14} weight="bold" /> New project
+          </button>
         </div>
 
-        <div className="hidden md:flex items-center border-b border-white/[0.06] mb-6">
-          <div className="flex gap-1 -mb-px overflow-x-auto scrollbar-hide">
+        {/* ── TABS ──────────────────────────────────────── */}
+        <div className="border-b border-white/[0.08] mb-8">
+          <div className="flex gap-6 -mb-px overflow-x-auto scrollbar-hide">
             {TABS.map(tab => {
-              const Icon = tab.icon
               const active = activeTab === tab.id
               return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={'px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 flex items-center gap-1.5 ' + (active ? 'text-white border-white' : 'text-white/45 border-transparent hover:text-white/85')}>
-                  <Icon size={14} weight={active ? 'fill' : 'regular'} />
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as TabId)}
+                  className={
+                    'pb-3 text-[13.5px] font-medium transition-colors border-b-2 whitespace-nowrap ' +
+                    (active
+                      ? 'text-white border-white font-semibold'
+                      : 'text-zinc-500 border-transparent hover:text-zinc-300')
+                  }
+                >
                   {tab.label}
                 </button>
               )
@@ -295,378 +362,588 @@ export function ProjectsDashboard() {
           </div>
         </div>
 
-        <div className="md:hidden mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {(() => {
-              const t = TABS.find(t => t.id === activeTab)
-              if (!t) return null
-              const Icon = t.icon
-              return <><Icon size={16} weight="fill" className="text-purple-400" /><h2 className="text-[15px] font-bold text-white">{t.label}</h2></>
-            })()}
-          </div>
-          <Button size="sm" onClick={() => router.push('/projects/new')} className="bg-white text-black hover:bg-white/90 text-[12px] font-semibold px-3 h-8 rounded-lg">
-            <Plus size={12} className="mr-1" /> New
-          </Button>
-        </div>
-
+        {/* ── MY PROJECTS TAB ───────────────────────────── */}
         {activeTab === 'my-projects' && (
-          <>
-            {smartInsight && (
-              <div className="mb-5 bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/10 border border-white/[0.06] flex items-center justify-center flex-shrink-0">
-                  <smartInsight.icon size={16} weight="fill" className={smartInsight.tint} />
-                </div>
-                <p className="text-[13px] text-white/80 flex-1">{smartInsight.text}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 items-start">
+            
+            {/* LEFT RAIL */}
+            <div className="space-y-4">
+              <InfoPanel
+                title="BUILD IN PUBLIC"
+                text="Your project profile is a public record of what you're building, learning and shipping. Keep it specific, well-documented and current — people evaluating collaborators or hiring notice details quickly."
+                linkText="Learn how to present your project →"
+                linkHref="/resources"
+              />
+              <InfoPanel
+                title="DISCOVERABILITY"
+                text="A complete project profile can appear across DSRT Connect where relevant. Your project may be surfaced to people based on domains, technologies, stage and activity."
+                linkText="Manage visibility →"
+                linkHref="/settings"
+              />
+              <ServicesPanel />
+              <InfoPanel
+                title="COLLABORATION"
+                text="Open your project to collaborators when you're ready. Post open roles from your project page directly to DSRT Looking For — one canonical opportunity system."
+                linkText="Find collaborators →"
+                linkHref="/looking-for"
+              />
+              <div className="p-5 border border-white/[0.04] rounded-xl bg-[#0d0d10]">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-bold mb-2">BUILDER NOTE</p>
+                <p className="text-[12.5px] text-zinc-400 leading-relaxed italic">
+                  "A strong project isn't about polish. It's about clarity — what you're building, why it matters, and what you're learning as you go."
+                </p>
               </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-6 text-[13px] text-white/70">
-              <span className="flex items-center gap-1.5 font-semibold text-white"><FolderSimple size={13} weight="fill" className="text-white/60" /> {stats?.totalProjects || 0} project{(stats?.totalProjects || 0) !== 1 ? 's' : ''}</span>
-              <span className="text-white/25">·</span>
-              <span className="flex items-center gap-1"><Lightning size={12} weight="fill" className="text-emerald-400" /> {stats?.activeProjects || 0} active</span>
-              <span className="text-white/25">·</span>
-              <span className="flex items-center gap-1"><Users size={12} weight="fill" className="text-white/50" /> {stats?.totalTeamMembers || 0} team</span>
-              <span className="text-white/25">·</span>
-              <span className="flex items-center gap-1"><Heart size={12} weight="fill" className="text-rose-400/80" /> {formatNumber(stats?.totalFollowers || 0)} followers</span>
-              {(stats?.totalRecruiting || 0) > 0 && <><span className="text-white/25">·</span><span className="flex items-center gap-1 text-orange-300"><Briefcase size={12} weight="fill" /> {stats?.totalRecruiting} open roles</span></>}
-              {(stats?.totalApplications || 0) > 0 && <><span className="text-white/25">·</span><span className="flex items-center gap-1 text-purple-300 font-semibold">{stats?.totalApplications} pending</span></>}
             </div>
 
-            <section className="mb-8">
-              <div className="flex items-end justify-between mb-4">
-                <div>
-                  <h2 className="text-[19px] font-bold text-white flex items-center gap-2">Continue building {projects.length > 0 && <span className="text-[12px] text-white/40 font-normal">· {projects.length}</span>}</h2>
-                  <p className="text-[12.5px] text-white/45 mt-0.5">Pick up where you left off</p>
-                </div>
-                {projects.length > 3 && (
-                  <div className="flex items-center gap-1">
-                    {!showAllProjects && <>
-                      <button onClick={() => scroll(scrollContainerRef, 'left')} className="hidden md:flex w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] items-center justify-center text-white/70"><CaretLeft size={13} /></button>
-                      <button onClick={() => scroll(scrollContainerRef, 'right')} className="hidden md:flex w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] items-center justify-center text-white/70"><CaretRight size={13} /></button>
-                    </>}
-                    <button onClick={() => setShowAllProjects(!showAllProjects)} className="text-[12px] text-white/70 hover:text-white font-semibold flex items-center gap-1 px-3 h-8 rounded-lg hover:bg-white/[0.04]">{showAllProjects ? 'Collapse' : 'View all'} <ArrowRight size={11} /></button>
-                  </div>
-                )}
+            {/* RIGHT WORKSPACE */}
+            <div className="min-w-0">
+              <div className="bg-[#121215] border border-white/[0.06] rounded-2xl p-8 mb-8 flex flex-col items-center text-center shadow-sm">
+                <h2 className="text-[18px] font-bold text-white mb-2">Start a new project</h2>
+                <p className="text-[13.5px] text-zinc-400 max-w-md mx-auto mb-6 leading-relaxed">
+                  Turn your ideas, experiments, or technical work into a project others can discover, follow, or contribute to.
+                </p>
+                <button
+                  onClick={() => setCreateModalOpen(true)}
+                  className="flex items-center gap-1.5 h-10 px-5 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-zinc-500 text-white font-semibold text-[13px] transition-colors"
+                >
+                  <Plus size={14} weight="bold" /> Start your project
+                </button>
               </div>
-              {showAllProjects ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {projects.map(p => <ProjectCard key={p.id} project={p} onOpen={() => router.push('/projects/' + p.slug)} />)}
-                  <NewProjectCard onClick={() => router.push('/projects/new')} />
-                </div>
-              ) : (
-                <div ref={scrollContainerRef} className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 -mx-4 md:-mx-8 px-4 md:px-8 snap-x snap-mandatory">
-                  {projects.map(p => <div key={p.id} className="snap-start flex-shrink-0"><ProjectCard project={p} onOpen={() => router.push('/projects/' + p.slug)} /></div>)}
-                  <div className="snap-start flex-shrink-0"><NewProjectCard onClick={() => router.push('/projects/new')} /></div>
-                </div>
-              )}
-            </section>
 
-            <section className="mb-8">
-              <div className="flex items-end justify-between mb-4">
+              {/* Drafts carousel */}
+              {drafts.length > 0 && (
+                <section className="mb-8">
+                  <div className="flex items-end justify-between mb-3">
+                    <div>
+                      <h2 className="text-[15px] font-bold text-white flex items-center gap-2">
+                        Work in progress
+                        <span className="text-[11px] text-white/40 font-normal bg-white/[0.05] border border-white/[0.06] px-2 py-0.5 rounded-full">
+                          Unpublished · {drafts.length}
+                        </span>
+                      </h2>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 md:-mx-6 px-4 md:px-6">
+                    {drafts.map(d => (
+                      <ProjectDraftCard key={d.id} project={d} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Header: Title + Filters + Sort */}
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div>
-                  <h2 className="text-[19px] font-bold text-white flex items-center gap-2">
-                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" /></span>
-                    Live activity {feedRefreshing && <Refresh size={13} className="text-white/40 animate-spin" />}
-                  </h2>
-                  <p className="text-[12.5px] text-white/45 mt-0.5">Everything happening across your projects {feed.length > 0 && <span className="text-white/30">· {feed.length} events</span>}</p>
+                  <h2 className="text-[16px] font-bold text-white">Your projects</h2>
+                  <p className="text-[12.5px] text-zinc-500 mt-0.5">Manage everything you're actively building.</p>
                 </div>
-                <button onClick={() => fetchFeed(true)} className="text-[12px] text-white/60 hover:text-white font-semibold flex items-center gap-1.5 bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] px-3 h-8 rounded-lg"><Refresh size={12} className={feedRefreshing ? 'animate-spin' : ''} /> Refresh</button>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 p-1 bg-[#0d0d10] border border-white/[0.06] rounded-lg w-fit">
+                    {(['all', 'active', 'completed', 'archived'] as QuickStatus[]).map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => setQuickStatus(tab)}
+                        className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-colors flex items-center gap-1.5 ${
+                          quickStatus === tab ? 'bg-white/[0.08] text-white' : 'text-zinc-400 hover:text-white hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <span className="capitalize">{tab}</span>
+                        {statusCounts[tab] > 0 && (
+                          <span className={`text-[10px] font-mono ${quickStatus === tab ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                            {statusCounts[tab]}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative">
+                    <button
+                      onClick={() => setSortOpen(!sortOpen)}
+                      className="flex items-center gap-1.5 text-[12px] font-semibold text-zinc-400 hover:text-white bg-[#121215] border border-white/[0.06] px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Sort by: <span className="text-white capitalize">{sortOption.replace('-', ' ')}</span>
+                      <CaretDown size={12} weight="bold" />
+                    </button>
+
+                    {sortOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setSortOpen(false)} />
+                        <div className="absolute right-0 top-full mt-2 w-44 bg-[#0d0d10] border border-white/[0.08] rounded-xl shadow-2xl z-20 py-1">
+                          {[
+                            { id: 'updated', label: 'Last updated' },
+                            { id: 'created', label: 'Recently created' },
+                            { id: 'name', label: 'Name (A–Z)' },
+                            { id: 'stage', label: 'Stage' },
+                          ].map(opt => (
+                            <button
+                              key={opt.id}
+                              onClick={() => { setSortOption(opt.id as SortOption); setSortOpen(false); }}
+                              className={`w-full text-left px-3.5 py-2 text-[12px] transition-colors ${
+                                sortOption === opt.id ? 'bg-white/[0.06] text-white font-semibold' : 'text-zinc-400 hover:text-white hover:bg-white/[0.02]'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
-                {feedLoading ? (
-                  <div className="p-4 space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="flex items-start gap-3"><Skeleton className="w-9 h-9 rounded-full bg-white/[0.04]" /><div className="flex-1 space-y-1.5"><Skeleton className="h-3.5 w-2/3 bg-white/[0.04]" /><Skeleton className="h-2.5 w-1/3 bg-white/[0.04]" /></div></div>)}</div>
-                ) : feed.length === 0 ? (
-                  <div className="py-14 text-center">
-                    <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/10 to-blue-500/5 border border-white/[0.06] items-center justify-center mb-3"><Sparkle size={22} weight="fill" className="text-purple-300/60" /></div>
-                    <p className="text-[13px] text-white/60 font-semibold">All quiet on the frontier</p>
-                    <p className="text-[11.5px] text-white/40 mt-1 max-w-xs mx-auto">As people follow, apply, comment, and join — you will see it here.</p>
+
+              {/* State Machine */}
+              {loading ? (
+                <div className="space-y-4">
+                  {[1, 2].map(i => (
+                    <div key={i} className="h-[180px] rounded-2xl bg-[#121215] border border-white/[0.04] p-5 animate-pulse flex gap-5">
+                      <div className="w-[200px] h-[120px] rounded-xl bg-white/[0.03]" />
+                      <div className="flex-1 space-y-3 py-1">
+                        <div className="h-5 w-1/3 bg-white/[0.03] rounded" />
+                        <div className="h-4 w-1/4 bg-white/[0.03] rounded" />
+                        <div className="h-10 w-full bg-white/[0.03] rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="p-8 border border-red-500/20 bg-red-500/5 rounded-2xl text-center space-y-3">
+                  <WarningCircle size={24} className="text-red-400 mx-auto" />
+                  <h3 className="text-[15px] font-bold text-white">Unable to load your projects</h3>
+                  <p className="text-[12.5px] text-zinc-400 max-w-sm mx-auto">
+                    Something went wrong while retrieving your project workspace.
+                  </p>
+                  <button onClick={loadWorkspaceData} className="px-4 py-2 bg-zinc-800 border border-zinc-700 hover:border-zinc-500 text-white rounded-lg text-[12.5px] font-semibold transition-colors">
+                    Try again
+                  </button>
+                </div>
+              ) : filteredByStatus.length === 0 ? (
+                quickStatus === 'all' ? (
+                  <div className="p-12 border border-white/[0.06] rounded-2xl bg-[#121215]/50 text-center space-y-3">
+                    <Wrench size={32} className="text-zinc-600 mx-auto" />
+                    <h3 className="text-[15px] font-bold text-white">You haven't created a project yet.</h3>
+                    <p className="text-[13px] text-zinc-500 max-w-sm mx-auto">Build something worth sharing.</p>
+                    <button onClick={() => setCreateModalOpen(true)} className="mt-2 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold transition-colors">
+                      <Plus size={14} weight="bold" /> Create your first project
+                    </button>
                   </div>
                 ) : (
-                  <div className="divide-y divide-white/[0.04]">{feed.map(ev => <FeedRow key={ev.id} event={ev} onProjectClick={(slug) => router.push('/projects/' + slug)} onEntityClick={(url) => router.push(url)} />)}</div>
-                )}
-              </div>
-            </section>
-
-            <section className="mb-8">
-              <div className="flex items-end justify-between mb-4">
-                <div><h2 className="text-[19px] font-bold text-white">Project analytics</h2><p className="text-[12.5px] text-white/45 mt-0.5">Performance across all your projects</p></div>
-                <select value={analyticsDays} onChange={(e) => setAnalyticsDays(Number(e.target.value))} className="text-[12px] text-white/80 bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.06] rounded-lg px-3 py-2 outline-none cursor-pointer font-medium">
-                  <option value={7} className="bg-[#12121a]">Last 7 days</option><option value={30} className="bg-[#12121a]">Last 30 days</option><option value={90} className="bg-[#12121a]">Last 90 days</option>
-                </select>
-              </div>
-              {analytics && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-5">
-                  <MetricPill label="Views" value={analytics.views?.value || 0} change={analytics.views?.change || 0} />
-                  <MetricPill label="Unique" value={analytics.unique_views?.value || 0} change={analytics.unique_views?.change || 0} />
-                  <MetricPill label="Followers" value={analytics.followers?.value || 0} change={analytics.followers?.change || 0} />
-                  <MetricPill label="Applications" value={analytics.applications?.value || 0} change={analytics.applications?.change || 0} />
-                  <MetricPill label="CTR" value={analytics.profile_ctr?.value || 0} change={analytics.profile_ctr?.change || 0} suffix="%" />
-                  <MetricPill label="Saves" value={analytics.saves?.value || 0} change={analytics.saves?.change || 0} />
-                  <MetricPill label="Shares" value={analytics.shares?.value || 0} change={analytics.shares?.change || 0} />
-                  <MetricPill label="Growth" value={analytics.overall_growth?.value || 0} change={analytics.overall_growth?.change || 0} suffix="%" highlight />
+                  <div className="p-10 border border-white/[0.06] rounded-2xl bg-[#121215]/50 text-center space-y-3">
+                    <Wrench size={28} className="text-zinc-600 mx-auto" />
+                    <p className="text-[13.5px] text-zinc-400 font-semibold">No {quickStatus} projects.</p>
+                    <button onClick={() => setQuickStatus('all')} className="text-[12px] font-semibold text-zinc-400 hover:text-white underline underline-offset-2">
+                      View all projects
+                    </button>
+                  </div>
+                )
+              ) : (
+                <div className="space-y-10">
+                  <ProjectSectionRow title="Actively building" subtitle="Projects moving forward" projects={sections.actively_building} onDeleteRequest={setDeleteModalProject} />
+                  <ProjectSectionRow title="Recently updated" subtitle="Last two weeks" projects={sections.recently_updated} onDeleteRequest={setDeleteModalProject} />
+                  <ProjectSectionRow title="Research & experiments" subtitle="Learning and technical exploration" projects={sections.research_and_experiments} onDeleteRequest={setDeleteModalProject} />
+                  <ProjectSectionRow title="Open source" subtitle="Publicly available and open for contribution" projects={sections.open_source} onDeleteRequest={setDeleteModalProject} />
+                  <ProjectSectionRow title="Other projects" subtitle="" projects={sections.other} onDeleteRequest={setDeleteModalProject} />
                 </div>
               )}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <ChartCard title="Views over time" subtitle={'Last ' + analyticsDays + ' days'}>
-                  <div className="h-[200px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={viewsData} margin={{ top: 10, right: 8, bottom: 0, left: -20 }}>
-                        <defs><linearGradient id="viewsG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#a78bfa" stopOpacity={0.35} /><stop offset="95%" stopColor="#a78bfa" stopOpacity={0} /></linearGradient></defs>
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#71717a' }} tickFormatter={(v) => { const d = new Date(v); return d.toLocaleDateString('en', { month: 'short' }) + ' ' + d.getDate() }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                        <YAxis tick={{ fontSize: 10, fill: '#71717a' }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ background: '#0f0f18', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', fontSize: '12px', padding: '8px 12px' }} labelFormatter={(v) => new Date(v).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })} />
-                        <Area type="monotone" dataKey="views" stroke="#a78bfa" strokeWidth={2} fill="url(#viewsG)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </ChartCard>
-                <ChartCard title="Traffic sources" subtitle="Where people find you"><DonutChart data={trafficData} /></ChartCard>
-                <ChartCard title="Audience" subtitle="Who is visiting"><DonutChart data={audienceData} /></ChartCard>
-              </div>
-            </section>
-
-            {drafts.length > 0 && (
-              <section className="mb-8">
-                <div className="flex items-end justify-between mb-3">
-                  <div><h2 className="text-[17px] font-bold text-white flex items-center gap-2">Work in progress <span className="text-[11px] text-white/40 font-normal bg-white/[0.05] border border-white/[0.06] px-2 py-0.5 rounded-full">Unpublished · {drafts.length}</span></h2></div>
-                </div>
-                <div ref={draftsScrollRef} className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 -mx-4 md:-mx-8 px-4 md:px-8">
-                  {drafts.map(d => <DraftCard key={d.id} project={d} onClick={() => router.push('/projects/' + d.slug)} />)}
-                </div>
-              </section>
-            )}
-          </>
+            </div>
+          </div>
         )}
 
-        {activeTab === 'explore' && <ExploreView />}
+        {/* ── EXPLORE TAB ──────────────────────────────── */}
+        {activeTab === 'explore' && <div className="pt-2"><ProjectExplorePage /></div>}
 
+        {/* ── FOLLOWING TAB ────────────────────────────── */}
         {activeTab === 'following' && (
           <div>
-            <h2 className="text-[19px] font-bold text-white mb-4">Projects you follow</h2>
-            {(data?.following || []).length === 0 ? (
-              <EmptyState icon={Heart} title="You haven't followed any projects" subtitle="Follow projects to see their updates in your feed." action={{ label: 'Explore projects', onClick: () => setActiveTab('explore') }} />
+            {followingProjects.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/[0.1] p-12 text-center bg-[#121215]/50">
+                <Heart size={28} className="mx-auto mb-3 text-zinc-600" />
+                <p className="text-[14px] font-bold text-white mb-1">Not following any projects</p>
+                <p className="text-[12.5px] text-zinc-500 mb-4">Follow projects in Explore to track their builds and updates.</p>
+                <button onClick={() => setActiveTab('explore')} className="inline-flex items-center h-9 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold transition-colors">
+                  Explore projects
+                </button>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(data?.following || []).map((p: any) => <ProjectCard key={p.id} project={p} onOpen={() => router.push('/projects/' + p.slug)} />)}
+              <div className="space-y-4">
+                {followingProjects.map(p => (
+                  <ProjectHorizontalCard key={p.id} project={p} onDeleteRequest={setDeleteModalProject} />
+                ))}
               </div>
             )}
           </div>
         )}
 
-        {activeTab === 'applications' && <ApplicationsTab />}
+        {/* ── APPLICATIONS TAB ─────────────────────────── */}
+        {activeTab === 'applications' && (
+          <div className="rounded-2xl border border-dashed border-white/[0.1] p-12 text-center bg-[#121215]/50">
+            <Briefcase size={28} className="mx-auto mb-3 text-zinc-600" />
+            <p className="text-[14px] font-bold text-white mb-1">Applications & role activity</p>
+            <p className="text-[12.5px] text-zinc-500 max-w-sm mx-auto mb-4">
+              Applications submitted to project roles or received by your projects are managed via canonical Looking For opportunities.
+            </p>
+            <Link href="/looking-for" className="inline-flex items-center h-9 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold transition-colors">
+              Open Looking For
+            </Link>
+          </div>
+        )}
+
+        {/* Technical Marquee */}
+        {activeTab !== 'explore' && <ProjectTechnicalMarquee resources={resources} />}
+
+        {/* Footer */}
+        <footer className="mt-24 pt-12 border-t border-white/[0.08] text-[12px] text-zinc-500">
+          <div className="flex items-center justify-between">
+            <p>© 2026 DSRT Connect. All rights reserved.</p>
+            <p className="font-mono text-[11px]">BERLIN · SAN FRANCISCO · BENGALURU</p>
+          </div>
+        </footer>
+
       </div>
 
-      <nav className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0f]/95 backdrop-blur-xl border-t border-white/[0.08] px-2 py-1.5 flex items-center justify-around">
-        {MOBILE_PRIMARY_TABS.map(id => {
-          const tab = TABS.find(t => t.id === id)
-          if (!tab) return null
-          const Icon = tab.icon
-          const active = activeTab === id
-          return <button key={id} onClick={() => setActiveTab(id)} className={'flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-lg min-w-[56px] ' + (active ? 'text-white' : 'text-white/45')}><Icon size={20} weight={active ? 'fill' : 'regular'} /><span className="text-[10px] font-semibold">{tab.mobileLabel}</span></button>
-        })}
-      </nav>
-    </div>
-  )
-}
-
-function MetricPill({ label, value, change, suffix = '', highlight }: { label: string; value: number; change: number; suffix?: string; highlight?: boolean }) {
-  const positive = change >= 0
-  return (
-    <div className={'bg-white/[0.03] border rounded-xl px-3 py-2.5 ' + (highlight ? 'border-purple-500/25 bg-purple-500/[0.05]' : 'border-white/[0.06]')}>
-      <p className="text-[10.5px] font-semibold text-white/50 uppercase tracking-wider mb-1">{label}</p>
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[16px] font-bold text-white">{formatNumber(value)}{suffix}</p>
-        {change !== 0 && <div className={'flex items-center gap-0.5 text-[10.5px] font-semibold ' + (positive ? 'text-emerald-400' : 'text-red-400')}>{positive ? <TrendUp size={10} weight="bold" /> : <TrendDown size={10} weight="bold" />}{Math.abs(change)}%</div>}
-      </div>
-    </div>
-  )
-}
-
-function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4"><div className="mb-3"><h3 className="text-[13.5px] font-bold text-white">{title}</h3>{subtitle && <p className="text-[11px] text-white/45 mt-0.5">{subtitle}</p>}</div>{children}</div>
-}
-
-const PIE_COLORS = ['#a78bfa', '#22d3ee', '#34d399', '#fb923c', '#fb7185', '#facc15']
-
-function DonutChart({ data }: { data: { name: string; value: number; percentage: number }[] }) {
-  const hasData = data && data.some(d => d.value > 0)
-  if (!hasData) return <div className="h-[200px] flex items-center justify-center"><div className="text-center"><Circle size={30} className="mx-auto mb-2 text-white/15" /><p className="text-[12px] text-white/40">No data yet</p></div></div>
-  return (
-    <div className="flex items-center gap-4">
-      <div className="w-[130px] h-[130px] flex-shrink-0"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} cx="50%" cy="50%" innerRadius={38} outerRadius={60} dataKey="value" stroke="none">{data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}</Pie></PieChart></ResponsiveContainer></div>
-      <div className="flex-1 space-y-1.5 min-w-0">{data.map((s, i) => <div key={s.name} className="flex items-center justify-between text-[12px]"><div className="flex items-center gap-2 min-w-0"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} /><span className="text-white/60 truncate">{s.name}</span></div><span className="text-white font-bold">{s.percentage}%</span></div>)}</div>
-    </div>
-  )
-}
-
-function FeedRow({ event, onProjectClick, onEntityClick }: { event: FeedEvent; onProjectClick: (slug: string) => void; onEntityClick: (url: string) => void }) {
-  return (
-    <div className="group flex items-start gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors cursor-pointer" onClick={() => event.project?.slug && onProjectClick(event.project.slug)}>
-      <div className="flex-shrink-0">
-        {event.actor?.avatar_url ? <div className="w-9 h-9 rounded-full overflow-hidden bg-white/[0.06] border border-white/[0.08]"><img src={event.actor.avatar_url} alt="" className="w-full h-full object-cover" /></div> : <div className="w-9 h-9 rounded-full bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">{getActivityIcon(event.icon_type)}</div>}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13.5px] text-white leading-snug">{event.title}</p>
-        {event.subtitle && <p className="text-[12px] text-white/50 mt-0.5 truncate">{event.subtitle}</p>}
-        <div className="flex items-center gap-2 mt-1 text-[11px] text-white/40">
-          <span>{timeAgo(event.created_at)}</span>
-          {event.project && <><span>·</span><span className="text-white/60 font-medium truncate">{event.project.name}</span></>}
+      {/* Delete modal */}
+      {deleteModalProject && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDeleteModalProject(null)}>
+          <div className="bg-[#121215] border border-white/[0.1] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-[16px] font-bold text-white">Archive project?</h3>
+            <p className="text-[12.5px] text-zinc-400 leading-relaxed">
+              This will archive <strong className="text-white">{deleteModalProject.name}</strong>. Archived projects are hidden from Explore but remain accessible in your Archive tab. You can restore them later.
+            </p>
+            <div>
+              <label className="block text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold mb-1.5">
+                Type "{deleteModalProject.name}" to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmInput}
+                onChange={e => setDeleteConfirmInput(e.target.value)}
+                placeholder={deleteModalProject.name}
+                className="w-full h-10 px-3 bg-[#09090b] border border-zinc-800 rounded-lg text-[13px] text-white focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => { setDeleteModalProject(null); setDeleteConfirmInput('') }} disabled={deleting} className="px-4 h-9 text-[12.5px] font-semibold text-zinc-400 hover:text-white transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleConfirmDelete} disabled={deleting || deleteConfirmInput.trim() !== deleteModalProject.name.trim()} className="px-4 h-9 bg-red-500/20 border border-red-500/40 text-red-300 font-bold rounded-lg text-[12.5px] hover:bg-red-500/30 disabled:opacity-50 transition-colors flex items-center gap-1.5">
+                {deleting ? <><CircleNotch size={14} className="animate-spin" /> Archiving</> : 'Archive project'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-      {event.entity_url && event.entity_url !== '#' && <button onClick={(e) => { e.stopPropagation(); onEntityClick(event.entity_url!) }} className="flex-shrink-0 self-center text-[11px] font-semibold text-white/60 hover:text-white flex items-center gap-1 bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.08] rounded-lg px-2.5 h-7 opacity-0 group-hover:opacity-100 transition-all">{event.entity_label || 'View'} <ArrowUpRight size={10} /></button>}
+      )}
+
+      {/* Create project wizard */}
+      {createModalOpen && <CreateProjectWizard onClose={() => setCreateModalOpen(false)} />}
     </div>
   )
 }
 
-function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void }) {
-  const teamCount = new Set([project.founder_id, project.user_id, ...(project.project_members || []).map(m => m.user_id), ...(project.project_roles || []).map(r => r.user_id)].filter(Boolean)).size
-  const stage = STAGE_STYLES[project.stage] || STAGE_STYLES.building
+// ─────────────────────────────────────────────────────────────
+// COMPONENT: InfoPanel
+// ─────────────────────────────────────────────────────────────
+function InfoPanel({ title, text, linkText, linkHref }: { title: string; text: string; linkText: string; linkHref: string }) {
+  return (
+    <div className="p-5 border border-white/[0.04] rounded-xl bg-[#121215]">
+      <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-bold mb-2.5">{title}</p>
+      <p className="text-[12.5px] text-zinc-300 leading-relaxed mb-3.5">{text}</p>
+      <Link href={linkHref} className="text-[12px] font-semibold text-white hover:underline inline-flex items-center gap-1">
+        {linkText}
+      </Link>
+    </div>
+  )
+}
 
-  const handleClick = () => {
-    // Fire tracking signal for recommendation algorithm
-    fetch('/api/explore/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'click',
-        entity_type: 'project',
-        entity_id: project.id,
-      }),
-    }).catch(() => {})
-    onOpen()
+// ─────────────────────────────────────────────────────────────
+// COMPONENT: ServicesPanel
+// ─────────────────────────────────────────────────────────────
+function ServicesPanel() {
+  return (
+    <div className="p-5 border border-white/[0.04] rounded-xl bg-[#121215] space-y-3">
+      <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-bold">DSRT CONNECT SERVICES</p>
+      <p className="text-[12.5px] text-zinc-300 leading-relaxed">
+        Use the wider DSRT ecosystem to build, ship and grow your projects.
+      </p>
+      <div className="space-y-2 pt-1">
+        <Link href="/looking-for" className="block group">
+          <p className="text-[12px] font-bold text-white group-hover:underline">Looking For</p>
+          <p className="text-[11px] text-zinc-500">Find collaborators and contributors.</p>
+        </Link>
+        <Link href="/ventures" className="block group">
+          <p className="text-[12px] font-bold text-white group-hover:underline">Ventures</p>
+          <p className="text-[11px] text-zinc-500">Turn a strong project into a full venture.</p>
+        </Link>
+        <Link href="/inbox" className="block group">
+          <p className="text-[12px] font-bold text-white group-hover:underline">DSRT Mail</p>
+          <p className="text-[11px] text-zinc-500">Communicate with collaborators.</p>
+        </Link>
+        <Link href="/coco" className="block group">
+          <p className="text-[12px] font-bold text-white group-hover:underline">COCO</p>
+          <p className="text-[11px] text-zinc-500">Plan, research and work across your projects.</p>
+        </Link>
+      </div>
+      <div className="pt-2 border-t border-white/[0.04]">
+        <Link href="/community" className="text-[12px] font-semibold text-white hover:underline inline-flex items-center gap-1">
+          Explore communities →
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// COMPONENT: ProjectHorizontalCard
+// ─────────────────────────────────────────────────────────────
+function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project; onDeleteRequest: (v: Project) => void }) {
+  const router = useRouter()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const handleCardClick = () => router.push(`/projects/${project.slug}`)
+
+  const handleCopyLink = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(`${window.location.origin}/projects/${project.slug}`)
+    toast.success('Project link copied')
+    setMenuOpen(false)
   }
 
+  const domainTags = (project.category || [project.industry].filter(Boolean) as string[])
+  const techTags = (project.tech_stack || [])
+
   return (
-    <div className="group w-[300px] flex-shrink-0 bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/[0.15] hover:bg-white/[0.03] transition-all cursor-pointer" onClick={handleClick}>
-      <div className="relative h-[130px] overflow-hidden">
-        {project.cover_image_url ? <img src={project.cover_image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" /> : <div className="w-full h-full bg-gradient-to-br from-purple-500/20 to-blue-500/10 flex items-center justify-center"><span className="text-5xl opacity-70">{project.icon || '\u26A1'}</span></div>}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        <div className="absolute top-3 left-3"><span className={'inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ' + stage.bg + ' ' + stage.text}><span className={'w-1 h-1 rounded-full ' + stage.dot} />{STAGE_LABELS[project.stage] || project.stage.toUpperCase()}</span></div>
+    <div onClick={handleCardClick} className="group relative bg-[#121215] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-5 flex flex-col md:flex-row gap-5 cursor-pointer transition-all shadow-sm">
+      <div className="w-full md:w-[200px] h-[125px] rounded-xl bg-[#09090b] border border-white/[0.06] overflow-hidden flex-shrink-0 relative">
+        {project.cover_image_url ? (
+          <img src={project.cover_image_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-zinc-900/60"><Wrench size={30} className="text-zinc-700" /></div>
+        )}
+        {project.logo_url && (
+          <div className="absolute bottom-2.5 left-2.5 w-10 h-10 rounded-lg border border-white/[0.1] shadow-lg bg-[#09090b] overflow-hidden">
+            <img src={project.logo_url} alt="" className="w-full h-full object-cover" />
+          </div>
+        )}
       </div>
-      <div className="p-4">
-        <h3 className="text-[15px] font-bold text-white truncate leading-tight">{project.name}</h3>
-        <p className="text-[10.5px] text-white/40 font-mono mb-2">{project.project_number}</p>
-        <p className="text-[13px] text-white/65 line-clamp-2 mb-3 leading-relaxed min-h-[36px]">{project.tagline || project.description || 'No description'}</p>
-        <div className="flex items-center gap-3 text-[11.5px] text-white/50 mb-3">
-          <span className="flex items-center gap-1"><Users size={11} weight="fill" /> {teamCount}</span>
-          <span className="flex items-center gap-1"><Heart size={11} weight="fill" /> {formatNumber(project.follower_count || 0)}</span>
-          <span className="flex items-center gap-1"><Eye size={11} weight="fill" /> {formatNumber(project.view_count || 0)}</span>
-          {project.open_roles > 0 && <span className="flex items-center gap-1 text-orange-300 font-semibold ml-auto"><Lightning size={11} weight="fill" /> {project.open_roles} open</span>}
+
+      <div className="flex-1 min-w-0 flex flex-col py-0.5">
+        <div className="flex items-start justify-between gap-4 mb-1">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-[17px] font-bold text-white truncate group-hover:text-zinc-200 transition-colors">{project.name}</h3>
+              {project.is_dsrt_verified && <CheckCircle size={13} weight="fill" className="text-purple-400 shrink-0" />}
+            </div>
+            {(project.tagline || project.short_description) && (
+              <p className="text-[13px] text-zinc-400 truncate mt-0.5">{project.tagline || project.short_description}</p>
+            )}
+          </div>
+
+          <div className="relative flex-shrink-0">
+            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }} className="w-8 h-8 rounded-lg text-zinc-500 hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors">
+              <DotsThree size={20} weight="bold" />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={(e) => { e.stopPropagation(); setMenuOpen(false) }} />
+                <div className="absolute right-0 top-full mt-1 z-40 w-48 bg-[#0d0d10] border border-white/[0.08] rounded-xl shadow-2xl p-1 space-y-0.5">
+                  <button onClick={(e) => { e.stopPropagation(); router.push(`/projects/${project.slug}`) }} className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors">Open project</button>
+                  <button onClick={(e) => { e.stopPropagation(); router.push(`/projects/${project.slug}?tab=settings`) }} className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors">Edit project</button>
+                  <button onClick={(e) => { e.stopPropagation(); router.push(`/projects/${project.slug}?tab=team`) }} className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors">Manage team</button>
+                  <button onClick={handleCopyLink} className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors">Share project</button>
+                  <div className="h-px bg-white/[0.06] my-1" />
+                  <button onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDeleteRequest(project) }} className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">Archive project</button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
-          <span className="text-[11px] text-white/45">Updated {timeAgo(project.last_activity_at || project.updated_at)}</span>
-          {/* ---- ONLY CHANGE: onOpen() → handleClick() ---- */}
-          <button onClick={(e) => { e.stopPropagation(); handleClick() }} className="flex items-center gap-1 text-[11.5px] font-semibold text-white bg-white/[0.06] group-hover:bg-white group-hover:text-black px-2.5 h-7 rounded-md transition-colors">Open <ArrowRight size={11} weight="bold" /></button>
+
+        <div className="flex items-center gap-3 text-[12px] text-zinc-500 font-medium my-2 flex-wrap">
+          {domainTags.slice(0, 2).map((d, i) => <span key={i}>{d}</span>)}
+          {project.stage && <><span className="w-1 h-1 rounded-full bg-zinc-700" /><span className="capitalize">{project.stage}</span></>}
+          {project.location && <><span className="w-1 h-1 rounded-full bg-zinc-700" /><span className="flex items-center gap-1"><MapPin size={11} /> {project.location}</span></>}
+        </div>
+
+        {techTags.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap mb-2">
+            {techTags.slice(0, 5).map((t, i) => (
+              <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-medium bg-white/[0.04] border border-white/[0.06] text-zinc-400">{t}</span>
+            ))}
+            {techTags.length > 5 && <span className="text-[10.5px] text-zinc-600">+{techTags.length - 5}</span>}
+          </div>
+        )}
+
+        <p className="text-[13px] text-zinc-300 line-clamp-2 leading-relaxed mb-auto">
+          {project.short_description || project.description || 'Provide a concise overview of what this project builds and why.'}
+        </p>
+
+        <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div>
+              <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold mb-0.5">Stage</p>
+              <p className="text-[12px] font-semibold text-white capitalize">{project.stage || 'Idea'}</p>
+            </div>
+            <div>
+              <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold mb-0.5">Status</p>
+              <div className="flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${project.status === 'archived' ? 'bg-zinc-500' : project.status === 'draft' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                <p className="text-[12px] font-semibold text-zinc-300 capitalize">{project.status === 'archived' ? 'Archived' : project.status === 'draft' ? 'Draft' : 'Active'}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold mb-0.5">Team</p>
+              <p className="text-[12px] font-semibold text-zinc-300 flex items-center gap-1"><Users size={12} /> {project.team_size || 1}</p>
+            </div>
+            {project.is_open_source && (
+              <div>
+                <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold mb-0.5">Open Source</p>
+                <p className="text-[12px] font-semibold text-zinc-300 flex items-center gap-1"><GitBranch size={11} /> Yes</p>
+              </div>
+            )}
+          </div>
+          <button onClick={(e) => { e.stopPropagation(); router.push(`/projects/${project.slug}`) }} className="h-8 px-3.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[12px] font-semibold text-white transition-colors">
+            Open project
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-function NewProjectCard({ onClick }: { onClick: () => void }) {
+// ─────────────────────────────────────────────────────────────
+// COMPONENT: ProjectDraftCard
+// ─────────────────────────────────────────────────────────────
+function ProjectDraftCard({ project }: { project: Project }) {
+  const router = useRouter()
   return (
-    <div onClick={onClick} className="w-[300px] flex-shrink-0 min-h-[300px] bg-gradient-to-br from-purple-500/[0.05] to-transparent border-2 border-dashed border-white/[0.1] rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-purple-400/40 hover:bg-purple-500/[0.08] transition-all group">
-      <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 group-hover:bg-purple-500/20 flex items-center justify-center transition-all"><Plus size={28} weight="bold" className="text-purple-300 group-hover:text-purple-200" /></div>
-      <p className="text-[15px] font-bold text-white">Start a new project</p>
-      <p className="text-[12px] text-white/45 text-center px-8">Turn your next idea into reality</p>
-    </div>
-  )
-}
-
-function DraftCard({ project, onClick }: { project: Project; onClick: () => void }) {
-  return (
-    <div onClick={onClick} className="w-[240px] flex-shrink-0 bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden hover:border-orange-500/25 hover:bg-white/[0.04] transition-all cursor-pointer group">
+    <div onClick={() => router.push(`/projects/${project.slug}`)} className="w-[240px] flex-shrink-0 bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden hover:border-amber-500/25 hover:bg-white/[0.04] transition-all cursor-pointer group">
       <div className="relative h-[90px] overflow-hidden">
-        {project.cover_image_url ? <img src={project.cover_image_url} alt="" className="w-full h-full object-cover opacity-60" /> : <div className="w-full h-full bg-gradient-to-br from-zinc-800/60 to-zinc-900/60 flex items-center justify-center"><span className="text-3xl opacity-40">{project.icon || '\u26A1'}</span></div>}
+        {project.cover_image_url ? (
+          <img src={project.cover_image_url} alt="" className="w-full h-full object-cover opacity-60" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-zinc-800/60 to-zinc-900/60 flex items-center justify-center"><Wrench size={22} className="text-white/25" /></div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-        <span className="absolute top-2 left-2 text-[9px] font-bold text-orange-300 bg-orange-500/15 border border-orange-500/30 px-2 py-0.5 rounded uppercase tracking-wider">Draft</span>
+        <span className="absolute top-2 left-2 text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded uppercase tracking-wider">Draft</span>
       </div>
       <div className="p-3">
         <h4 className="text-[13px] font-bold text-white truncate mb-0.5">{project.name}</h4>
-        <p className="text-[10.5px] text-white/40 font-mono mb-2">{project.project_number}</p>
-        <p className="text-[10.5px] text-white/50 mb-2">Last edited {timeAgo(project.updated_at)}</p>
+        {project.project_number && <p className="text-[10.5px] text-white/40 font-mono mb-2">{project.project_number}</p>}
+        <p className="text-[10.5px] text-white/50 mb-2">Last edited {timeAgo(project.updated_at || project.created_at)}</p>
         <button className="w-full flex items-center justify-center gap-1 text-[11px] font-semibold text-white bg-white/[0.06] group-hover:bg-white group-hover:text-black px-2.5 h-7 rounded-md transition-colors">Continue <ArrowRight size={10} weight="bold" /></button>
       </div>
     </div>
   )
 }
 
-function ApplicationsTab() {
-  const router = useRouter()
-  const [messages, setMessages] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetch('/api/inbox?scope=received')
-      .then(r => r.json())
-      .then(j => {
-        // Filter to project-related messages only
-        const all = j.messages || []
-        const projectOnly = all.filter((m: any) =>
-          m.reference_type === 'project' ||
-          m.message_type === 'role_application' ||
-          m.message_type === 'connection_request' ||
-          m.message_type === 'collaboration_request'
-        )
-        setMessages(projectOnly)
-      })
-      .catch(() => setMessages([]))
-      .finally(() => setLoading(false))
-  }, [])
-
-  if (loading) return <div className="py-10 text-center text-[13px] text-white/45">Loading...</div>
-
-  if (messages.length === 0) {
-    return (
-      <div>
-        <h2 className="text-[19px] font-bold text-white mb-1">Applications & Connections</h2>
-        <p className="text-[12.5px] text-white/45 mb-4">People reaching out about your projects</p>
-        <EmptyState icon={Briefcase} title="No applications yet" subtitle="When people connect, apply, or reach out — they appear here." />
-      </div>
-    )
-  }
-
+// ─────────────────────────────────────────────────────────────
+// COMPONENT: ProjectSectionRow
+// ─────────────────────────────────────────────────────────────
+function ProjectSectionRow({ title, subtitle, projects, onDeleteRequest, emptyMessage }: any) {
+  if (projects.length === 0 && !emptyMessage) return null
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-[19px] font-bold text-white">Applications & Connections <span className="text-[12px] text-white/40 font-normal">· {messages.length}</span></h2>
-          <p className="text-[12.5px] text-white/45 mt-0.5">People reaching out about your projects</p>
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-[16px] font-bold text-white flex items-center gap-2">{title} <span className="text-[11px] font-normal text-zinc-500">{projects.length}</span></h2>
+        {subtitle && <p className="text-[12.5px] text-zinc-500 mt-0.5">{subtitle}</p>}
+      </div>
+      {projects.length > 0 ? (
+        <div className="space-y-4">
+          {projects.map((p: any) => <ProjectHorizontalCard key={p.id} project={p} onDeleteRequest={onDeleteRequest} />)}
         </div>
-        <button onClick={() => router.push('/inbox')} className="text-[12px] font-semibold text-white/70 hover:text-white flex items-center gap-1">Open Inbox <ArrowRight size={11} /></button>
-      </div>
-      <div className="space-y-2">
-        {messages.map((m: any) => {
-          const isUnread = m.status === 'unread'
-          return (
-            <div key={m.id} onClick={() => router.push('/inbox')} className={'group flex items-start gap-3 p-4 bg-white/[0.02] border rounded-xl cursor-pointer transition-all hover:bg-white/[0.04] hover:border-white/[0.15] ' + (isUnread ? 'border-blue-500/25 border-l-2 border-l-blue-400' : 'border-white/[0.06]')}>
-              <div className="w-10 h-10 rounded-full bg-white/[0.06] overflow-hidden flex-shrink-0 flex items-center justify-center">
-                {m.sender?.avatar_url ? <img src={m.sender.avatar_url} alt="" className="w-full h-full object-cover" /> : <UserPlus size={14} className="text-white/50" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2 mb-0.5">
-                  <p className={'text-[13px] truncate ' + (isUnread ? 'font-bold text-white' : 'font-semibold text-white/85')}>{m.sender?.full_name || 'Someone'}</p>
-                  <span className="text-[10px] text-white/40 flex-shrink-0">{timeAgo(m.created_at)}</span>
-                </div>
-                <p className={'text-[12px] truncate ' + (isUnread ? 'text-white/80' : 'text-white/60')}>{m.subject || 'Connection request'}</p>
-                {m.reference_name && <p className="text-[11px] text-white/40 mt-0.5 truncate">Re: {m.reference_name}</p>}
-              </div>
-              <ArrowRight size={13} className="text-white/30 group-hover:text-white/70 flex-shrink-0 mt-1" />
-            </div>
-          )
-        })}
-      </div>
-    </div>
+      ) : emptyMessage ? (
+        <div className="p-8 border border-white/[0.05] rounded-xl bg-[#0d0d10]/50 text-center"><p className="text-[12.5px] text-zinc-500">{emptyMessage}</p></div>
+      ) : null}
+    </section>
   )
 }
 
-function EmptyState({ icon: Icon, title, subtitle, action }: { icon: any; title: string; subtitle: string; action?: { label: string; onClick: () => void } }) {
+// ─────────────────────────────────────────────────────────────
+// COMPONENT: ProjectTechnicalMarquee
+// ─────────────────────────────────────────────────────────────
+function ProjectTechnicalMarquee({ resources }: { resources: any[] }) {
+  const [isPaused, setIsPaused] = useState(false)
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    fetch('/api/projects/resources/save')
+      .then(r => r.json())
+      .then(d => setSavedIds(new Set(d.saved || [])))
+      .catch(() => {})
+  }, [])
+
+  const handleToggleSave = async (resourceId: string, isSaved: boolean) => {
+    setSavedIds(prev => {
+      const next = new Set(prev)
+      if (isSaved) next.delete(resourceId)
+      else next.add(resourceId)
+      return next
+    })
+    try {
+      await fetch('/api/projects/resources/save', {
+        method: isSaved ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource_id: resourceId })
+      })
+      toast.success(isSaved ? 'Removed from saved' : 'Saved to your technical library')
+    } catch {
+      setSavedIds(prev => {
+        const next = new Set(prev)
+        if (isSaved) next.add(resourceId)
+        else next.delete(resourceId)
+        return next
+      })
+    }
+  }
+
+  if (resources.length === 0) return null
+  const duplicated = [...resources, ...resources, ...resources]
+
   return (
-    <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl py-16 text-center">
-      <div className="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/10 to-blue-500/5 border border-white/[0.06] items-center justify-center mb-4"><Icon size={26} className="text-white/40" /></div>
-      <p className="text-[15px] font-semibold text-white">{title}</p>
-      <p className="text-[12.5px] text-white/45 mt-1 max-w-sm mx-auto">{subtitle}</p>
-      {action && <button onClick={action.onClick} className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold bg-white text-black hover:bg-white/90 px-4 h-9 rounded-lg">{action.label} <ArrowRight size={12} weight="bold" /></button>}
+    <div className="mt-20 pt-12 border-t border-white/[0.08]">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#121215] border border-white/[0.08] flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <img src="/dsrt-resources-icon.png" alt="" className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <h2 className="text-[19px] font-bold text-white">DSRT Technical Library</h2>
+            <p className="text-[13.5px] text-zinc-500 mt-0.5">Engineering essays, system design guides, and hidden gems for builders.</p>
+          </div>
+        </div>
+        <Link href="/resources" className="text-[12.5px] font-semibold text-zinc-400 hover:text-white flex items-center gap-1 transition-colors">
+          Explore library <ArrowRight size={11} />
+        </Link>
+      </div>
+
+      <div className="relative overflow-hidden rounded-2xl" onMouseEnter={() => setIsPaused(true)} onMouseLeave={() => setIsPaused(false)}>
+        <div className="absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-[#09090b] to-transparent pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-[#09090b] to-transparent pointer-events-none" />
+        <div className="flex gap-4 py-2" style={{ animation: `marquee-scroll ${resources.length * 8}s linear infinite`, animationPlayState: isPaused ? 'paused' : 'running', width: 'fit-content' }}>
+          {duplicated.map((item, idx) => {
+            const isSaved = savedIds.has(item.id)
+            return (
+              <a key={`${item.id}-${idx}`} href={item.url} target="_blank" rel="noopener noreferrer" className="group flex-shrink-0 w-[300px] p-5 bg-[#121215] border border-white/[0.06] hover:border-white/[0.16] rounded-xl transition-all block relative">
+                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleToggleSave(item.id, isSaved) }} className={`absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${isSaved ? 'bg-white/[0.08] text-white' : 'bg-transparent text-zinc-600 hover:bg-white/[0.06] hover:text-white'}`}>
+                  <BookmarkSimple size={13} weight={isSaved ? 'fill' : 'regular'} />
+                </button>
+                <div className="flex items-center gap-2 mb-3 pr-8">
+                  <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold flex-1 truncate">{item.category}</p>
+                  {item.is_hidden_gem && <Star size={11} weight="fill" className="text-zinc-400 shrink-0" />}
+                </div>
+                <p className="text-[13.5px] font-bold text-white group-hover:text-zinc-200 transition-colors leading-snug mb-2 line-clamp-2 min-h-[38px]">{item.title}</p>
+                {item.description && <p className="text-[11.5px] text-zinc-500 leading-relaxed line-clamp-2 mb-3 min-h-[30px]">{item.description}</p>}
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.04]">
+                  <p className="text-[11px] text-zinc-400 font-semibold truncate">{item.provider}</p>
+                  <ArrowSquareOut size={11} className="text-zinc-600 group-hover:text-white transition-colors" />
+                </div>
+              </a>
+            )
+          })}
+        </div>
+      </div>
+      <style jsx>{` @keyframes marquee-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.333%); } } `}</style>
     </div>
   )
 }
