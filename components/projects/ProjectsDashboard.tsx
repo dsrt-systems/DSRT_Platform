@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, Suspense, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { CreateProjectWizard } from '@/components/project-detail/CreateProjectWizard'
 
 // Explore page
 import { ProjectExplorePage } from '@/components/projects-explore/ProjectExplorePage'
@@ -13,14 +12,10 @@ import {
   Plus, FolderSimple, Compass, Heart, Briefcase,
   Buildings, Users, ArrowRight, CircleNotch,
   CaretDown, WarningCircle, DotsThree, MapPin,
-  ArrowSquareOut, Star, BookmarkSimple, Sparkle,
+  ArrowSquareOut, Star, BookmarkSimple,
   Wrench, GitBranch, CheckCircle
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-
-// ═══════════════════════════════════════════════════════════════
-// TYPES & HELPERS
-// ═══════════════════════════════════════════════════════════════
 
 interface Project {
   id: string
@@ -93,10 +88,6 @@ function timeAgo(iso?: string | null): string {
   return `${months}mo ago`
 }
 
-// ═══════════════════════════════════════════════════════════════
-// EXPORTED DASHBOARD ENTRYPOINT
-// ═══════════════════════════════════════════════════════════════
-
 export function ProjectsDashboard() {
   return (
     <Suspense
@@ -112,16 +103,10 @@ export function ProjectsDashboard() {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════
-// MAIN DASHBOARD CONTENT
-// ═══════════════════════════════════════════════════════════════
-
 function ProjectsDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
-
-  const [createModalOpen, setCreateModalOpen] = useState(false)
 
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     const tab = searchParams.get('tab')
@@ -146,7 +131,6 @@ function ProjectsDashboardContent() {
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
   const [deleting, setDeleting] = useState(false)
 
-  // ── Load workspace data ─────────────────────────────────
   const loadWorkspaceData = useCallback(async () => {
     setLoading(true)
     setError(false)
@@ -192,7 +176,6 @@ function ProjectsDashboardContent() {
     loadWorkspaceData()
   }, [loadWorkspaceData])
 
-  // ── Load following on tab change ─────────────────────────
   useEffect(() => {
     if (activeTab === 'following') {
       fetch('/api/projects/dashboard')
@@ -202,7 +185,6 @@ function ProjectsDashboardContent() {
     }
   }, [activeTab])
 
-  // ── Handle delete ────────────────────────────────────────
   const handleConfirmDelete = async () => {
     if (!deleteModalProject || deleteConfirmInput.trim() !== deleteModalProject.name.trim()) {
       toast.error('Project name does not match')
@@ -223,12 +205,11 @@ function ProjectsDashboardContent() {
       setDeleteConfirmInput('')
     } catch (e: any) {
       toast.error(e.message || 'Could not archive project')
-    } finally {
+    } fontally: {
       setDeleting(false)
     }
   }
 
-  // ── Sort logic ───────────────────────────────────────────
   const sortedProjects = useMemo(() => {
     return [...myProjects].sort((a, b) => {
       if (sortOption === 'created') {
@@ -240,7 +221,6 @@ function ProjectsDashboardContent() {
       if (sortOption === 'stage') {
         return (a.stage || '').localeCompare(b.stage || '')
       }
-      // Default: updated / last_activity
       return (
         new Date(b.last_activity_at || b.updated_at || b.created_at || 0).getTime() -
         new Date(a.last_activity_at || a.updated_at || a.created_at || 0).getTime()
@@ -248,7 +228,6 @@ function ProjectsDashboardContent() {
     })
   }, [myProjects, sortOption])
 
-  // ── Quick status filter ──────────────────────────────────
   const filteredByStatus = useMemo(() => {
     if (quickStatus === 'all') return sortedProjects
     if (quickStatus === 'active') {
@@ -270,7 +249,6 @@ function ProjectsDashboardContent() {
     archived: sortedProjects.filter(p => p.status === 'archived').length,
   }), [sortedProjects])
 
-  // ── Section groupings ──────────────────────
   const sections = useMemo(() => {
     const now = Date.now()
     const twoWeeks = 14 * 24 * 60 * 60 * 1000
@@ -331,8 +309,9 @@ function ProjectsDashboardContent() {
             </p>
           </div>
 
+          {/* FIX: Opens the new 5-step Studio page directly */}
           <button
-            onClick={() => setCreateModalOpen(true)}
+            onClick={() => router.push('/projects/create')}
             className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold shadow-sm transition-all active:scale-95 shrink-0"
           >
             <Plus size={14} weight="bold" /> New project
@@ -397,13 +376,15 @@ function ProjectsDashboardContent() {
 
             {/* RIGHT WORKSPACE */}
             <div className="min-w-0">
+              {/* Start-a-new-project card */}
               <div className="bg-[#121215] border border-white/[0.06] rounded-2xl p-8 mb-8 flex flex-col items-center text-center shadow-sm">
                 <h2 className="text-[18px] font-bold text-white mb-2">Start a new project</h2>
                 <p className="text-[13.5px] text-zinc-400 max-w-md mx-auto mb-6 leading-relaxed">
                   Turn your ideas, experiments, or technical work into a project others can discover, follow, or contribute to.
                 </p>
+                {/* FIX: Routes to /projects/create */}
                 <button
-                  onClick={() => setCreateModalOpen(true)}
+                  onClick={() => router.push('/projects/create')}
                   className="flex items-center gap-1.5 h-10 px-5 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-zinc-500 text-white font-semibold text-[13px] transition-colors"
                 >
                   <Plus size={14} weight="bold" /> Start your project
@@ -525,7 +506,8 @@ function ProjectsDashboardContent() {
                     <Wrench size={32} className="text-zinc-600 mx-auto" />
                     <h3 className="text-[15px] font-bold text-white">You haven't created a project yet.</h3>
                     <p className="text-[13px] text-zinc-500 max-w-sm mx-auto">Build something worth sharing.</p>
-                    <button onClick={() => setCreateModalOpen(true)} className="mt-2 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold transition-colors">
+                    {/* FIX: Routes to /projects/create */}
+                    <button onClick={() => router.push('/projects/create')} className="mt-2 inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-[13px] font-bold transition-colors">
                       <Plus size={14} weight="bold" /> Create your first project
                     </button>
                   </div>
@@ -634,16 +616,10 @@ function ProjectsDashboardContent() {
           </div>
         </div>
       )}
-
-      {/* Create project wizard */}
-      {createModalOpen && <CreateProjectWizard onClose={() => setCreateModalOpen(false)} />}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// COMPONENT: InfoPanel
-// ─────────────────────────────────────────────────────────────
 function InfoPanel({ title, text, linkText, linkHref }: { title: string; text: string; linkText: string; linkHref: string }) {
   return (
     <div className="p-5 border border-white/[0.04] rounded-xl bg-[#121215]">
@@ -656,9 +632,6 @@ function InfoPanel({ title, text, linkText, linkHref }: { title: string; text: s
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// COMPONENT: ServicesPanel
-// ─────────────────────────────────────────────────────────────
 function ServicesPanel() {
   return (
     <div className="p-5 border border-white/[0.04] rounded-xl bg-[#121215] space-y-3">
@@ -693,9 +666,6 @@ function ServicesPanel() {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// COMPONENT: ProjectHorizontalCard
-// ─────────────────────────────────────────────────────────────
 function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project; onDeleteRequest: (v: Project) => void }) {
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -811,13 +781,10 @@ function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project;
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// COMPONENT: ProjectDraftCard
-// ─────────────────────────────────────────────────────────────
 function ProjectDraftCard({ project }: { project: Project }) {
   const router = useRouter()
   return (
-    <div onClick={() => router.push(`/projects/${project.slug}`)} className="w-[240px] flex-shrink-0 bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden hover:border-amber-500/25 hover:bg-white/[0.04] transition-all cursor-pointer group">
+    <div onClick={() => router.push(`/projects/create`)} className="w-[240px] flex-shrink-0 bg-white/[0.02] border border-white/[0.06] rounded-xl overflow-hidden hover:border-amber-500/25 hover:bg-white/[0.04] transition-all cursor-pointer group">
       <div className="relative h-[90px] overflow-hidden">
         {project.cover_image_url ? (
           <img src={project.cover_image_url} alt="" className="w-full h-full object-cover opacity-60" />
@@ -837,9 +804,6 @@ function ProjectDraftCard({ project }: { project: Project }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// COMPONENT: ProjectSectionRow
-// ─────────────────────────────────────────────────────────────
 function ProjectSectionRow({ title, subtitle, projects, onDeleteRequest, emptyMessage }: any) {
   if (projects.length === 0 && !emptyMessage) return null
   return (
@@ -859,9 +823,6 @@ function ProjectSectionRow({ title, subtitle, projects, onDeleteRequest, emptyMe
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// COMPONENT: ProjectTechnicalMarquee
-// ─────────────────────────────────────────────────────────────
 function ProjectTechnicalMarquee({ resources }: { resources: any[] }) {
   const [isPaused, setIsPaused] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
