@@ -4,9 +4,23 @@ import { useAppStudio } from '../AppStudioContext'
 import { AppStepFooter } from './AppStepFooter'
 import { Briefcase } from '@phosphor-icons/react'
 
+const CURRENCIES = [
+  { code: 'USD', label: 'USD' },
+  { code: 'EUR', label: 'EUR' },
+  { code: 'GBP', label: 'GBP' },
+  { code: 'INR', label: 'INR' },
+  { code: 'CAD', label: 'CAD' },
+  { code: 'AUD', label: 'AUD' },
+  { code: 'SGD', label: 'SGD' },
+  { code: 'AED', label: 'AED' },
+  { code: 'JPY', label: 'JPY' },
+  { code: 'CHF', label: 'CHF' },
+]
+
 export function ExperienceStep() {
   const { draft, updateField } = useAppStudio()
   const app = draft.application || {}
+  const opp = draft.opportunity || {}
 
   return (
     <>
@@ -64,7 +78,25 @@ export function ExperienceStep() {
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
                   Proposed Compensation (Optional)
                 </label>
-                <div className="flex gap-2 max-w-md">
+                <div className="flex flex-wrap gap-2 max-w-lg">
+                  {/* Currency */}
+                  <select
+                    value={app.proposed_compensation_currency || 'USD'}
+                    onChange={(e) =>
+                      updateField({
+                        proposed_compensation_currency: e.target.value || 'USD',
+                      })
+                    }
+                    className="w-[88px] h-11 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-200 focus:outline-none focus:border-zinc-600 appearance-none"
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Amount */}
                   <input
                     type="number"
                     value={app.proposed_compensation ?? ''}
@@ -74,8 +106,10 @@ export function ExperienceStep() {
                       })
                     }
                     placeholder="Amount"
-                    className="flex-1 h-11 px-4 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
+                    className="flex-1 min-w-[120px] h-11 px-4 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
                   />
+
+                  {/* Period / type */}
                   <select
                     value={app.proposed_compensation_type || ''}
                     onChange={(e) =>
@@ -83,7 +117,7 @@ export function ExperienceStep() {
                         proposed_compensation_type: e.target.value || null,
                       })
                     }
-                    className="w-32 h-11 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-200 focus:outline-none focus:border-zinc-600 appearance-none"
+                    className="w-[120px] h-11 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-200 focus:outline-none focus:border-zinc-600 appearance-none"
                   >
                     <option value="">Type...</option>
                     <option value="hourly">/ Hour</option>
@@ -97,16 +131,63 @@ export function ExperienceStep() {
           </div>
         </div>
 
-        <div className="hidden lg:block">
-          <div className="sticky top-[100px] rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-3">
-              Honesty Matters
-            </h3>
-            <p className="text-[12px] text-zinc-400 leading-relaxed">
-              If the opportunity specifies a required time commitment, ensure your proposed hours
-              align with it. Mismatched expectations are the #1 reason applications are rejected
-              early.
-            </p>
+        <div className="hidden lg:block space-y-4">
+          <div className="sticky top-[100px] space-y-4">
+            
+            {/* Box 1: Honesty Matters */}
+            <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-3">
+                Honesty Matters
+              </h3>
+              <p className="text-[12px] text-zinc-400 leading-relaxed">
+                If the opportunity specifies a required time commitment, ensure your proposed hours
+                align with it. Mismatched expectations are the #1 reason applications are rejected
+                early.
+              </p>
+            </div>
+
+            {/* Box 2: Employer Expectations */}
+            <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-3">
+                Employer Expectations
+              </h3>
+              <div className="space-y-4">
+                
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 mb-1">
+                    Time Commitment
+                  </div>
+                  <div className="text-[12.5px] text-zinc-300 font-medium">
+                    {opp.time_commitment 
+                      ? opp.time_commitment.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) 
+                      : 'Flexible'}
+                    {opp.hours_per_week ? ` · ~${opp.hours_per_week} hrs/wk` : ''}
+                  </div>
+                </div>
+
+                {(opp.compensation_type || opp.compensation_min || opp.compensation_max) && (
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 mb-1">
+                      Compensation
+                    </div>
+                    <div className="text-[12.5px] text-zinc-300 font-medium">
+                      {opp.compensation_type === 'none' || opp.compensation_type === 'volunteer' 
+                        ? 'Unpaid / Volunteer' 
+                        : (
+                          <>
+                            {opp.compensation_currency || 'USD'} {opp.compensation_min ? opp.compensation_min : ''}
+                            {opp.compensation_min && opp.compensation_max ? ' - ' : ''}
+                            {opp.compensation_max ? opp.compensation_max : ''}
+                            {opp.compensation_type ? ` / ${opp.compensation_type}` : ''}
+                          </>
+                        )}
+                    </div>
+                  </div>
+                )}
+                
+              </div>
+            </div>
+
           </div>
         </div>
       </div>

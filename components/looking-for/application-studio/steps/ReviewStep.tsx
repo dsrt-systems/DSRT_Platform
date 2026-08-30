@@ -129,7 +129,12 @@ export function ReviewStep() {
                   <div>
                     <div className="text-[10.5px] font-bold uppercase tracking-wider text-zinc-500 mb-1">Proposed Comp</div>
                     <div className="text-[13px] text-white font-medium">
-                      {app.proposed_compensation} <span className="capitalize text-zinc-400 text-[12px] ml-0.5">({app.proposed_compensation_type})</span>
+                      {app.proposed_compensation_currency || 'USD'} {app.proposed_compensation}
+                      {app.proposed_compensation_type ? (
+                        <span className="capitalize text-zinc-400 text-[12px] ml-0.5">
+                          ({app.proposed_compensation_type})
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 )}

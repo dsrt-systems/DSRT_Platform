@@ -14,11 +14,12 @@ export async function GET(
 ) {
   const { appId } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    // 1. Load application (must belong to current user)
     const { data: application, error: appErr } = await supabase
       .from('opportunity_applications')
       .select('*')
@@ -30,17 +31,18 @@ export async function GET(
       return NextResponse.json({ error: 'Application not found' }, { status: 404 })
     }
 
-    // 2. Load opportunity
     const { data: opportunity, error: oppErr } = await supabase
       .from('opportunities')
-      .select(`
+      .select(
+        `
         id, slug, title, opportunity_type, status,
         poster_user_id, application_deadline, applications_open,
         time_commitment, hours_per_week,
         require_resume, require_portfolio, require_github,
         require_website, require_cover_letter,
         required_skills, preferred_skills, custom_questions
-      `)
+      `
+      )
       .eq('id', application.opportunity_id)
       .single()
 
@@ -48,20 +50,17 @@ export async function GET(
       return NextResponse.json({ error: 'Opportunity no longer exists' }, { status: 404 })
     }
 
-    // 3. Load structured skill requirements (if present)
     const { data: requirements } = await supabase
       .from('opportunity_skill_requirements')
       .select('*')
       .eq('opportunity_id', opportunity.id)
 
-    // 4. Load structured custom questions (if present)
     const { data: dbQuestions } = await supabase
       .from('opportunity_application_questions')
       .select('*')
       .eq('opportunity_id', opportunity.id)
       .order('sort_order', { ascending: true, nullsFirst: false })
 
-    // 5. Load question options (batched)
     let questionsWithOptions = dbQuestions || []
     if (questionsWithOptions.length > 0) {
       const qIds = questionsWithOptions.map((q: any) => q.id)
@@ -81,7 +80,6 @@ export async function GET(
       }))
     }
 
-    // 6. Fallback: legacy JSONB custom_questions on opportunities table
     let questions = questionsWithOptions
     if ((!questions || questions.length === 0) && Array.isArray(opportunity.custom_questions)) {
       questions = (opportunity.custom_questions as any[]).map((q: any, i: number) => {
@@ -130,7 +128,7 @@ export async function GET(
 /**
  * PATCH /api/opportunities/applications/[appId]/draft
  * Autosave partial updates from the Application Studio.
- * Body: { patch: {...}, expected_updated_at?: string }
+ * Body: { patch: {...} }
  */
 export async function PATCH(
   req: NextRequest,
@@ -159,6 +157,7 @@ export async function PATCH(
     'proposed_start_date',
     'proposed_compensation',
     'proposed_compensation_type',
+    'proposed_compensation_currency', // ← currency
     'answers',
     'highlighted_skills',
     'highlighted_projects',
@@ -194,7 +193,6 @@ export async function PATCH(
 
     const nowIso = new Date().toISOString()
 
-    // Last-write-wins — no expected_updated_at / 409 stale checks
     const { data: updated, error: updErr } = await supabase
       .from('opportunity_applications')
       .update({ ...sanitized, updated_at: nowIso })

@@ -5,7 +5,7 @@ import { trackOpportunityEvent } from '@/lib/events/opportunity-events'
 export const dynamic = 'force-dynamic'
 
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ appId: string }> }
 ) {
   const { appId } = await params
@@ -17,19 +17,22 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    // 1. Fetch Application + Opportunity + Questions
-    const { data: app } = await supabase
+    // 1. Fetch Application
+    const { data: app, error: appErr } = await supabase
       .from('opportunity_applications')
       .select('*')
       .eq('id', appId)
       .eq('applicant_id', user.id)
       .single()
 
-    if (!app) return NextResponse.json({ error: 'Application not found' }, { status: 404 })
+    if (appErr || !app) {
+      return NextResponse.json({ error: 'Application not found' }, { status: 404 })
+    }
     if (app.pipeline_stage !== 'draft') {
       return NextResponse.json({ error: 'Application already submitted' }, { status: 400 })
     }
 
+    // 2. Opportunity + questions
     const [{ data: opp }, { data: questions }] = await Promise.all([
       supabase.from('opportunities').select('*').eq('id', app.opportunity_id).single(),
       supabase
@@ -38,12 +41,13 @@ export async function POST(
         .eq('opportunity_id', app.opportunity_id),
     ])
 
-    if (!opp) return NextResponse.json({ error: 'Opportunity no longer exists' }, { status: 404 })
+    if (!opp) {
+      return NextResponse.json({ error: 'Opportunity no longer exists' }, { status: 404 })
+    }
 
-    // 2. Deep Validation
+    // 3. Validation
     const errors: { field: string; message: string; step: string }[] = []
 
-    // A. Deadline / Status checks
     if (!opp.applications_open || !['active', 'closing-soon'].includes(opp.status)) {
       return NextResponse.json(
         { error: 'Applications are currently closed for this opportunity.' },
@@ -57,7 +61,6 @@ export async function POST(
       )
     }
 
-    // B. Default Attachments Check
     if (opp.require_resume && !app.resume_url) {
       errors.push({ field: 'resume_url', message: 'Resume URL is required.', step: 'evidence' })
     }
@@ -72,38 +75,42 @@ export async function POST(
       errors.push({ field: 'github_url', message: 'GitHub URL is required.', step: 'evidence' })
     }
     if (opp.require_cover_letter && !app.cover_message && !app.cover_letter) {
-      errors.push({ field: 'cover_message', message: 'An intro message is required.', step: 'evidence' })
+      errors.push({
+        field: 'cover_message',
+        message: 'An intro message is required.',
+        step: 'evidence',
+      })
     }
 
-    // C. Custom Questions Check
     const answers = app.answers || {}
     for (const q of questions || []) {
-      if (q.is_required) {
-        let isVisible = true
-        if (q.conditions?.show_if?.question_id) {
-          const c = q.conditions.show_if
-          const parentAns = String(answers[c.question_id] || '').toLowerCase()
-          const valStr = String(c.value).toLowerCase()
-          if (c.operator === 'equals' && parentAns !== valStr) isVisible = false
-          if (c.operator === 'not_equals' && parentAns === valStr) isVisible = false
-          if (c.operator === 'contains' && !parentAns.includes(valStr)) isVisible = false
-        }
+      if (!q.is_required) continue
 
-        if (isVisible) {
-          const ans = answers[q.id]
-          const isAnswered =
-            ans !== undefined &&
-            ans !== null &&
-            ans !== '' &&
-            (Array.isArray(ans) ? ans.length > 0 : true)
-          if (!isAnswered) {
-            errors.push({
-              field: `q_${q.id}`,
-              message: `Required question: "${q.label}"`,
-              step: 'questions',
-            })
-          }
-        }
+      let isVisible = true
+      if (q.conditions?.show_if?.question_id) {
+        const c = q.conditions.show_if
+        const parentAns = String(answers[c.question_id] || '').toLowerCase()
+        const valStr = String(c.value).toLowerCase()
+        if (c.operator === 'equals' && parentAns !== valStr) isVisible = false
+        if (c.operator === 'not_equals' && parentAns === valStr) isVisible = false
+        if (c.operator === 'contains' && !parentAns.includes(valStr)) isVisible = false
+      }
+
+      if (!isVisible) continue
+
+      const ans = answers[q.id]
+      const isAnswered =
+        ans !== undefined &&
+        ans !== null &&
+        ans !== '' &&
+        (Array.isArray(ans) ? ans.length > 0 : true)
+
+      if (!isAnswered) {
+        errors.push({
+          field: `q_${q.id}`,
+          message: `Required question: "${q.label}"`,
+          step: 'questions',
+        })
       }
     }
 
@@ -111,38 +118,64 @@ export async function POST(
       return NextResponse.json({ ok: false, errors }, { status: 400 })
     }
 
-    // 3. Finalize Submission (Update status to submitted)
+    const nowIso = new Date().toISOString()
+    const previousStage = app.pipeline_stage || 'draft'
+
+    // 4. Finalize application status FIRST (core success path)
     const { data: submitted, error: submitError } = await supabase
       .from('opportunity_applications')
       .update({
         pipeline_stage: 'submitted',
         status: 'pending',
-        stage_updated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        stage_updated_at: nowIso,
+        updated_at: nowIso,
       })
       .eq('id', appId)
-      .select()
+      .eq('applicant_id', user.id)
+      .eq('pipeline_stage', 'draft')
+      .select('id')
       .single()
 
     if (submitError) throw submitError
 
-    // 4. Send Message to Employer Inbox (wrapped safely)
-    const applicantName =
-      app.applicant_snapshot?.full_name || app.applicant_snapshot?.username || 'A builder'
-    const messageBody = [
-      `${applicantName} just applied to "${opp.title}".`,
-      app.cover_message ? `\nMessage:\n${app.cover_message}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n')
-
+    // 5. Best-effort history write — schema may vary; never block submit
     try {
+      // Preferred shape (no opportunity_id)
+      const { error: histErr } = await supabase.from('opportunity_application_history').insert({
+        application_id: appId,
+        from_stage: previousStage,
+        to_stage: 'submitted',
+        changed_by: user.id,
+      })
+
+      if (histErr) {
+        console.warn('[submit] history insert skipped:', histErr.message)
+      }
+    } catch (e) {
+      console.warn('[submit] history insert failed (non-blocking):', e)
+    }
+
+    // 6. Notify employer inbox (non-blocking)
+    try {
+      const applicantName =
+        app.applicant_snapshot?.full_name ||
+        app.applicant_snapshot?.username ||
+        'A builder'
+
+      const messageBody = [
+        `${applicantName} just applied to "${opp.title}".`,
+        app.cover_message ? `\nMessage:\n${app.cover_message}` : '',
+        app.cover_letter ? `\nExperience:\n${app.cover_letter}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+
       await supabase.from('inbox_messages').insert({
         recipient_id: opp.poster_user_id,
         sender_id: user.id,
         message_type: 'role_application',
         status: 'unread',
-        subject: `New applicant for ${opp.title.slice(0, 180)}`,
+        subject: `New applicant for ${String(opp.title || '').slice(0, 180)}`,
         body: messageBody.slice(0, 5000),
         reference_type: 'opportunity',
         reference_id: opp.id,
@@ -157,7 +190,7 @@ export async function POST(
       console.error('Failed to notify owner inbox:', e)
     }
 
-    // 5. Analytics & Recommendation Signals (wrapped safely)
+    // 7. Signals / analytics (non-blocking)
     try {
       await supabase.from('user_activity_signals').insert({
         user_id: user.id,
