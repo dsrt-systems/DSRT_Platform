@@ -1,15 +1,16 @@
+// components/projects/create/ProjectCreationStudio.tsx
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { CircleNotch, FloppyDisk } from '@phosphor-icons/react'
+import { Loader2, LogOut } from 'lucide-react'
 import { DsrtLogo } from '@/components/ui/DsrtLogo'
-import { useProjectCreationStore } from '@/stores/projectCreationStore'
+import { createClient } from '@/lib/supabase/client'
+import { useProjectCreationStore, ProjectStepKey } from '@/stores/projectCreationStore'
 
 import { ProjectCreationSidebar, PROJECT_STEPS } from './ProjectCreationSidebar'
 import { ProjectCreationFooter } from './ProjectCreationFooter'
-import { ProjectCreationTips } from './ProjectCreationTips'
 
 import { IdentityStep } from './steps/IdentityStep'
 import { DefinitionStep } from './steps/DefinitionStep'
@@ -17,7 +18,7 @@ import { BuildStep } from './steps/BuildStep'
 import { CollaborationStep } from './steps/CollaborationStep'
 import { PublishStep } from './steps/PublishStep'
 
-const HEADINGS: Record<string, { heading: string; description: string }> = {
+const STEP_HEADINGS: Record<ProjectStepKey, { heading: string; description: string }> = {
   identity: {
     heading: 'Start with the identity of your project',
     description: 'Give your project a clear identity so people can understand what it is at a glance.',
@@ -32,7 +33,7 @@ const HEADINGS: Record<string, { heading: string; description: string }> = {
   },
   collaboration: {
     heading: 'Decide who is involved',
-    description: "Set your collaboration preferences, invite team members, or draft open roles for DSRT Looking For.",
+    description: 'Set your collaboration preferences, invite team members, or draft open roles for DSRT Looking For.',
   },
   publish: {
     heading: 'Ready to launch?',
@@ -42,17 +43,26 @@ const HEADINGS: Record<string, { heading: string; description: string }> = {
 
 export function ProjectCreationStudio() {
   const router = useRouter()
+  const supabase = createClient()
+  const [mounted, setMounted] = useState(false)
+
   const {
     data,
     currentStep,
+    completedSteps,
     isSaving,
     hasUnsavedChanges,
     setCurrentStep,
     setSaving,
     markSaved,
+    canNavigateToStep,
   } = useProjectCreationStore()
 
-  // ── AUTO-SAVE LOGIC ──
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Continuous Auto-Save
   const triggerAutoSave = useCallback(
     async (isExiting = false) => {
       if (!data.name || data.name.trim().length < 2) return
@@ -85,7 +95,6 @@ export function ProjectCreationStudio() {
     [data, markSaved, router, setSaving]
   )
 
-  // Save on tab blur or visibility change
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden' && hasUnsavedChanges) {
@@ -99,48 +108,59 @@ export function ProjectCreationStudio() {
   const handleSaveExit = () => triggerAutoSave(true)
 
   const handleNext = () => {
-    const idx = PROJECT_STEPS.findIndex(s => s.key === currentStep)
-    if (idx < PROJECT_STEPS.length - 1) {
-      setCurrentStep(PROJECT_STEPS[idx + 1].key)
+    const steps: ProjectStepKey[] = ['identity', 'definition', 'build', 'collaboration', 'publish']
+    const idx = steps.indexOf(currentStep)
+    if (idx < steps.length - 1) {
+      const nextStep = steps[idx + 1]
+      setCurrentStep(nextStep)
       if (hasUnsavedChanges) triggerAutoSave(false)
     }
   }
 
   const handleBack = () => {
-    const idx = PROJECT_STEPS.findIndex(s => s.key === currentStep)
-    if (idx > 0) setCurrentStep(PROJECT_STEPS[idx - 1].key)
+    const steps: ProjectStepKey[] = ['identity', 'definition', 'build', 'collaboration', 'publish']
+    const idx = steps.indexOf(currentStep)
+    if (idx > 0) setCurrentStep(steps[idx - 1])
   }
 
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center gap-4">
+        <DsrtLogo size={48} showText={false} />
+        <p className="text-[11px] font-bold text-white/40 tracking-widest uppercase">
+          LOADING CREATION STUDIO...
+        </p>
+      </div>
+    )
+  }
+
+  const { heading, description } = STEP_HEADINGS[currentStep]
   const currentStepNumber = PROJECT_STEPS.findIndex(s => s.key === currentStep) + 1
+  const canContinueCurrent = completedSteps[currentStep] || currentStep === 'publish' || currentStep === 'build' || currentStep === 'collaboration'
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col selection:bg-white/20">
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-white/[0.06] h-16 flex items-center px-6 lg:px-10">
         <div className="max-w-[1200px] w-full mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <DsrtLogo size={26} showText />
-            <div className="h-4 w-px bg-white/20" />
-            <span className="text-[13px] font-semibold text-white/60">
-              Project Creation Studio
-            </span>
-          </div>
+          <DsrtLogo size={26} showText />
 
           <div className="flex items-center gap-4">
             {isSaving ? (
-              <span className="text-[11px] font-mono text-zinc-500 flex items-center gap-1.5">
-                <CircleNotch size={12} className="animate-spin" /> Saving...
+              <span className="text-[11px] font-mono text-white/40 flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" /> Saving...
               </span>
             ) : data.id ? (
-              <span className="text-[11px] font-mono text-zinc-500">Draft saved</span>
+              <span className="text-[11px] font-mono text-white/40">Draft saved</span>
             ) : null}
 
             <button
               onClick={handleSaveExit}
               disabled={isSaving || !data.name}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12px] font-semibold text-white/60 hover:text-white hover:bg-white/[0.04] transition-all disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-all disabled:opacity-40"
             >
-              <FloppyDisk size={14} weight="bold" /> Save & Exit
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Save & exit</span>
             </button>
           </div>
         </div>
@@ -151,23 +171,25 @@ export function ProjectCreationStudio() {
         <div className="max-w-[1200px] mx-auto">
           <div className="flex flex-col lg:flex-row gap-10 lg:gap-16">
             
-            {/* Left Steps Navigation */}
+            {/* Left Sidebar */}
             <ProjectCreationSidebar
               currentStep={currentStep}
+              completedSteps={completedSteps}
+              canNavigateToStep={canNavigateToStep}
               onStepClick={setCurrentStep}
             />
 
-            {/* Center Form Area */}
-            <div className="flex-1 min-w-0 max-w-[680px]">
+            {/* Main Center Form */}
+            <div className="flex-1 min-w-0 max-w-[640px]">
               <div className="mb-8">
-                <p className="text-[10px] font-bold text-zinc-500 tracking-widest uppercase mb-2">
+                <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase mb-2">
                   Step {currentStepNumber} of {PROJECT_STEPS.length}
                 </p>
-                <h1 className="text-[26px] lg:text-[28px] font-bold text-white tracking-tight leading-tight">
-                  {HEADINGS[currentStep].heading}
+                <h1 className="text-[26px] lg:text-[28px] font-semibold text-white tracking-tight leading-tight">
+                  {heading}
                 </h1>
-                <p className="text-[14px] text-zinc-400 mt-2 leading-relaxed">
-                  {HEADINGS[currentStep].description}
+                <p className="text-[14px] text-white/60 mt-2 leading-relaxed">
+                  {description}
                 </p>
               </div>
 
@@ -182,7 +204,7 @@ export function ProjectCreationStudio() {
               <ProjectCreationFooter
                 currentStep={currentStep}
                 isSaving={isSaving}
-                canContinue={!!data.name && data.name.trim().length >= 2 && !!data.tagline}
+                canContinue={canContinueCurrent}
                 onBack={handleBack}
                 onContinue={handleNext}
                 onPublish={() => {
@@ -190,12 +212,6 @@ export function ProjectCreationStudio() {
                 }}
               />
             </div>
-
-            {/* Right Contextual Tips Panel */}
-            <ProjectCreationTips
-              step={currentStep}
-              projectType={data.project_type || 'personal'}
-            />
 
           </div>
         </div>

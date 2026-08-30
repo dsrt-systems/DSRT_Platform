@@ -1,10 +1,11 @@
+// stores/projectCreationStore.ts
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
 export type ProjectStepKey = 'identity' | 'definition' | 'build' | 'collaboration' | 'publish'
 
 export interface ProjectDraftData {
-  id?: string // The DB project ID once created
+  id?: string
   name: string
   project_type: string
   tagline: string
@@ -33,25 +34,26 @@ export interface ProjectDraftData {
 }
 
 interface ProjectCreationStore {
-  // Data
   data: ProjectDraftData
   currentStep: ProjectStepKey
+  completedSteps: Record<ProjectStepKey, boolean>
   isSaving: boolean
   hasUnsavedChanges: boolean
   lastSavedAt: string | null
 
-  // Actions
   setCurrentStep: (step: ProjectStepKey) => void
   updateData: (partial: Partial<ProjectDraftData>) => void
   setSaving: (saving: boolean) => void
   markSaved: () => void
+  setStepCompleted: (step: ProjectStepKey, completed: boolean) => void
+  canNavigateToStep: (step: ProjectStepKey) => boolean
   reset: () => void
   hydrateFromServer: (draft: Partial<ProjectDraftData>) => void
 }
 
 const initialData: ProjectDraftData = {
   name: '',
-  project_type: 'personal',
+  project_type: 'software',
   tagline: '',
   logo_url: null,
   cover_image_url: null,
@@ -73,41 +75,104 @@ const initialData: ProjectDraftData = {
   show_on_profile: true,
 }
 
+const initialCompleted: Record<ProjectStepKey, boolean> = {
+  identity: false,
+  definition: false,
+  build: false,
+  collaboration: false,
+  publish: false,
+}
+
 export const useProjectCreationStore = create<ProjectCreationStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       data: initialData,
       currentStep: 'identity',
+      completedSteps: initialCompleted,
       isSaving: false,
       hasUnsavedChanges: false,
       lastSavedAt: null,
 
-      setCurrentStep: (step) => set({ currentStep: step }),
+      setCurrentStep: (step) => {
+        if (get().canNavigateToStep(step)) {
+          set({ currentStep: step })
+        }
+      },
       
-      updateData: (partial) => set((s) => ({
-        data: { ...s.data, ...partial },
-        hasUnsavedChanges: true,
-      })),
+      updateData: (partial) => {
+        const newData = { ...get().data, ...partial }
+        
+        // Recalculate step completions automatically
+        const completed = { ...get().completedSteps }
+        completed.identity = !!(newData.name && newData.name.trim().length >= 2 && newData.project_type && newData.tagline && newData.tagline.trim().length >= 3)
+        completed.definition = !!(newData.description && newData.description.trim().length >= 10 && newData.primary_domain)
+        completed.build = !!(newData.stage)
+        completed.collaboration = !!(newData.collaboration_status)
+        completed.publish = false
+
+        set({
+          data: newData,
+          completedSteps: completed,
+          hasUnsavedChanges: true,
+        })
+      },
       
       setSaving: (saving) => set({ isSaving: saving }),
       
       markSaved: () => set({ hasUnsavedChanges: false, lastSavedAt: new Date().toISOString() }),
-      
+
+      setStepCompleted: (step, completed) => set((s) => ({
+        completedSteps: { ...s.completedSteps, [step]: completed }
+      })),
+
+      canNavigateToStep: (targetStep) => {
+        const steps: ProjectStepKey[] = ['identity', 'definition', 'build', 'collaboration', 'publish']
+        const targetIdx = steps.indexOf(targetStep)
+        const currentIdx = steps.indexOf(get().currentStep)
+        
+        if (targetIdx <= currentIdx) return true
+        
+        for (let i = 0; i < targetIdx; i++) {
+          const stepKey = steps[i]
+          if (!get().completedSteps[stepKey]) return false
+        }
+        return true
+      },
+
       reset: () => set({
         data: initialData,
         currentStep: 'identity',
+        completedSteps: initialCompleted,
         isSaving: false,
         hasUnsavedChanges: false,
         lastSavedAt: null
       }),
 
-      hydrateFromServer: (draft) => set((s) => ({
-        data: { ...s.data, ...draft },
-        hasUnsavedChanges: false
-      }))
+      hydrateFromServer: (draft) => {
+        const completed: Record<ProjectStepKey, boolean> = { ...initialCompleted }
+        
+        if (draft.name && draft.name.trim().length >= 2 && draft.project_type && draft.tagline) {
+          completed.identity = true
+        }
+        if (draft.description && (draft.primary_domain || (draft.domains && draft.domains.length > 0))) {
+          completed.definition = true
+        }
+        if (draft.stage) {
+          completed.build = true
+        }
+        if (draft.collaboration_status) {
+          completed.collaboration = true
+        }
+
+        set((s) => ({
+          data: { ...s.data, ...draft },
+          completedSteps: completed,
+          hasUnsavedChanges: false
+        }))
+      }
     }),
     {
-      name: 'dsrt-project-draft',
+      name: 'dsrt-project-draft-v3',
       storage: createJSONStorage(() => localStorage),
     }
   )

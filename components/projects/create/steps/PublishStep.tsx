@@ -1,18 +1,16 @@
+// components/projects/create/steps/PublishStep.tsx
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  CheckCircle, Circle, Globe, Eye, EyeSlash,
-  Rocket, Copy, ArrowRight, Wrench, Check, EnvelopeSimple, QrCode
-} from '@phosphor-icons/react'
+import { CheckCircle, Circle, Globe, Eye, EyeSlash, Copy, Check, ArrowRight, EnvelopeSimple } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { useProjectCreationStore } from '@/stores/projectCreationStore'
 import { QRCodeSVG } from '../QRCodeSVG'
 
 export function PublishStep() {
   const router = useRouter()
-  const { data, updateData, isSaving, setSaving, reset } = useProjectCreationStore()
+  const { data, updateData, setSaving, reset } = useProjectCreationStore()
   const [publishedResult, setPublishedResult] = useState<{
     slug: string
     projectNumber: string
@@ -22,7 +20,7 @@ export function PublishStep() {
 
   const handlePublish = async () => {
     if (!data.id) {
-      toast.error('Project draft ID missing. Please go back and ensure draft is saved.')
+      toast.error('Project draft ID missing. Please ensure draft is saved.')
       return
     }
 
@@ -37,7 +35,6 @@ export function PublishStep() {
 
       if (!res.ok) throw new Error(json.error)
 
-      toast.success('Project published successfully!')
       setPublishedResult({
         slug: json.slug,
         projectNumber: json.project_number || 'PRJ-' + Math.floor(100000 + Math.random() * 900000),
@@ -64,68 +61,68 @@ export function PublishStep() {
     router.push(path)
   }
 
-  // ─── POST-PUBLISH LAUNCH SCREEN ───
+  // ─── POST-PUBLISH SUCCESS SCREEN ───
   if (publishedResult) {
     return (
-      <div className="animate-in fade-in zoom-in-95 duration-500 max-w-xl mx-auto pt-2 pb-16">
-        <div className="bg-[#121215] border border-emerald-500/30 rounded-2xl p-8 text-center shadow-[0_0_50px_-15px_rgba(16,185,129,0.2)] relative overflow-hidden space-y-6">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-cyan-400" />
-
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto shadow-inner">
-            <CheckCircle size={32} weight="fill" className="text-emerald-400" />
-          </div>
-
-          <div>
-            <h2 className="text-[22px] font-bold text-white">Project Published!</h2>
-            <p className="text-[13.5px] text-zinc-400 mt-1 max-w-md mx-auto">
-              <strong className="text-white">{data.name}</strong> is live on DSRT Connect.
-            </p>
-          </div>
-
-          {/* Canonical ID & Email */}
-          <div className="grid grid-cols-2 gap-3 text-left">
-            <div className="bg-[#09090b] border border-white/[0.08] p-3 rounded-xl">
-              <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-bold">Project ID</p>
-              <p className="text-[13px] font-mono font-bold text-emerald-400 mt-0.5">{publishedResult.projectNumber}</p>
+      <div className="animate-in fade-in duration-300 space-y-6">
+        <div className="rounded-md border border-white/[0.06] bg-[#0A0A0C] p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+              <Check className="w-4 h-4 text-white" weight="bold" />
             </div>
-            <div className="bg-[#09090b] border border-white/[0.08] p-3 rounded-xl">
-              <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-bold">DSRT Mail</p>
-              <p className="text-[12px] font-mono font-semibold text-zinc-300 truncate mt-0.5 flex items-center gap-1">
+            <div>
+              <h2 className="text-[16px] font-semibold text-white">Project Published</h2>
+              <p className="text-[13px] text-white/60">
+                <strong className="text-white">{data.name}</strong> is now live on DSRT Connect.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#050505] border border-white/10 p-4 rounded-md">
+              <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase">Project ID</p>
+              <p className="text-[13px] font-mono font-semibold text-white mt-1">{publishedResult.projectNumber}</p>
+            </div>
+            <div className="bg-[#050505] border border-white/10 p-4 rounded-md">
+              <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase">DSRT Mail</p>
+              <p className="text-[12px] font-mono text-white/70 truncate mt-1 flex items-center gap-1.5">
                 <EnvelopeSimple size={12} /> {publishedResult.dsrtEmail}
               </p>
             </div>
           </div>
 
-          {/* QR Code & Link Sharing */}
-          <div className="bg-[#09090b] border border-white/[0.08] p-4 rounded-xl flex items-center gap-5 text-left">
-            <QRCodeSVG value={projectUrl} size={110} />
+          <div className="bg-[#050505] border border-white/10 p-4 rounded-md flex items-center gap-5">
+            <div className="bg-white p-1.5 rounded-md">
+              <QRCodeSVG value={projectUrl} size={70} />
+            </div>
             <div className="space-y-2 flex-1 min-w-0">
-              <p className="text-[12px] font-bold text-white">Share Project</p>
-              <p className="text-[11px] text-zinc-500 leading-snug">Scan or copy to invite collaborators and share on social media.</p>
+              <p className="text-[13px] font-semibold text-white">Share Project</p>
+              <p className="text-[12px] text-white/40">Copy link to share on social media or invite collaborators.</p>
               <button
+                type="button"
                 onClick={handleCopyLink}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] text-white text-[12px] font-semibold transition-colors"
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-white/10 hover:bg-white/20 text-white text-[12px] font-medium transition-colors mt-1"
               >
-                {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                {copied ? <Check size={12} /> : <Copy size={12} />}
                 {copied ? 'Copied' : 'Copy link'}
               </button>
             </div>
           </div>
 
-          {/* Next Steps */}
-          <div className="text-left space-y-2 pt-2">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-bold mb-3 pl-1">Next steps in workspace</p>
-
-            <button onClick={() => finishAndExit(`/projects/${publishedResult.slug}?tab=overview`)} className="w-full flex items-center justify-between p-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] transition-colors group">
+          <div className="space-y-2 pt-2 border-t border-white/[0.06]">
+            <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase mb-3 mt-2">
+              Next steps
+            </p>
+            <button
+              type="button"
+              onClick={() => finishAndExit(`/projects/${publishedResult.slug}`)}
+              className="w-full flex items-center justify-between p-3.5 rounded-md border border-white/10 bg-[#050505] hover:bg-white/[0.04] transition-colors group"
+            >
               <div>
-                <p className="text-[13.5px] font-bold text-white group-hover:text-blue-300 transition-colors">Add Project Knowledge</p>
-                <p className="text-[11.5px] text-zinc-500">Upload documentation, research, or architecture notes.</p>
+                <p className="text-[13px] font-semibold text-white">Open Project Workspace</p>
+                <p className="text-[11px] text-white/40 mt-0.5">Add documentation, technical notes, and updates.</p>
               </div>
-              <ArrowRight size={14} className="text-zinc-500 group-hover:text-blue-400 transition-colors" />
-            </button>
-
-            <button onClick={() => finishAndExit(`/projects/${publishedResult.slug}`)} className="w-full flex items-center justify-center p-3 rounded-xl text-[12.5px] font-semibold text-zinc-400 hover:text-white transition-colors">
-              Go to Project Workspace
+              <ArrowRight size={14} className="text-white/40 group-hover:text-white" />
             </button>
           </div>
         </div>
@@ -135,124 +132,106 @@ export function PublishStep() {
 
   // ─── PRE-PUBLISH CHECKLIST ───
   const checks = [
-    { label: 'Project Identity', desc: 'Name, type and tagline', complete: !!data.name && !!data.tagline },
-    { label: 'Description', desc: 'About this project', complete: !!data.description && data.description.length > 20 },
-    { label: 'Domains', desc: 'Technical classification', complete: (data.domains || []).length > 0 },
-    { label: 'Stage', desc: 'Current development phase', complete: !!data.stage },
-    { label: 'Cover Image', desc: 'Visual presentation', complete: !!data.cover_image_url, optional: true },
-    { label: 'Repository', desc: 'Source code link', complete: !!data.repository_url, optional: true },
+    { label: 'Project Name & Type', desc: data.name, complete: !!(data.name && data.project_type) },
+    { label: 'Tagline', desc: data.tagline, complete: !!data.tagline },
+    { label: 'Description', desc: `${data.description?.length || 0} characters`, complete: !!(data.description && data.description.length >= 10) },
+    { label: 'Domains', desc: data.primary_domain || 'None selected', complete: !!data.primary_domain },
+    { label: 'Development Stage', desc: data.stage, complete: !!data.stage },
   ]
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300 pb-20">
-      {/* Card Preview */}
-      <div className="space-y-3">
-        <label className="text-[12px] font-semibold text-white/60 uppercase tracking-wider block">
-          Card Preview
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <label className="text-[13px] font-medium text-white/90 block">
+          Project Card Preview
         </label>
-        <div className="w-full max-w-[340px] bg-[#121215] border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg pointer-events-none">
-          <div className="relative w-full aspect-[16/9] bg-[#09090b] border-b border-white/[0.04]">
+        <div className="w-full max-w-[320px] bg-[#0A0A0C] border border-white/10 rounded-md overflow-hidden pointer-events-none">
+          <div className="relative w-full aspect-[16/9] bg-[#050505]">
             {data.cover_image_url ? (
               <img src={data.cover_image_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900"><Wrench size={32} className="text-zinc-700" /></div>
+              <div className="w-full h-full bg-zinc-900/40 flex items-center justify-center text-white/20 text-xs">No Cover</div>
             )}
-            <div className="absolute bottom-3 left-3 w-10 h-10 rounded-xl bg-[#09090b] border border-white/[0.1] shadow-lg overflow-hidden">
-              {data.logo_url ? (
-                <img src={data.logo_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-white">{(data.name || '?')[0]?.toUpperCase()}</div>
-              )}
+            <div className="absolute bottom-2 left-2 w-8 h-8 rounded bg-[#050505] border border-white/10 overflow-hidden flex items-center justify-center font-bold text-white text-xs">
+              {data.logo_url ? <img src={data.logo_url} alt="" className="w-full h-full object-cover" /> : (data.name || '?')[0]}
             </div>
           </div>
-          <div className="p-4">
-            <h3 className="text-[15px] font-bold text-white truncate">{data.name || 'Untitled Project'}</h3>
-            <p className="text-[12.5px] text-zinc-400 truncate mt-0.5">{data.tagline || 'Project tagline...'}</p>
-            <div className="flex items-center gap-2 mt-3 text-[11px] text-zinc-500 font-medium">
-              {data.primary_domain && <span>{data.primary_domain}</span>}
-              {data.primary_domain && data.stage && <span className="w-1 h-1 rounded-full bg-zinc-700" />}
-              {data.stage && <span className="capitalize">{data.stage}</span>}
-            </div>
+          <div className="p-3">
+            <p className="text-[13px] font-semibold text-white truncate">{data.name || 'Untitled Project'}</p>
+            <p className="text-[11px] text-white/50 truncate mt-0.5">{data.tagline || 'Tagline...'}</p>
           </div>
         </div>
       </div>
 
-      {/* Completeness Checklist */}
-      <div className="pt-6 border-t border-white/[0.06] space-y-4">
-        <label className="text-[12px] font-semibold text-white/60 uppercase tracking-wider block">
+      <div className="pt-4 border-t border-white/[0.06] space-y-3">
+        <label className="text-[13px] font-medium text-white/90 block">
           Completeness Checklist
         </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-1.5">
           {checks.map((check, i) => (
-            <div key={i} className={`flex items-start gap-3 p-3 rounded-lg border ${check.complete ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-white/[0.02] border-white/[0.05]'}`}>
+            <div key={i} className="flex items-center gap-2.5 p-2.5 rounded-md border border-white/[0.06] bg-[#0A0A0C]">
               {check.complete ? (
-                <CheckCircle size={16} weight="fill" className="text-emerald-500 shrink-0 mt-0.5" />
+                <CheckCircle size={16} weight="fill" className="text-white shrink-0" />
               ) : (
-                <Circle size={16} className="text-zinc-600 shrink-0 mt-0.5" />
+                <Circle size={16} className="text-white/20 shrink-0" />
               )}
-              <div>
-                <p className={`text-[13px] font-semibold ${check.complete ? 'text-emerald-100' : 'text-zinc-300'}`}>
+              <div className="flex-1 min-w-0">
+                <span className={`text-[12px] font-semibold ${check.complete ? 'text-white' : 'text-white/40'}`}>
                   {check.label}
-                  {check.optional && <span className="ml-2 text-[9px] font-mono uppercase tracking-widest text-zinc-500">Optional</span>}
-                </p>
-                <p className="text-[11.5px] text-zinc-500 mt-0.5">{check.desc}</p>
+                </span>
+                <span className="text-[11px] text-white/40 ml-2 truncate">— {check.desc}</span>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Visibility */}
-      <div className="pt-6 border-t border-white/[0.06] space-y-4">
-        <label className="text-[12px] font-semibold text-white/60 uppercase tracking-wider block mb-2">
-          Visibility & Discovery
+      <div className="pt-4 border-t border-white/[0.06] space-y-3">
+        <label className="text-[13px] font-medium text-white/90 block">
+          Publish Visibility
         </label>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-2">
           {[
-            { id: 'public', label: 'Public', desc: 'Visible to everyone on DSRT', icon: Globe },
-            { id: 'unlisted', label: 'Unlisted', desc: 'Anyone with link can view', icon: Eye },
-            { id: 'private', label: 'Private', desc: 'Only team members', icon: EyeSlash },
+            { id: 'public', label: 'Public', icon: Globe },
+            { id: 'unlisted', label: 'Unlisted', icon: Eye },
+            { id: 'private', label: 'Private', icon: EyeSlash },
           ].map(opt => {
             const active = data.visibility === opt.id
             const Icon = opt.icon
             return (
-              <div
+              <button
                 key={opt.id}
+                type="button"
                 onClick={() => updateData({ visibility: opt.id as any })}
-                className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                  active ? 'bg-white/[0.06] border-white/[0.25]' : 'bg-[#09090b] border-white/[0.08] hover:bg-white/[0.02]'
+                className={`p-2.5 rounded-md border text-left transition-all ${
+                  active ? 'bg-white/[0.06] border-white/30 text-white' : 'bg-[#050505] border-white/10 text-white/50 hover:bg-white/[0.02]'
                 }`}
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <Icon size={14} className={active ? 'text-white' : 'text-zinc-500'} />
-                  <p className={`text-[13px] font-bold ${active ? 'text-white' : 'text-zinc-300'}`}>{opt.label}</p>
+                <div className="flex items-center gap-1.5">
+                  <Icon size={13} />
+                  <span className="text-[12px] font-semibold">{opt.label}</span>
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
-
         {data.visibility === 'public' && (
-          <div className="space-y-3 bg-white/[0.02] border border-white/[0.06] rounded-xl p-4">
-            <label className="flex items-start gap-3 cursor-pointer group">
+          <div className="mt-2 bg-[#0A0A0C] border border-white/10 p-3 rounded-md">
+             <label className="flex items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={data.show_in_explore}
                 onChange={e => updateData({ show_in_explore: e.target.checked })}
-                className="w-4 h-4 mt-0.5 rounded bg-zinc-900 border-zinc-700 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                className="w-4 h-4 rounded bg-[#050505] border-white/20 text-[#4F7CFF] focus:ring-0 focus:ring-offset-0 cursor-pointer"
               />
-              <div>
-                <p className="text-[13.5px] font-semibold text-white group-hover:text-blue-300 transition-colors">Include in DSRT Explore</p>
-                <p className="text-[12px] text-zinc-500 mt-0.5 leading-snug">Let the engine recommend this project based on domain and tech stack.</p>
-              </div>
+              <span className="text-[12px] text-white/80">Make project discoverable in DSRT Explore</span>
             </label>
           </div>
         )}
       </div>
 
       <div className="hidden">
-        <button id="hidden-publish-trigger" onClick={handlePublish} />
+        <button id="hidden-publish-trigger" type="button" onClick={handlePublish} />
       </div>
     </div>
   )
