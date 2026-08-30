@@ -138,15 +138,15 @@ export async function PATCH(
 ) {
   const { appId } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
-  const patch = body?.patch || {}
-  const expectedUpdatedAt: string | undefined = body?.expected_updated_at
+  const patch = body?.patch && typeof body.patch === 'object' ? body.patch : {}
 
-  // Whitelist columns the applicant is allowed to autosave
-  const ALLOWED = new Set<string>([
+  const ALLOWED = new Set([
     'cover_message',
     'cover_letter',
     'resume_url',
@@ -176,10 +176,9 @@ export async function PATCH(
   }
 
   try {
-    // Load current row to verify ownership + stage + optimistic version
     const { data: current, error: loadErr } = await supabase
       .from('opportunity_applications')
-      .select('id, applicant_id, pipeline_stage, updated_at')
+      .select('id, applicant_id, pipeline_stage')
       .eq('id', appId)
       .single()
 
@@ -190,25 +189,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     if (current.pipeline_stage !== 'draft') {
-      return NextResponse.json(
-        { error: 'Application already submitted' },
-        { status: 400 }
-      )
-    }
-
-    // Optimistic concurrency
-    if (
-      expectedUpdatedAt &&
-      current.updated_at &&
-      new Date(expectedUpdatedAt).getTime() !== new Date(current.updated_at).getTime()
-    ) {
-      return NextResponse.json(
-        { error: 'Draft was updated elsewhere', code: 'stale' },
-        { status: 409 }
-      )
+      return NextResponse.json({ error: 'Application already submitted' }, { status: 400 })
     }
 
     const nowIso = new Date().toISOString()
+
+    // Last-write-wins — no expected_updated_at / 409 stale checks
     const { data: updated, error: updErr } = await supabase
       .from('opportunity_applications')
       .update({ ...sanitized, updated_at: nowIso })
@@ -223,9 +209,6 @@ export async function PATCH(
     return NextResponse.json({ ok: true, updated_at: updated.updated_at })
   } catch (e: any) {
     console.error('[draft PATCH] error:', e)
-    return NextResponse.json(
-      { error: e?.message || 'Save failed' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: e?.message || 'Save failed' }, { status: 500 })
   }
 }

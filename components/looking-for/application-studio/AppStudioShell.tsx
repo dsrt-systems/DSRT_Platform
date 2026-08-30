@@ -7,15 +7,26 @@ import { ArrowLeft, Warning } from '@phosphor-icons/react'
 import { AppStudioContext, type AppDraft, type SaveStatus, type AppStep } from './AppStudioContext'
 import { AppStudioHeader } from './AppStudioHeader'
 import { AppStudioNav } from './AppStudioNav'
-
-// Real Step Components (All Phases Complete)
 import { ProfileStep } from './steps/ProfileStep'
 import { ExperienceStep } from './steps/ExperienceStep'
 import { QuestionsStep } from './steps/QuestionsStep'
 import { EvidenceStep } from './steps/EvidenceStep'
 import { ReviewStep } from './steps/ReviewStep'
 
-export function AppStudioShell({ opportunityId, applicationId }: { opportunityId: string; applicationId: string }) {
+const VALID_STEPS: AppStep[] = ['profile', 'experience', 'questions', 'evidence', 'review']
+
+function normalizeStep(raw: string | null): AppStep {
+  if (raw && (VALID_STEPS as string[]).includes(raw)) return raw as AppStep
+  return 'profile'
+}
+
+export function AppStudioShell({
+  opportunityId,
+  applicationId,
+}: {
+  opportunityId: string
+  applicationId: string
+}) {
   const router = useRouter()
   const sp = useSearchParams()
 
@@ -24,18 +35,25 @@ export function AppStudioShell({ opportunityId, applicationId }: { opportunityId
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [step, setStep] = useState<AppStep>(() => normalizeStep(sp.get('step')))
 
-  const initialStep = (sp.get('step') as AppStep) || 'profile'
-  const [step, setStep] = useState<AppStep>(initialStep)
-
-  const pendingSaveRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingPatchRef = useRef<Record<string, any>>({})
   const mountedRef = useRef(true)
+  const savingRef = useRef(false)
+  const draftRef = useRef<AppDraft | null>(null)
+  const lastStepInUrlRef = useRef<string | null>(sp.get('step'))
+
+  // Keep ref in sync for save closures
+  useEffect(() => {
+    draftRef.current = draft
+  }, [draft])
 
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
+      if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
     }
   }, [])
 
@@ -43,74 +61,117 @@ export function AppStudioShell({ opportunityId, applicationId }: { opportunityId
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/opportunities/applications/${applicationId}/draft`, { cache: 'no-store' })
-      const d = await res.json()
+      const res = await fetch(
+        `/api/opportunities/applications/${applicationId}/draft`,
+        { cache: 'no-store' }
+      )
+      const d = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(d?.error || 'Failed to load application')
-      setDraft(d)
+      if (mountedRef.current) {
+        setDraft(d)
+        draftRef.current = d
+      }
     } catch (e: any) {
-      setError(e?.message)
+      if (mountedRef.current) setError(e?.message || 'Failed to load application')
     } finally {
-      setLoading(false)
+      if (mountedRef.current) setLoading(false)
     }
   }, [applicationId])
 
+  // Load once per applicationId — never on a timer
   useEffect(() => {
     load()
   }, [load])
 
+  // URL sync: only when step actually changes — do NOT depend on `sp` object
   useEffect(() => {
-    const p = new URLSearchParams(sp.toString())
+    const desired = step === 'profile' ? null : step
+    if (lastStepInUrlRef.current === desired) return
+    lastStepInUrlRef.current = desired
+
+    const p = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
     if (step === 'profile') p.delete('step')
     else p.set('step', step)
     const qs = p.toString()
-    router.replace(`/looking-for/${opportunityId}/apply/${applicationId}${qs ? `?${qs}` : ''}`, { scroll: false })
-  }, [step, opportunityId, applicationId, sp, router])
+    router.replace(
+      `/looking-for/${opportunityId}/apply/${applicationId}${qs ? `?${qs}` : ''}`,
+      { scroll: false }
+    )
+  }, [step, opportunityId, applicationId, router])
 
   const savePatch = useCallback(async () => {
-    const patch = pendingPatchRef.current
+    if (savingRef.current) return
+
+    const patch = { ...pendingPatchRef.current }
     if (Object.keys(patch).length === 0) return
+
+    // Clear queued patch up-front; anything typed during save will re-queue
     pendingPatchRef.current = {}
-    setSaveStatus('saving')
+    savingRef.current = true
+    if (mountedRef.current) setSaveStatus('saving')
 
     try {
-      const res = await fetch(`/api/opportunities/applications/${applicationId}/draft`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patch,
-          expected_updated_at: draft?.application?.updated_at,
-        }),
-      })
-      const d = await res.json()
-      if (!res.ok) {
-        if (d?.code === 'stale' && mountedRef.current) {
-          setSaveStatus('error')
-          await load()
-          return
+      const res = await fetch(
+        `/api/opportunities/applications/${applicationId}/draft`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patch }),
         }
+      )
+      const d = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        // Put failed patch back so a later keystroke / flush can retry
+        pendingPatchRef.current = { ...patch, ...pendingPatchRef.current }
         throw new Error(d?.error || 'Save failed')
       }
+
       if (mountedRef.current) {
-        setDraft((prev) =>
-          prev
-            ? {
-                ...prev,
-                application: { ...prev.application, ...patch, updated_at: d.updated_at },
-              }
-            : prev
-        )
+        setDraft((prev) => {
+          if (!prev) return prev
+          const next = {
+            ...prev,
+            application: {
+              ...prev.application,
+              ...patch,
+              updated_at: d.updated_at || prev.application?.updated_at,
+            },
+          }
+          draftRef.current = next
+          return next
+        })
         setLastSavedAt(new Date())
         setSaveStatus('saved')
       }
+
+      // If user typed while we were saving, schedule another save
+      if (Object.keys(pendingPatchRef.current).length > 0) {
+        if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
+        pendingSaveRef.current = setTimeout(() => {
+          savePatch()
+        }, 500)
+      }
     } catch {
       if (mountedRef.current) setSaveStatus('error')
+    } finally {
+      savingRef.current = false
     }
-  }, [applicationId, draft?.application?.updated_at, load])
+  }, [applicationId])
 
   const updateField = useCallback(
     (patch: Record<string, any>) => {
-      if (!draft) return
-      setDraft((prev) => (prev ? { ...prev, application: { ...prev.application, ...patch } } : prev))
+      // Optimistic local merge — never wipe sibling fields
+      setDraft((prev) => {
+        if (!prev) return prev
+        const next = {
+          ...prev,
+          application: { ...prev.application, ...patch },
+        }
+        draftRef.current = next
+        return next
+      })
+
       pendingPatchRef.current = { ...pendingPatchRef.current, ...patch }
 
       if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
@@ -118,7 +179,7 @@ export function AppStudioShell({ opportunityId, applicationId }: { opportunityId
         savePatch()
       }, 800)
     },
-    [draft, savePatch]
+    [savePatch]
   )
 
   const flushSave = useCallback(async () => {
@@ -142,7 +203,9 @@ export function AppStudioShell({ opportunityId, applicationId }: { opportunityId
       <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex items-center justify-center">
         <div className="text-center px-6">
           <Warning size={24} className="mx-auto mb-3 text-red-400" />
-          <div className="text-[15px] font-bold text-white mb-2">{error || 'Application not found'}</div>
+          <div className="text-[15px] font-bold text-white mb-2">
+            {error || 'Application not found'}
+          </div>
           <Link
             href={`/looking-for/${opportunityId}`}
             className="h-9 px-4 rounded-xl border border-zinc-800 text-[13px] text-zinc-300 hover:text-white inline-flex items-center"
@@ -156,7 +219,16 @@ export function AppStudioShell({ opportunityId, applicationId }: { opportunityId
 
   return (
     <AppStudioContext.Provider
-      value={{ draft, setDraft, updateField, flushSave, saveStatus, lastSavedAt, step, setStep }}
+      value={{
+        draft,
+        setDraft,
+        updateField,
+        flushSave,
+        saveStatus,
+        lastSavedAt,
+        step,
+        setStep,
+      }}
     >
       <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col">
         <AppStudioHeader />

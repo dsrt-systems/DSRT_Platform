@@ -20,6 +20,21 @@ import { WorkflowStep } from './steps/WorkflowStep'
 import { DistributionStep } from './steps/DistributionStep'
 import { ReviewStep } from './steps/ReviewStep'
 
+const VALID_STEPS: StudioStep[] = [
+  'basics',
+  'details',
+  'requirements',
+  'application',
+  'workflow',
+  'distribution',
+  'review',
+]
+
+function normalizeStep(raw: string | null): StudioStep {
+  if (raw && (VALID_STEPS as string[]).includes(raw)) return raw as StudioStep
+  return 'basics'
+}
+
 export function StudioShell({ draftId }: { draftId: string }) {
   const router = useRouter()
   const sp = useSearchParams()
@@ -29,22 +44,27 @@ export function StudioShell({ draftId }: { draftId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [step, setStep] = useState<StudioStep>(() => normalizeStep(sp.get('step')))
 
-  const initialStep = (sp.get('step') as StudioStep) || 'basics'
-  const [step, setStep] = useState<StudioStep>(initialStep)
-
-  const pendingSaveRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingPatchRef = useRef<Record<string, any>>({})
   const isMountedRef = useRef(true)
+  const savingRef = useRef(false)
+  const draftRef = useRef<StudioDraft | null>(null)
+  const lastStepInUrlRef = useRef<string | null>(sp.get('step'))
+
+  useEffect(() => {
+    draftRef.current = draft
+  }, [draft])
 
   useEffect(() => {
     isMountedRef.current = true
     return () => {
       isMountedRef.current = false
+      if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
     }
   }, [])
 
-  // Load draft
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -54,21 +74,31 @@ export function StudioShell({ draftId }: { draftId: string }) {
       })
       const d = await res.json().catch(() => null)
       if (!res.ok) throw new Error(d?.error || 'Failed to load')
-      setDraft(d)
+      if (isMountedRef.current) {
+        setDraft(d)
+        draftRef.current = d
+      }
     } catch (e: any) {
-      setError(e?.message || 'Failed to load draft')
+      if (isMountedRef.current) setError(e?.message || 'Failed to load draft')
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) setLoading(false)
     }
   }, [draftId])
 
+  // Load once per draftId only — never on a timer / save error
   useEffect(() => {
     load()
   }, [load])
 
-  // URL sync
+  // URL sync — do NOT depend on `sp` object identity
   useEffect(() => {
-    const p = new URLSearchParams(sp.toString())
+    const desired = step === 'basics' ? null : step
+    if (lastStepInUrlRef.current === desired) return
+    lastStepInUrlRef.current = desired
+
+    const p = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : ''
+    )
     if (step === 'basics') p.delete('step')
     else p.set('step', step)
     const qs = p.toString()
@@ -76,68 +106,79 @@ export function StudioShell({ draftId }: { draftId: string }) {
       `/looking-for/create-v2/${draftId}${qs ? `?${qs}` : ''}`,
       { scroll: false }
     )
-  }, [step, draftId, sp, router])
+  }, [step, draftId, router])
 
-  // Autosave function — debounced
   const savePatch = useCallback(async () => {
-    const patch = pendingPatchRef.current
+    if (savingRef.current) return
+
+    const patch = { ...pendingPatchRef.current }
     if (Object.keys(patch).length === 0) return
+
+    // Clear queue up-front; keystrokes during save re-queue into pendingPatchRef
     pendingPatchRef.current = {}
-    setSaveStatus('saving')
+    savingRef.current = true
+    if (isMountedRef.current) setSaveStatus('saving')
 
     try {
       const res = await fetch(`/api/opportunities/drafts/${draftId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patch,
-          expected_updated_at: draft?.opportunity?.updated_at,
-        }),
+        body: JSON.stringify({ patch }), // last-write-wins — no expected_updated_at
       })
       const d = await res.json().catch(() => null)
+
       if (!res.ok) {
-        if (d?.code === 'stale') {
-          if (isMountedRef.current) {
-            setSaveStatus('error')
-            await load()
-            setSaveStatus('saved')
-          }
-          return
-        }
+        // Re-queue failed patch so a later edit / flush can retry
+        pendingPatchRef.current = { ...patch, ...pendingPatchRef.current }
         throw new Error(d?.error || 'Save failed')
       }
 
       if (isMountedRef.current) {
-        setDraft((prev) =>
-          prev
-            ? {
-                ...prev,
-                opportunity: {
-                  ...prev.opportunity,
-                  ...patch,
-                  updated_at: d.updated_at,
-                },
-              }
-            : prev
-        )
+        setDraft((prev) => {
+          if (!prev) return prev
+          const next = {
+            ...prev,
+            opportunity: {
+              ...prev.opportunity,
+              ...patch,
+              updated_at: d?.updated_at || prev.opportunity?.updated_at,
+            },
+          }
+          draftRef.current = next
+          return next
+        })
         setLastSavedAt(new Date())
         setSaveStatus('saved')
       }
+
+      // User typed while saving → flush remaining queue
+      if (Object.keys(pendingPatchRef.current).length > 0) {
+        if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
+        pendingSaveRef.current = setTimeout(() => {
+          savePatch()
+        }, 500)
+      }
     } catch (e: any) {
       console.error('Save failed:', e)
+      // Do NOT call load() here — that was wiping the form
       if (isMountedRef.current) setSaveStatus('error')
+    } finally {
+      savingRef.current = false
     }
-  }, [draftId, draft?.opportunity?.updated_at, load])
+  }, [draftId])
 
-  // Update a field (optimistic + debounced save)
   const updateField = useCallback(
     (patch: Record<string, any>) => {
-      if (!draft) return
-      setDraft((prev) =>
-        prev
-          ? { ...prev, opportunity: { ...prev.opportunity, ...patch } }
-          : prev
-      )
+      setDraft((prev) => {
+        if (!prev) return prev
+        const next = {
+          ...prev,
+          opportunity: { ...prev.opportunity, ...patch },
+        }
+        draftRef.current = next
+        return next
+      })
+
       pendingPatchRef.current = { ...pendingPatchRef.current, ...patch }
 
       if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
@@ -145,10 +186,9 @@ export function StudioShell({ draftId }: { draftId: string }) {
         savePatch()
       }, 800)
     },
-    [draft, savePatch]
+    [savePatch]
   )
 
-  // Force immediate save
   const flushSave = useCallback(async () => {
     if (pendingSaveRef.current) {
       clearTimeout(pendingSaveRef.current)
@@ -157,6 +197,7 @@ export function StudioShell({ draftId }: { draftId: string }) {
     await savePatch()
   }, [savePatch])
 
+  // Manual refresh only — never call from save/error paths
   const refresh = useCallback(async () => {
     await load()
   }, [load])
@@ -178,9 +219,7 @@ export function StudioShell({ draftId }: { draftId: string }) {
       <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex items-center justify-center">
         <div className="text-center max-w-md px-6">
           <Warning size={22} className="mx-auto mb-3 text-red-400" />
-          <div className="text-[15px] font-bold text-white mb-1">
-            Couldn't load draft
-          </div>
+          <div className="text-[15px] font-bold text-white mb-1">Couldn't load draft</div>
           <div className="text-[12.5px] text-zinc-500 mb-5">
             {error || "Draft not found or you don't have access."}
           </div>

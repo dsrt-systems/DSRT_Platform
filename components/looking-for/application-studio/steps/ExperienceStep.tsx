@@ -5,12 +5,12 @@ import { AppStepFooter } from './AppStepFooter'
 import { Briefcase } from '@phosphor-icons/react'
 
 export function ExperienceStep() {
-  const { updateField } = useAppStudio()
+  const { draft, updateField } = useAppStudio()
+  const app = draft.application || {}
 
   return (
     <>
       <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-8">
-        
         <div className="space-y-6">
           <div>
             <h2 className="text-[20px] font-bold text-white mb-1">Professional Context</h2>
@@ -26,13 +26,13 @@ export function ExperienceStep() {
             </div>
 
             <div className="space-y-5">
-              {/* Availability */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
                   When can you start?
                 </label>
                 <select
-                  onChange={(e) => updateField({ availability: e.target.value })}
+                  value={app.availability || ''}
+                  onChange={(e) => updateField({ availability: e.target.value || null })}
                   className="w-full max-w-md h-11 px-4 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-200 focus:outline-none focus:border-zinc-600 appearance-none"
                 >
                   <option value="">Select option...</option>
@@ -43,20 +43,23 @@ export function ExperienceStep() {
                 </select>
               </div>
 
-              {/* Hours */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
                   Expected Hours / Week
                 </label>
                 <input
                   type="number"
-                  onChange={(e) => updateField({ expected_hours: e.target.value ? Number(e.target.value) : null })}
+                  value={app.expected_hours ?? ''}
+                  onChange={(e) =>
+                    updateField({
+                      expected_hours: e.target.value ? Number(e.target.value) : null,
+                    })
+                  }
                   placeholder="e.g. 20"
                   className="w-full max-w-xs h-11 px-4 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
                 />
               </div>
 
-              {/* Compensation (if applicable) */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
                   Proposed Compensation (Optional)
@@ -64,12 +67,22 @@ export function ExperienceStep() {
                 <div className="flex gap-2 max-w-md">
                   <input
                     type="number"
-                    onChange={(e) => updateField({ proposed_compensation: e.target.value ? Number(e.target.value) : null })}
+                    value={app.proposed_compensation ?? ''}
+                    onChange={(e) =>
+                      updateField({
+                        proposed_compensation: e.target.value ? Number(e.target.value) : null,
+                      })
+                    }
                     placeholder="Amount"
                     className="flex-1 h-11 px-4 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
                   />
                   <select
-                    onChange={(e) => updateField({ proposed_compensation_type: e.target.value })}
+                    value={app.proposed_compensation_type || ''}
+                    onChange={(e) =>
+                      updateField({
+                        proposed_compensation_type: e.target.value || null,
+                      })
+                    }
                     className="w-32 h-11 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-[13px] text-zinc-200 focus:outline-none focus:border-zinc-600 appearance-none"
                   >
                     <option value="">Type...</option>
@@ -86,13 +99,16 @@ export function ExperienceStep() {
 
         <div className="hidden lg:block">
           <div className="sticky top-[100px] rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-3">Honesty Matters</h3>
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-3">
+              Honesty Matters
+            </h3>
             <p className="text-[12px] text-zinc-400 leading-relaxed">
-              If the opportunity specifies a required time commitment, ensure your proposed hours align with it. Mismatched expectations are the #1 reason applications are rejected early.
+              If the opportunity specifies a required time commitment, ensure your proposed hours
+              align with it. Mismatched expectations are the #1 reason applications are rejected
+              early.
             </p>
           </div>
         </div>
-
       </div>
 
       <AppStepFooter prev="profile" next="questions" />

@@ -162,16 +162,6 @@ export async function PATCH(
   const patch = body.patch || {}
   const expectedUpdatedAt = body.expected_updated_at || null
 
-  if (expectedUpdatedAt && gate.opp.updated_at !== expectedUpdatedAt) {
-    return NextResponse.json(
-      {
-        error: 'Stale write. Draft was modified elsewhere.',
-        code: 'stale',
-        current_updated_at: gate.opp.updated_at,
-      },
-      { status: 409 }
-    )
-  }
 
   const clean: Record<string, any> = {}
   for (const [k, v] of Object.entries(patch)) {
