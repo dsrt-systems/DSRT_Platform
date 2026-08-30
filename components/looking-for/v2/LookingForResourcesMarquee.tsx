@@ -58,7 +58,7 @@ const LOOKING_FOR_RESOURCES: ResourceItem[] = [
     provider: 'Frank Slootman',
     category: 'HIRING & TEAMS',
     url: 'https://www.snowflake.com/blog/amp-it-up/',
-    description: 'How Snowflake’s CEO raises standards, speeds decisions, and hires elite contributors.',
+    description: "How Snowflake's CEO raises standards, speeds decisions, and hires elite contributors.",
     is_hidden_gem: false,
   },
   {
@@ -72,7 +72,7 @@ const LOOKING_FOR_RESOURCES: ResourceItem[] = [
   },
   {
     id: 'lf-res-7',
-    title: 'The Founder’s Dilemmas: Equity Splits & Control',
+    title: "The Founder's Dilemmas: Equity Splits & Control",
     provider: 'Noam Wasserman',
     category: 'COFOUNDER & EQUITY',
     url: 'https://www.hbs.edu',
@@ -189,7 +189,7 @@ const LOOKING_FOR_RESOURCES: ResourceItem[] = [
   },
   {
     id: 'lf-res-20',
-    title: 'Lenny’s Hiring & Interview Playbook',
+    title: "Lenny's Hiring & Interview Playbook",
     provider: 'Lenny Rachitsky',
     category: 'HIRING & TEAMS',
     url: 'https://www.lennysnewsletter.com',
@@ -279,7 +279,7 @@ const LOOKING_FOR_RESOURCES: ResourceItem[] = [
   },
   {
     id: 'lf-res-30',
-    title: 'Do Things That Don’t Scale',
+    title: "Do Things That Don't Scale",
     provider: 'Paul Graham',
     category: 'FOUNDER & CAREER',
     url: 'https://paulgraham.com/ds.html',
@@ -333,6 +333,22 @@ const LOOKING_FOR_RESOURCES: ResourceItem[] = [
   },
 ]
 
+function notifySuccess(message: string) {
+  try {
+    toast.success(message)
+  } catch {
+    // never crash the app if toast provider is missing
+  }
+}
+
+function notifyError(message: string) {
+  try {
+    toast.error(message)
+  } catch {
+    // never crash the app if toast provider is missing
+  }
+}
+
 export function LookingForResourcesMarquee() {
   const [isPaused, setIsPaused] = useState(false)
   const [duplicated, setDuplicated] = useState<ResourceItem[]>([])
@@ -347,14 +363,23 @@ export function LookingForResourcesMarquee() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/resources/save')
-      .then((r) => (r.ok ? r.json() : { saved: [] }))
-      .then((d) => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/resources/save')
+        if (!res.ok) return
+        const d = await res.json().catch(() => ({}))
+        if (cancelled) return
         if (Array.isArray(d.saved)) {
-          setSavedIds(new Set(d.saved.map((s: any) => s.resource_id || s)))
+          setSavedIds(new Set(d.saved.map((s: any) => s?.resource_id || s).filter(Boolean)))
         }
-      })
-      .catch(() => {})
+      } catch {
+        // optional feature — ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleToggleSave = async (item: ResourceItem, wasSaved: boolean) => {
@@ -366,12 +391,13 @@ export function LookingForResourcesMarquee() {
     })
 
     try {
-      await fetch('/api/resources/save', {
+      const res = await fetch('/api/resources/save', {
         method: wasSaved ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resource_id: item.id, source_type: 'founder' }),
       })
-      toast.success(wasSaved ? 'Removed from saved' : 'Saved to your library')
+      if (!res.ok) throw new Error('save failed')
+      notifySuccess(wasSaved ? 'Removed from saved' : 'Saved to your library')
     } catch {
       setSavedIds((prev) => {
         const next = new Set(prev)
@@ -379,16 +405,17 @@ export function LookingForResourcesMarquee() {
         else next.delete(item.id)
         return next
       })
-      toast.error('Could not update saved status')
+      notifyError('Could not update saved status')
     }
   }
 
-  // Match Projects Technical Library pacing: slow, calm, continuous
+  // Slow continuous scroll (Technical Library pacing)
   const durationSeconds = Math.max(LOOKING_FOR_RESOURCES.length * 9, 280)
+
+  if (duplicated.length === 0) return null
 
   return (
     <div className="mt-20 pt-12 border-t border-white/[0.08]">
-      {/* Header — same structure as DSRT Technical Library */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#121215] border border-white/[0.08] flex items-center justify-center shrink-0 overflow-hidden">
@@ -416,7 +443,6 @@ export function LookingForResourcesMarquee() {
         </Link>
       </div>
 
-      {/* Marquee — open, no heavy outer frame, soft edge fades */}
       <div
         className="relative overflow-hidden rounded-2xl"
         onMouseEnter={() => setIsPaused(true)}
@@ -444,7 +470,6 @@ export function LookingForResourcesMarquee() {
                 rel="noopener noreferrer"
                 className="group flex-shrink-0 w-[300px] p-5 bg-[#121215] border border-white/[0.06] hover:border-white/[0.16] rounded-xl transition-all block relative"
               >
-                {/* Save — top right */}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -452,17 +477,17 @@ export function LookingForResourcesMarquee() {
                     e.stopPropagation()
                     handleToggleSave(item, isSaved)
                   }}
-                  className={`absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
-                    isSaved
+                  className={
+                    'absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center transition-all ' +
+                    (isSaved
                       ? 'bg-white/[0.08] text-white'
-                      : 'bg-transparent text-zinc-600 hover:bg-white/[0.06] hover:text-white'
-                  }`}
+                      : 'bg-transparent text-zinc-600 hover:bg-white/[0.06] hover:text-white')
+                  }
                   aria-label={isSaved ? 'Remove from saved' : 'Save'}
                 >
                   <BookmarkSimple size={13} weight={isSaved ? 'fill' : 'regular'} />
                 </button>
 
-                {/* Category + classic star */}
                 <div className="flex items-center gap-2 mb-3 pr-8">
                   <p className="text-[9.5px] font-mono uppercase tracking-widest text-zinc-500 font-bold flex-1 truncate">
                     {item.category}
