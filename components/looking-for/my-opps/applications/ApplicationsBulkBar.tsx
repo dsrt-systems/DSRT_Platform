@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { CheckCircle, XCircle, ChatCircle, PauseCircle, ArrowsClockwise, Star, X } from '@phosphor-icons/react'
 
+// Standardized exactly to the DB constraint
 const STAGE_OPTIONS = [
-  { key: 'under-review', label: 'Move to Reviewing', Icon: PauseCircle },
-  { key: 'shortlisted',  label: 'Shortlist',          Icon: CheckCircle },
-  { key: 'interview',    label: 'Move to Interview',  Icon: ChatCircle },
-  { key: 'accepted',     label: 'Select',             Icon: CheckCircle },
-  { key: 'declined',     label: 'Reject',             Icon: XCircle },
+  { key: 'reviewing',    label: 'Reviewing',   Icon: PauseCircle },
+  { key: 'screening',    label: 'Shortlist',   Icon: CheckCircle },
+  { key: 'interviewing', label: 'Interview',   Icon: ChatCircle },
+  { key: 'hired',        label: 'Select',      Icon: CheckCircle },
+  { key: 'rejected',     label: 'Reject',      Icon: XCircle },
 ]
 
 export function ApplicationsBulkBar({
@@ -42,61 +43,67 @@ export function ApplicationsBulkBar({
 
   return (
     <div className="sticky bottom-4 z-30 flex justify-center pointer-events-none">
-      <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-zinc-800 bg-[#0c0c0e]/95 backdrop-blur-md px-2.5 py-2 shadow-[0_12px_40px_rgba(0,0,0,0.6)]">
-        <div className="px-2 text-[12px] text-zinc-300 font-semibold">
+      <div className="pointer-events-auto flex items-center h-12 rounded-xl border border-zinc-800 bg-[#0c0c0e]/95 backdrop-blur-md shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden divide-x divide-zinc-800">
+        
+        {/* Count */}
+        <div className="px-4 text-[12.5px] text-zinc-300 font-semibold flex items-center">
           {selectedIds.length} selected
         </div>
-        <div className="h-5 w-px bg-zinc-800 mx-1" />
 
-        {STAGE_OPTIONS.map(s => (
+        {/* Stages */}
+        <div className="flex items-stretch h-full divide-x divide-zinc-800">
+          {STAGE_OPTIONS.map(s => (
+            <button
+              key={s.key}
+              onClick={() => {
+                if (s.key === 'rejected' && !confirm(`Reject ${selectedIds.length} applicant(s)?`)) return
+                run({ action: 'set_stage', stage: s.key }, s.key)
+              }}
+              disabled={!!busy}
+              className={
+                'inline-flex items-center justify-center gap-1.5 px-4 text-[12px] font-semibold transition-colors disabled:opacity-60 h-full ' +
+                (s.key === 'rejected'
+                  ? 'text-zinc-400 hover:text-red-300 hover:bg-red-500/10'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/50')
+              }
+            >
+              {busy === s.key
+                ? <span className="w-3 h-3 rounded-full border-2 border-zinc-700 border-t-white animate-spin" />
+                : <s.Icon size={14} weight="regular" />}
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Stars */}
+        <div className="flex items-stretch h-full divide-x divide-zinc-800">
           <button
-            key={s.key}
-            onClick={() => {
-              if (s.key === 'declined' && !confirm(`Reject ${selectedIds.length} applicant(s)?`)) return
-              run({ action: 'set_stage', stage: s.key }, s.key)
-            }}
+            onClick={() => run({ action: 'star', value: true }, 'star')}
             disabled={!!busy}
-            className={
-              'inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-[12px] font-semibold transition-colors disabled:opacity-60 ' +
-              (s.key === 'declined'
-                ? 'border-red-500/30 text-red-300 hover:bg-red-500/10'
-                : 'border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-600')
-            }
+            className="inline-flex items-center justify-center gap-1.5 px-4 text-[12px] font-semibold text-zinc-400 hover:text-white hover:bg-zinc-800/50 h-full transition-colors"
           >
-            {busy === s.key
-              ? <span className="w-3 h-3 rounded-full border-2 border-zinc-700 border-t-white animate-spin" />
-              : <s.Icon size={12} weight="regular" />}
-            {s.label}
+            <Star size={14} weight="regular" />
+            Star
           </button>
-        ))}
+          <button
+            onClick={() => run({ action: 'star', value: false }, 'unstar')}
+            disabled={!!busy}
+            className="inline-flex items-center justify-center gap-1.5 px-4 text-[12px] font-semibold text-zinc-400 hover:text-white hover:bg-zinc-800/50 h-full transition-colors"
+          >
+            <ArrowsClockwise size={14} weight="regular" />
+            Unstar
+          </button>
+        </div>
 
-        <div className="h-5 w-px bg-zinc-800 mx-1" />
-
-        <button
-          onClick={() => run({ action: 'star', value: true }, 'star')}
-          disabled={!!busy}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-800 text-[12px] font-semibold text-zinc-300 hover:text-white hover:border-zinc-600"
-        >
-          <Star size={12} weight="regular" />
-          Star
-        </button>
-        <button
-          onClick={() => run({ action: 'star', value: false }, 'unstar')}
-          disabled={!!busy}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-zinc-800 text-[12px] font-semibold text-zinc-300 hover:text-white hover:border-zinc-600"
-        >
-          <ArrowsClockwise size={12} weight="regular" />
-          Unstar
-        </button>
-
-        <div className="h-5 w-px bg-zinc-800 mx-1" />
+        {/* Clear */}
         <button
           onClick={onClear}
-          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[12px] font-semibold text-zinc-400 hover:text-white"
+          className="inline-flex items-center justify-center gap-1.5 px-4 h-full text-[12px] font-semibold text-zinc-500 hover:text-white hover:bg-zinc-800/50 transition-colors"
         >
-          <X size={11} weight="bold" />
+          <X size={12} weight="bold" />
           Clear
         </button>
+
       </div>
     </div>
   )

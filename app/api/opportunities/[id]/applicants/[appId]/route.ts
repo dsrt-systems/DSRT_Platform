@@ -66,10 +66,11 @@ export async function PATCH(
       update.reviewed_by = user.id
       update.reviewed_at = new Date().toISOString()
 
-      if (pipeline_stage === 'accepted') update.status = 'accepted'
-      else if (pipeline_stage === 'declined') update.status = 'declined'
+      // Map to valid status check constraint values
+      if (pipeline_stage === 'hired') update.status = 'accepted'
+      else if (pipeline_stage === 'rejected') update.status = 'rejected'
       else if (pipeline_stage === 'withdrawn') update.status = 'withdrawn'
-      else if (status === undefined) update.status = 'pending'
+      else if (status === undefined) update.status = 'under_review'
     }
 
     if (status !== undefined) update.status = status
@@ -105,10 +106,10 @@ export async function PATCH(
       })
 
       const eventMap: Record<string, string> = {
-        shortlisted: 'applicant_shortlisted',
-        declined: 'applicant_rejected',
-        interview: 'interview_started',
-        accepted: 'applicant_selected',
+        screening: 'applicant_shortlisted',
+        rejected: 'applicant_rejected',
+        interviewing: 'interview_started',
+        hired: 'applicant_selected',
       }
 
       if (eventMap[pipeline_stage]) {

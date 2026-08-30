@@ -18,22 +18,23 @@ import { TeamInvitationStatus } from '@/components/looking-for/team-invitations/
 
 const STAGE_ORDER = [
   'submitted',
-  'under-review',
-  'shortlisted',
-  'interview',
-  'offer',
-  'accepted',
-  'declined',
+  'reviewing',
+  'screening',
+  'interviewing',
+  'offered',
+  'hired',
+  'rejected',
   'withdrawn',
 ]
+
 const STAGE_LABEL: Record<string, string> = {
   submitted: 'New',
-  'under-review': 'Reviewing',
-  shortlisted: 'Shortlisted',
-  interview: 'Interview',
-  offer: 'Offer',
-  accepted: 'Selected',
-  declined: 'Rejected',
+  reviewing: 'Reviewing',
+  screening: 'Shortlisted',
+  interviewing: 'Interview',
+  offered: 'Offer',
+  hired: 'Selected',
+  rejected: 'Rejected',
   withdrawn: 'Withdrawn',
 }
 
@@ -351,7 +352,7 @@ export function ApplicantSidePanel({
           </Section>
         )}
 
-        {/* Team Invitation Status (visible when applicant is selected) */}
+        {/* Team Invitation Status */}
         <TeamInvitationStatus
           applicationId={app.id}
           opportunityId={opp.id}
@@ -431,7 +432,7 @@ function StageBar({
   onChange: (stage: string) => Promise<void> | void
 }) {
   const progress = STAGE_ORDER.filter(
-    (s) => !['declined', 'withdrawn'].includes(s)
+    (s) => !['rejected', 'withdrawn'].includes(s)
   )
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -454,10 +455,10 @@ function StageBar({
       ))}
       <span className="mx-1 text-zinc-700">·</span>
       <button
-        onClick={() => onChange('declined')}
+        onClick={() => onChange('rejected')}
         className={
           'inline-flex items-center h-7 px-2.5 rounded-md text-[11.5px] font-semibold border transition-colors ' +
-          (current === 'declined'
+          (current === 'rejected'
             ? 'border-red-500/30 bg-red-500/10 text-red-300'
             : 'border-zinc-800 text-zinc-400 hover:text-red-300 hover:border-red-500/30')
         }

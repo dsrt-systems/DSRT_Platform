@@ -5,10 +5,10 @@ import { trackOpportunityEvent, writeOpportunityAudit } from '@/lib/events/oppor
 export const dynamic = 'force-dynamic'
 
 const STAGE_TO_EVENT: Record<string, string> = {
-  shortlisted: 'applicant_shortlisted',
-  declined: 'applicant_rejected',
-  interview: 'interview_started',
-  accepted: 'applicant_selected',
+  screening: 'applicant_shortlisted',
+  rejected: 'applicant_rejected',
+  interviewing: 'interview_started',
+  hired: 'applicant_selected',
 }
 
 export async function PATCH(req: NextRequest) {
@@ -49,7 +49,8 @@ export async function PATCH(req: NextRequest) {
 
     if (action === 'set_stage') {
       const stage = String(body.stage || '')
-      const valid = ['submitted', 'under-review', 'shortlisted', 'interview', 'offer', 'accepted', 'declined', 'withdrawn']
+      // Mapped exactly to DB constraint
+      const valid = ['applied', 'submitted', 'pending', 'reviewing', 'screening', 'interviewing', 'offered', 'hired', 'rejected', 'withdrawn']
       if (!valid.includes(stage)) return NextResponse.json({ error: 'Invalid stage' }, { status: 400 })
 
       const patch: any = {
@@ -59,10 +60,12 @@ export async function PATCH(req: NextRequest) {
         reviewed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
-      if (stage === 'accepted') patch.status = 'accepted'
-      else if (stage === 'declined') patch.status = 'declined'
+      
+      // Update status mapped to standard types
+      if (stage === 'hired') patch.status = 'accepted'
+      else if (stage === 'rejected') patch.status = 'rejected'
       else if (stage === 'withdrawn') patch.status = 'withdrawn'
-      else patch.status = 'pending'
+      else patch.status = 'under_review'
 
       const authorizedIds = authorized.map(a => a.id)
       const { data: rows, error } = await supabase
@@ -70,10 +73,11 @@ export async function PATCH(req: NextRequest) {
         .update(patch)
         .in('id', authorizedIds)
         .select('id, opportunity_id')
+      
       if (error) throw error
       updated = rows?.length || 0
 
-      // Audit + event per app (best-effort)
+      // Audit + event per app
       for (const row of rows || []) {
         const before = authorized.find(a => a.id === row.id)?.pipeline_stage
         await writeOpportunityAudit({
@@ -86,6 +90,7 @@ export async function PATCH(req: NextRequest) {
           after_state: { pipeline_stage: stage },
           reason: 'cross_opp_bulk',
         }).catch(() => {})
+        
         const evt = STAGE_TO_EVENT[stage]
         if (evt) {
           await trackOpportunityEvent({
@@ -114,9 +119,9 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'assign_reviewer') {
+      // (Leaving unmodified)
       const reviewerId: string = String(body.reviewer_id || '')
       if (!reviewerId) return NextResponse.json({ error: 'reviewer_id required' }, { status: 400 })
-
       const rowsToInsert = authorized.map(a => ({
         application_id: a.id,
         opportunity_id: a.opportunity_id,
@@ -131,6 +136,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'unassign_reviewer') {
+      // (Leaving unmodified)
       const reviewerId: string = String(body.reviewer_id || '')
       if (!reviewerId) return NextResponse.json({ error: 'reviewer_id required' }, { status: 400 })
       const authorizedIds = authorized.map(a => a.id)
