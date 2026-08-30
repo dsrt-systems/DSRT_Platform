@@ -5,7 +5,7 @@ import { trackOpportunityEvent } from '@/lib/events/opportunity-events'
 export const dynamic = 'force-dynamic'
 
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
@@ -14,19 +14,40 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { data: opp } = await supabase
+    const { data: opp, error: oppErr } = await supabase
       .from('opportunities')
-      .select('id, poster_user_id, status, applications_open, application_deadline, max_applications, application_count')
+      .select(
+        'id, poster_user_id, status, applications_open, application_deadline, max_applications, application_count'
+      )
       .eq('id', id)
       .single()
 
-    if (!opp) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    if (opp.poster_user_id === user.id) return NextResponse.json({ error: 'Cannot apply to your own opportunity' }, { status: 400 })
+    if (oppErr || !opp) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    if (opp.poster_user_id === user.id) {
+      return NextResponse.json(
+        { error: 'Cannot apply to your own opportunity' },
+        { status: 400 }
+      )
+    }
     if (!opp.applications_open || !['active', 'closing-soon'].includes(opp.status)) {
       return NextResponse.json({ error: 'Applications are closed' }, { status: 400 })
     }
+    if (opp.application_deadline && new Date(opp.application_deadline) < new Date()) {
+      return NextResponse.json(
+        { error: 'The application deadline has passed' },
+        { status: 400 }
+      )
+    }
+    if (opp.max_applications && (opp.application_count ?? 0) >= opp.max_applications) {
+      return NextResponse.json(
+        { error: 'Maximum applications reached' },
+        { status: 400 }
+      )
+    }
 
-    // 1. Check if application already exists
+    // 1. Check existing
     const { data: existing } = await supabase
       .from('opportunity_applications')
       .select('id, pipeline_stage')
@@ -35,28 +56,58 @@ export async function POST(
       .maybeSingle()
 
     if (existing) {
+      // Already submitted / in review / accepted / rejected → hard block
       if (existing.pipeline_stage !== 'draft' && existing.pipeline_stage !== 'withdrawn') {
-        return NextResponse.json({ error: 'Already applied', application_id: existing.id, status: existing.pipeline_stage }, { status: 409 })
+        return NextResponse.json(
+          {
+            error: 'Already applied',
+            application_id: existing.id,
+            status: existing.pipeline_stage,
+          },
+          { status: 409 }
+        )
       }
+
+      // Draft → resume same draft
       if (existing.pipeline_stage === 'draft') {
         return NextResponse.json({ application_id: existing.id })
       }
+
+      // Withdrawn → reopen the SAME row as a fresh draft (fixes unique-constraint conflict)
+      const { data: reopened, error: reopenErr } = await supabase
+        .from('opportunity_applications')
+        .update({
+          pipeline_stage: 'draft',
+          status: 'draft',
+          stage_updated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .eq('applicant_id', user.id)
+        .select('id')
+        .single()
+
+      if (reopenErr) throw reopenErr
+
+      return NextResponse.json({ application_id: reopened.id })
     }
 
-    // 2. Snapshot current profile to seed the draft
+    // 2. Snapshot profile
     const { data: profile } = await supabase
       .from('users')
-      .select('full_name, username, avatar_url, tagline, bio, location, is_verified, profile_tags, linkedin_url, github_url, website')
+      .select(
+        'full_name, username, avatar_url, tagline, bio, location, is_verified, profile_tags, linkedin_url, github_url, website'
+      )
       .eq('id', user.id)
       .single()
 
     const snapshot = {
-      ...profile,
+      ...(profile || {}),
       snapshot_at: new Date().toISOString(),
     }
 
-    // 3. Create Draft
-    const { data: draft, error } = await supabase
+    // 3. Create draft
+    const { data: draft, error: insertErr } = await supabase
       .from('opportunity_applications')
       .insert({
         opportunity_id: id,
@@ -72,9 +123,9 @@ export async function POST(
       .select('id')
       .single()
 
-    if (error) throw error
+    if (insertErr) throw insertErr
 
-    await trackOpportunityEvent({
+    trackOpportunityEvent({
       opportunity_id: id,
       user_id: user.id,
       event_type: 'application_started',
@@ -84,7 +135,10 @@ export async function POST(
 
     return NextResponse.json({ application_id: draft.id })
   } catch (e: any) {
-    console.error('Init application error:', e)
-    return NextResponse.json({ error: e?.message || 'Failed to start application' }, { status: 500 })
+    console.error('[apply init] error:', e)
+    return NextResponse.json(
+      { error: e?.message || 'Failed to start application' },
+      { status: 500 }
+    )
   }
 }
