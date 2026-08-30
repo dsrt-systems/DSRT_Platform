@@ -104,8 +104,14 @@ export function PortfolioTable({
           <tbody className="divide-y divide-zinc-800/70">
             {items.map(op => {
               const isSel = selected.has(op.id)
-              const awaiting = Math.max(0, (op.application_count || 0) - (op.qualified_count || 0))
-              const inProg = (op.qualified_count || 0)
+              
+              // Prefer live-computed value; fall back to derivation for older payloads.
+              const awaiting =
+                typeof op.awaiting_count === 'number'
+                  ? op.awaiting_count
+                  : Math.max(0, (op.application_count || 0) - (op.qualified_count || 0))
+              const inProg = op.qualified_count || 0
+
               const linked =
                 op.project?.name ? { label: op.project.name, kind: 'Project' } :
                 op.venture?.name ? { label: op.venture.name, kind: 'Venture' } :

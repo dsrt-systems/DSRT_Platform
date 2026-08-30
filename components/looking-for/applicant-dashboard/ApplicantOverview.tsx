@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { FileText, ChatCircle, Handshake, WarningCircle, CheckCircle } from '@phosphor-icons/react'
 import { ApplicationList } from './ApplicationList'
+
+const ATTENTION_STAGES = new Set(['offered', 'interviewing', 'offer', 'interview'])
 
 export function ApplicantOverview() {
   const sp = useSearchParams()
@@ -15,25 +17,40 @@ export function ApplicantOverview() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const mountedRef = useRef(true)
+  const inflightRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      mountedRef.current = false
+      inflightRef.current?.abort()
+    }
   }, [])
 
-  const load = async (cursor?: string) => {
-    if (cursor) setLoadingMore(true); else setLoading(true)
-    try {
-      const p = new URLSearchParams()
-      if (filter !== 'all') p.set('filter', filter)
-      if (search) p.set('search', search)
-      if (sort !== 'recent_activity') p.set('sort', sort)
-      if (cursor) p.set('cursor', cursor)
+  const load = useCallback(
+    async (cursor?: string) => {
+      inflightRef.current?.abort()
+      const ac = new AbortController()
+      inflightRef.current = ac
 
-      const res = await fetch(`/api/opportunities/my-applications?${p.toString()}`)
-      const d = await res.json()
+      if (cursor) setLoadingMore(true)
+      else setLoading(true)
 
-      if (mountedRef.current) {
+      try {
+        const p = new URLSearchParams()
+        if (filter !== 'all') p.set('filter', filter)
+        if (search) p.set('search', search)
+        if (sort !== 'recent_activity') p.set('sort', sort)
+        if (cursor) p.set('cursor', cursor)
+
+        const res = await fetch(`/api/opportunities/my-applications?${p.toString()}`, {
+          signal: ac.signal,
+          cache: 'no-store',
+        })
+        const d = await res.json()
+
+        if (!mountedRef.current) return
+
         if (cursor && data) {
           setData({
             ...d,
@@ -42,33 +59,59 @@ export function ApplicantOverview() {
         } else {
           setData(d)
         }
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') console.error(e)
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false)
+          setLoadingMore(false)
+        }
       }
-    } catch {}
-    finally {
-      if (mountedRef.current) {
-        setLoading(false)
-        setLoadingMore(false)
-      }
-    }
-  }
+    },
+    // Intentionally omit `data` from deps to keep load stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filter, search, sort]
+  )
 
-  useEffect(() => { load() }, [filter, search, sort])
-
-  // Window focus refetch
+  // Reload whenever filters change
   useEffect(() => {
-    const handler = () => { if (document.visibilityState === 'visible') load() }
-    document.addEventListener('visibilitychange', handler)
-    return () => document.removeEventListener('visibilitychange', handler)
-  }, [filter, search, sort])
+    load()
+  }, [load])
+
+  // Refetch on tab focus / visibility so stage changes appear without manual refresh
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') load()
+    }
+    const onFocus = () => load()
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [load])
+
+  // Poll every 30s so applicants see stage moves live
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') load()
+    }, 30000)
+    return () => clearInterval(t)
+  }, [load])
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[0,1,2,3].map(i => <div key={i} className="h-24 rounded-2xl bg-zinc-900/40 animate-pulse border border-zinc-800/80" />)}
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-2xl bg-zinc-900/40 animate-pulse border border-zinc-800/80" />
+          ))}
         </div>
         <div className="space-y-2">
-          {[0,1,2].map(i => <div key={i} className="h-20 rounded-2xl bg-zinc-900/40 animate-pulse border border-zinc-800/80" />)}
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-20 rounded-2xl bg-zinc-900/40 animate-pulse border border-zinc-800/80" />
+          ))}
         </div>
       </div>
     )
@@ -78,7 +121,9 @@ export function ApplicantOverview() {
 
   const stats = data.stats || {}
   const apps = data.applications || []
-  const attentionItems = apps.filter((a: any) => a.unread_messages > 0 || a.pipeline_stage === 'offer' || a.pipeline_stage === 'interview')
+  const attentionItems = apps.filter(
+    (a: any) => a.unread_messages > 0 || ATTENTION_STAGES.has(a.pipeline_stage)
+  )
 
   return (
     <div className="space-y-8">
@@ -100,14 +145,24 @@ export function ApplicantOverview() {
           </div>
           <div className="divide-y divide-zinc-800/60 p-2">
             {attentionItems.map((a: any) => (
-              <a key={a.id} href={`/looking-for/my-applications/${a.id}`} className="flex items-center justify-between p-3 hover:bg-zinc-900/40 rounded-xl transition-colors group">
+              <a
+                key={a.id}
+                href={`/looking-for/my-applications/${a.id}`}
+                className="flex items-center justify-between p-3 hover:bg-zinc-900/40 rounded-xl transition-colors group"
+              >
                 <div>
-                  <div className="text-[13px] font-semibold text-white group-hover:text-blue-300">{a.opportunity?.title}</div>
+                  <div className="text-[13px] font-semibold text-white group-hover:text-blue-300">
+                    {a.opportunity?.title}
+                  </div>
                   <div className="text-[11.5px] text-zinc-400 mt-0.5">
-                    {a.unread_messages > 0 ? `${a.unread_messages} unread message(s)` : `Stage: ${a.pipeline_stage}`}
+                    {a.unread_messages > 0
+                      ? `${a.unread_messages} unread message(s)`
+                      : `Stage: ${a.pipeline_stage}`}
                   </div>
                 </div>
-                <div className="text-[11.5px] font-bold text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 group-hover:bg-zinc-800">View →</div>
+                <div className="text-[11.5px] font-bold text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 group-hover:bg-zinc-800">
+                  View →
+                </div>
               </a>
             ))}
           </div>
@@ -126,7 +181,14 @@ export function ApplicantOverview() {
 }
 
 function StatCard({ label, value, icon: Icon, accent }: any) {
-  const c = accent === 'cyan' ? 'text-cyan-400' : accent === 'purple' ? 'text-purple-400' : accent === 'amber' ? 'text-amber-400' : 'text-white'
+  const c =
+    accent === 'cyan'
+      ? 'text-cyan-400'
+      : accent === 'purple'
+      ? 'text-purple-400'
+      : accent === 'amber'
+      ? 'text-amber-400'
+      : 'text-white'
   return (
     <div className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-[#18181b] via-[#121215] to-[#0f0f11] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="flex items-center justify-between mb-3">

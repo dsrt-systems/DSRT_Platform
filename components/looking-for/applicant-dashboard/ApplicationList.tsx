@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import {
   FileText,
-  Clock,
   CheckCircle,
   PauseCircle,
   ChatCircle,
@@ -14,29 +13,32 @@ import {
   PencilSimple,
 } from '@phosphor-icons/react'
 
+// Fully aligned with DB pipeline_stage values, colored by intent.
 const STAGE_META: Record<string, { label: string; Icon: any; className: string }> = {
-  'draft': { label: 'Draft', Icon: PencilSimple, className: 'border-zinc-700 bg-zinc-900 text-zinc-400' },
-  'submitted': { label: 'Submitted', Icon: CheckCircle, className: 'border-zinc-700 bg-zinc-900 text-zinc-300' },
-  'viewed': { label: 'Viewed', Icon: EyeIcon, className: 'border-zinc-700 bg-zinc-900 text-zinc-300' },
-  'under-review': { label: 'Under Review', Icon: PauseCircle, className: 'border-blue-500/30 bg-blue-500/10 text-blue-400' },
-  'shortlisted': { label: 'Shortlisted', Icon: CheckCircle, className: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400' },
-  'interview': { label: 'Interviewing', Icon: ChatCircle, className: 'border-purple-500/30 bg-purple-500/10 text-purple-400' },
-  'offer': { label: 'Offer Received', Icon: Handshake, className: 'border-amber-500/30 bg-amber-500/10 text-amber-400' },
-  'accepted': { label: 'Accepted', Icon: CheckCircle, className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' },
-  'declined': { label: 'Rejected', Icon: XCircle, className: 'border-red-500/30 bg-red-500/10 text-red-400' },
-  'withdrawn': { label: 'Withdrawn', Icon: XCircle, className: 'border-zinc-700 bg-zinc-900 text-zinc-500' },
-}
+  // In-progress / unresolved
+  draft:        { label: 'Draft',        Icon: PencilSimple, className: 'border-zinc-700 bg-zinc-900 text-zinc-400' },
+  submitted:    { label: 'Submitted',    Icon: CheckCircle,  className: 'border-zinc-700 bg-zinc-900 text-zinc-300' },
+  applied:      { label: 'Submitted',    Icon: CheckCircle,  className: 'border-zinc-700 bg-zinc-900 text-zinc-300' },
+  pending:      { label: 'Pending',      Icon: PauseCircle,  className: 'border-zinc-700 bg-zinc-900 text-zinc-300' },
+  reviewing:    { label: 'Reviewing',    Icon: PauseCircle,  className: 'border-blue-500/30 bg-blue-500/10 text-blue-300' },
+  screening:    { label: 'Shortlisted',  Icon: CheckCircle,  className: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' },
+  interviewing: { label: 'Interviewing', Icon: ChatCircle,   className: 'border-purple-500/30 bg-purple-500/10 text-purple-300' },
+  offered:      { label: 'Offer',        Icon: Handshake,    className: 'border-amber-500/30 bg-amber-500/10 text-amber-300' },
+  hired:        { label: 'Selected',     Icon: CheckCircle,  className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' },
+  rejected:     { label: 'Rejected',     Icon: XCircle,      className: 'border-red-500/30 bg-red-500/10 text-red-300' },
+  withdrawn:    { label: 'Withdrawn',    Icon: XCircle,      className: 'border-zinc-700 bg-zinc-900 text-zinc-500' },
 
-// Fallback icon for 'viewed'
-function EyeIcon(props: any) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" viewBox="0 0 256 256" {...props}>
-      <path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.48c.35.79,8.82,19.58,27.65,38.41C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.35c18.83-18.83,27.3-37.62,27.65-38.41A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128c-7.21,13.46-38.62,64-103.05,64Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"></path>
-    </svg>
-  )
+  // Legacy aliases (safe-fallbacks for old rows)
+  'under-review': { label: 'Reviewing',    Icon: PauseCircle, className: 'border-blue-500/30 bg-blue-500/10 text-blue-300' },
+  shortlisted:    { label: 'Shortlisted',  Icon: CheckCircle, className: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' },
+  interview:      { label: 'Interviewing', Icon: ChatCircle,  className: 'border-purple-500/30 bg-purple-500/10 text-purple-300' },
+  offer:          { label: 'Offer',        Icon: Handshake,   className: 'border-amber-500/30 bg-amber-500/10 text-amber-300' },
+  accepted:       { label: 'Selected',     Icon: CheckCircle, className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' },
+  declined:       { label: 'Rejected',     Icon: XCircle,     className: 'border-red-500/30 bg-red-500/10 text-red-300' },
 }
 
 function timeAgo(iso: string): string {
+  if (!iso) return ''
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
   if (secs < 60) return 'just now'
   const mins = Math.floor(secs / 60)
@@ -99,7 +101,6 @@ export function ApplicationList({
           const contextName = opp.project?.name || opp.venture?.name || null
           const isDraft = app.pipeline_stage === 'draft'
 
-          // Drafts link back to the studio. Submitted link to the application detail page.
           const href = isDraft
             ? `/looking-for/${opp.id}/apply/${app.id}`
             : `/looking-for/my-applications/${app.id}`
@@ -112,19 +113,11 @@ export function ApplicationList({
             >
               <div className="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden flex items-center justify-center shrink-0 shadow-inner">
                 {opp.venture?.logo_url ? (
-                  <img
-                    src={opp.venture.logo_url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={opp.venture.logo_url} alt="" className="w-full h-full object-cover" />
                 ) : opp.project?.icon ? (
                   <span className="text-xl">{opp.project.icon}</span>
                 ) : opp.cover_image_url ? (
-                  <img
-                    src={opp.cover_image_url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={opp.cover_image_url} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-[14px] font-bold text-zinc-500">
                     {(opp.title || '?').charAt(0).toUpperCase()}
@@ -153,9 +146,7 @@ export function ApplicationList({
                 <div className="flex flex-wrap items-center gap-2 text-[12px] text-zinc-500">
                   {contextName && (
                     <>
-                      <span className="text-zinc-400 font-medium">
-                        {contextName}
-                      </span>
+                      <span className="text-zinc-400 font-medium">{contextName}</span>
                       <span className="text-zinc-700">·</span>
                     </>
                   )}
@@ -163,9 +154,7 @@ export function ApplicationList({
                     {String(opp.opportunity_type || '').replace(/-/g, ' ')}
                   </span>
                   <span className="text-zinc-700">·</span>
-                  <span>
-                    {isDraft ? 'Started' : 'Applied'} {timeAgo(app.created_at)}
-                  </span>
+                  <span>{isDraft ? 'Started' : 'Applied'} {timeAgo(app.created_at)}</span>
                 </div>
               </div>
 
@@ -177,11 +166,6 @@ export function ApplicationList({
                     <meta.Icon size={12} weight={isDraft ? 'regular' : 'fill'} />
                     {meta.label}
                   </div>
-                  {app.status_description && (
-                    <div className="text-[11px] text-zinc-400 mt-1.5 max-w-[200px] truncate ml-auto">
-                      {app.status_description}
-                    </div>
-                  )}
                   <div className="text-[10px] text-zinc-500 mt-1 uppercase tracking-widest font-semibold">
                     Last update {timeAgo(app.stage_updated_at || app.updated_at)}
                   </div>
