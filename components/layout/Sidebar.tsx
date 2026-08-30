@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
-  Home, FolderKanban, Rocket, Compass, Trophy,
-  CalendarDays, Search, Sparkles, BookOpen, User, Settings,
+  Home, FolderKanban, Rocket, Compass,
+  CalendarDays, Search, BookOpen, User, Settings,
   Zap, Building2, UsersRound, Network, Inbox, Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -34,8 +34,6 @@ const communityNav = [
 
 const exploreNav = [
   { name: 'Events', href: '/events', icon: CalendarDays },
-  { name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
-  { name: 'AI Mentor', href: '/mentor', icon: Sparkles },
   { name: 'Resources', href: '/resources', icon: BookOpen },
 ]
 
@@ -107,7 +105,7 @@ export function Sidebar({ user }: SidebarProps) {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  const renderItem = (item: any, section: string) => {
+  const renderItem = (item: any) => {
     const Icon = item.icon
     const href = item.href === '/profile/me' ? `/profile/${user?.username}` : item.href
     const active = isActive(item.href)
@@ -136,11 +134,8 @@ export function Sidebar({ user }: SidebarProps) {
   }
 
   return (
-    // Changed top-14 to top-[76px] to perfectly sit under the new taller Navbar
     <aside className="hidden md:flex flex-col fixed left-0 top-[76px] bottom-0 w-56 border-r border-white/[0.06] bg-[#0a0a0f]">
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-hide">
-
-        {/* USER PROFILE CARD */}
         <Link
           href={`/profile/${user?.username}`}
           className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] transition-colors"
@@ -148,7 +143,7 @@ export function Sidebar({ user }: SidebarProps) {
           <Avatar className="w-10 h-10 border border-white/[0.1]">
             <AvatarImage src={user?.avatar_url} />
             <AvatarFallback className="text-xs bg-white/[0.08] text-white font-bold">
-                {user?.full_name?.[0]?.toUpperCase()}
+              {user?.full_name?.[0]?.toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
@@ -159,19 +154,17 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
         </Link>
 
-        {/* MAIN */}
         <div>
           <p className="text-[10px] uppercase tracking-wider font-bold text-white/40 px-3 mb-2">Main</p>
           <nav className="space-y-0.5">
-            {mainNav.map(item => renderItem(item, 'main'))}
+            {mainNav.map(item => renderItem(item))}
           </nav>
         </div>
 
-        {/* COMMUNITY HUB */}
         <div>
           <p className="text-[10px] uppercase tracking-wider font-bold text-white/40 px-3 mb-2">Community Hub</p>
           <nav className="space-y-0.5">
-            {communityNav.map(item => renderItem(item, 'community'))}
+            {communityNav.map(item => renderItem(item))}
             {myOrg && (
               <Link
                 href={`/organizations/${myOrg.slug}`}
@@ -197,20 +190,17 @@ export function Sidebar({ user }: SidebarProps) {
           </nav>
         </div>
 
-        {/* EXPLORE */}
         <div>
           <p className="text-[10px] uppercase tracking-wider font-bold text-white/40 px-3 mb-2">Explore</p>
           <nav className="space-y-0.5">
-            {exploreNav.map(item => renderItem(item, 'explore'))}
+            {exploreNav.map(item => renderItem(item))}
           </nav>
         </div>
 
-        {/* PERSONAL */}
         <div className="pt-3 border-t border-white/[0.06] space-y-0.5">
-          {personalNav.map(item => renderItem(item, 'personal'))}
+          {personalNav.map(item => renderItem(item))}
         </div>
 
-        {/* UPGRADE */}
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">

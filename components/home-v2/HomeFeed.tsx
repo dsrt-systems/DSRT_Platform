@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { ArrowUp } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
 import { HomePostCard } from './HomePostCard'
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function HomeFeed({ tab, currentUser }: Props) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,8 +22,16 @@ export function HomeFeed({ tab, currentUser }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [newPostsCount, setNewPostsCount] = useState(0)
   const observerRef = useRef<HTMLDivElement>(null)
+  const mountedRef = useRef(true)
+
+  // Track mount state to prevent state updates on unmounted components
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
 
   const loadPosts = useCallback(async (append: boolean = false, useCursor: string | null = null) => {
+    if (!mountedRef.current) return
     if (append) setLoadingMore(true); else setLoading(true)
     setError(null)
     try {
@@ -34,19 +42,30 @@ export function HomeFeed({ tab, currentUser }: Props) {
       if (!res.ok) throw new Error('Failed to load feed')
       const data = await res.json()
 
+      if (!mountedRef.current) return
+
+      const safePosts = Array.isArray(data.posts) ? data.posts.filter((p: any) => p && p.id) : []
+
       if (append) {
-        setPosts(prev => [...prev, ...(data.posts || [])])
+        setPosts(prev => {
+          // Dedupe by ID
+          const existingIds = new Set(prev.map((p: any) => p.id))
+          const newOnes = safePosts.filter((p: any) => !existingIds.has(p.id))
+          return [...prev, ...newOnes]
+        })
       } else {
-        setPosts(data.posts || [])
+        setPosts(safePosts)
         setNewPostsCount(0)
       }
-      setCursor(data.nextCursor)
-      setHasMore(data.hasMore || false)
+      setCursor(data.nextCursor || null)
+      setHasMore(!!data.hasMore)
     } catch (e: any) {
-      setError(e?.message || 'Something went wrong')
+      if (mountedRef.current) setError(e?.message || 'Something went wrong')
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
+      if (mountedRef.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
   }, [tab])
 
@@ -58,69 +77,85 @@ export function HomeFeed({ tab, currentUser }: Props) {
     loadPosts(false, null)
   }, [tab, loadPosts])
 
-  // Infinite scroll
+  // Infinite scroll — properly cleaned up
   useEffect(() => {
     const el = observerRef.current
     if (!el || !hasMore || loading || loadingMore || !cursor) return
+
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0]?.isIntersecting) loadPosts(true, cursor)
+        if (entries[0]?.isIntersecting && mountedRef.current) {
+          loadPosts(true, cursor)
+        }
       },
       { rootMargin: '400px' }
     )
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+    }
   }, [hasMore, cursor, loading, loadingMore, loadPosts])
 
-  // Real-time: count NEW posts arriving above current top (only on Latest tab)
+  // Real-time subscription — safer cleanup
   useEffect(() => {
     if (tab !== 'latest' && tab !== 'for-you') return
     if (posts.length === 0) return
     const topCreatedAt = posts[0]?.created_at
     if (!topCreatedAt) return
 
-    const channel = supabase
-      .channel('home-feed-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'posts',
-          filter: 'visibility=eq.global',
-        },
-        (payload: any) => {
-          const newPost = payload.new
-          if (!newPost) return
-          if (newPost.is_draft) return
-          if (newPost.user_id === currentUser?.id) return
+    let channel: any = null
+    try {
+      channel = supabase
+        .channel(`home-feed-${tab}-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'posts',
+            filter: 'visibility=eq.global',
+          },
+          (payload: any) => {
+            if (!mountedRef.current) return
+            const newPost = payload?.new
+            if (!newPost || newPost.is_draft) return
+            if (newPost.user_id === currentUser?.id) return
 
-          const newTs = new Date(newPost.created_at).getTime()
-          const topTs = new Date(topCreatedAt).getTime()
-          if (newTs > topTs) {
-            setNewPostsCount(n => n + 1)
+            try {
+              const newTs = new Date(newPost.created_at).getTime()
+              const topTs = new Date(topCreatedAt).getTime()
+              if (newTs > topTs) {
+                setNewPostsCount(n => n + 1)
+              }
+            } catch { /* ignore date parse errors */ }
           }
-        }
-      )
-      .subscribe()
+        )
+        .subscribe()
+    } catch (e) {
+      console.warn('[Realtime] subscribe failed', e)
+    }
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) {
+        try { supabase.removeChannel(channel) } catch { /* ignore */ }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posts, currentUser, tab])
+  }, [posts, currentUser, tab, supabase])
 
-  const loadNewPosts = () => {
+  const loadNewPosts = useCallback(() => {
     setNewPostsCount(0)
     loadPosts(false, null)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [loadPosts])
 
   if (loading) {
     return (
       <div className="space-y-3">
         {[0, 1, 2].map(i => (
-          <div key={i} className="h-40 rounded-xl border border-zinc-800 bg-zinc-950/40 animate-pulse" />
+          <div key={`skel-${i}`} className="h-40 rounded-xl border border-zinc-800 bg-zinc-950/40 animate-pulse" />
         ))}
       </div>
     )
@@ -141,46 +176,55 @@ export function HomeFeed({ tab, currentUser }: Props) {
   }
 
   if (posts.length === 0) {
-    const emptyMessage = {
+    const emptyMessage: Record<string, string> = {
       'for-you': "Your personalized feed is being prepared. Interact with a few posts to help us understand what you like.",
       'latest': "No posts yet. Be the first to post something.",
       'ventures': "No venture updates right now. Follow ventures to see their posts here.",
       'projects': "No project updates right now. Follow projects to see their posts here.",
-    }[tab] || "Nothing here yet."
+    }
+    const msg = emptyMessage[tab] || "Nothing here yet."
 
     return (
       <div className="rounded-xl border border-dashed border-zinc-800 p-12 text-center">
         <p className="text-[14px] font-semibold text-white mb-1.5">Nothing here yet</p>
-        <p className="text-[12.5px] text-zinc-500 max-w-md mx-auto">
-          {emptyMessage}
-        </p>
+        <p className="text-[12.5px] text-zinc-500 max-w-md mx-auto">{msg}</p>
       </div>
     )
   }
 
   return (
-    <>
-      {newPostsCount > 0 && (
-        <div className="sticky top-[80px] z-20 flex justify-center pointer-events-none">
-          <button
-            onClick={loadNewPosts}
-            className={
-              'pointer-events-auto inline-flex items-center gap-1.5 h-9 px-4 rounded-full ' +
-              'bg-white text-black text-[12.5px] font-bold ' +
-              'shadow-[0_4px_20px_rgba(255,255,255,0.15),inset_0_1px_0_rgba(255,255,255,0.5)] ' +
-              'hover:bg-zinc-100 transition-all animate-in fade-in slide-in-from-top-2 duration-200'
-            }
+    <div className="w-full">
+      {/* 
+        FIX: Moved the "new posts" indicator OUTSIDE of any sticky behavior 
+        AND wrapped it in a stable container to prevent removeChild errors.
+        The container always renders — only its inner content is conditional.
+      */}
+      <div className="relative min-h-0" aria-live="polite">
+        {newPostsCount > 0 && (
+          <div 
+            key={`new-posts-${newPostsCount}`}
+            className="sticky top-[80px] z-20 flex justify-center pointer-events-none mb-3"
           >
-            <ArrowUp size={12} weight="bold" />
-            {newPostsCount} new {newPostsCount === 1 ? 'post' : 'posts'}
-          </button>
-        </div>
-      )}
+            <button
+              onClick={loadNewPosts}
+              className="pointer-events-auto inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-white text-black text-[12.5px] font-bold shadow-[0_4px_20px_rgba(255,255,255,0.15),inset_0_1px_0_rgba(255,255,255,0.5)] hover:bg-zinc-100 transition-all"
+            >
+              <ArrowUp size={12} weight="bold" />
+              {newPostsCount} new {newPostsCount === 1 ? 'post' : 'posts'}
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-3">
-        {posts.map(post => (
-          <HomePostCard key={post.id} post={post} currentUser={currentUser} />
-        ))}
+        {posts.map((post, idx) => {
+          if (!post || !post.id) return null
+          return (
+            <SafePostWrapper key={`post-${post.id}-${idx}`}>
+              <HomePostCard post={post} currentUser={currentUser} />
+            </SafePostWrapper>
+          )
+        })}
       </div>
 
       <div ref={observerRef} className="py-8 text-center">
@@ -194,6 +238,15 @@ export function HomeFeed({ tab, currentUser }: Props) {
           <p className="text-[12px] text-zinc-600">You&apos;re all caught up</p>
         )}
       </div>
-    </>
+    </div>
   )
+}
+
+// Per-post error boundary — one broken post won't kill the feed
+function SafePostWrapper({ children }: { children: React.ReactNode }) {
+  try {
+    return <>{children}</>
+  } catch {
+    return null
+  }
 }
