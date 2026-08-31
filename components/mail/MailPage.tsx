@@ -73,7 +73,7 @@ export function MailPage() {
   }
 
   return (
-    <div className="fixed top-14 bottom-0 left-0 md:left-56 right-0 flex flex-col bg-[#08080c] text-white overflow-hidden">
+    <div className="fixed top-[76px] bottom-0 left-0 md:left-56 right-0 flex flex-col bg-[#08080c] text-white overflow-hidden">
       <MailTopbar 
         onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
         searchQ={searchQ}

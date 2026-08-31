@@ -14,6 +14,12 @@ import { ThreadRow } from './ThreadRow'
 import { useMailIdentity, useOnIdentityChange } from './hooks/useMailIdentity'
 import { MailTab } from './MailTabs'
 import { MailFilters } from './AdvancedFilterBar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface Props {
   activeFolder: string
@@ -171,6 +177,26 @@ export function ThreadList({
     }
   }
 
+  // Handle Mark All Read
+  const handleMarkAllRead = async () => {
+    const unreadIds = threads.filter(t => !t.participant_state?.is_read).map(t => t.id)
+    if (unreadIds.length === 0) return
+    try {
+      const res = await fetch('/api/mail/threads/bulk', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thread_ids: unreadIds, updates: { is_read: true } }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Marked all as read')
+      window.dispatchEvent(new Event('mail:refresh'))
+      window.dispatchEvent(new Event('mail:counts:refresh'))
+      fetchThreads(true)
+    } catch {
+      toast.error('Action failed')
+    }
+  }
+
   const handleStar = async (threadId: string, starred: boolean) => {
     setThreads(prev => prev.map(t => 
       t.id === threadId 
@@ -197,14 +223,12 @@ export function ThreadList({
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load draft')
         
-        // Dispatch event so MailPage opens the composer with draft data
         window.dispatchEvent(new CustomEvent('mail:open_draft', { detail: data.draft }))
         toast.dismiss('draft-load')
       } catch (err: any) {
         toast.error(err.message || 'Failed to load draft', { id: 'draft-load' })
       }
     } else {
-      // Navigate to the full-page thread view!
       router.push(`/inbox/${thread.id}`)
     }
   }
@@ -237,7 +261,7 @@ export function ThreadList({
           <div className="flex items-center gap-2.5">
             <button 
               onClick={() => setChecked(new Set())} 
-              className="text-white/70 hover:text-white"
+              className="text-white/70 hover:text-white outline-none"
               title="Deselect all"
             >
               <X className="w-3.5 h-3.5" weight="bold" />
@@ -249,14 +273,14 @@ export function ThreadList({
           <div className="flex items-center gap-0.5">
             <button 
               onClick={() => handleBulkAction({ is_archived: true }, 'Archived')} 
-              className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center" 
+              className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center outline-none" 
               title="Archive (E)"
             >
               <Archive className="w-3.5 h-3.5" />
             </button>
             <button 
               onClick={() => handleBulkAction({ is_trashed: true }, 'Moved to trash')} 
-              className="w-7 h-7 rounded hover:bg-red-500/15 text-white/70 hover:text-red-400 flex items-center justify-center" 
+              className="w-7 h-7 rounded hover:bg-red-500/15 text-white/70 hover:text-red-400 flex items-center justify-center outline-none" 
               title="Move to trash (#)"
             >
               <Trash className="w-3.5 h-3.5" />
@@ -264,14 +288,14 @@ export function ThreadList({
             <div className="w-px h-4 bg-white/[0.1] mx-1" />
             <button 
               onClick={() => handleBulkAction({ is_read: true }, 'Marked as read')} 
-              className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center" 
+              className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center outline-none" 
               title="Mark as read"
             >
               <EnvelopeOpen className="w-3.5 h-3.5" />
             </button>
             <button 
               onClick={() => handleBulkAction({ is_read: false }, 'Marked as unread')} 
-              className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center" 
+              className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center outline-none" 
               title="Mark as unread"
             >
               <Envelope className="w-3.5 h-3.5" />
@@ -283,7 +307,7 @@ export function ThreadList({
           <div className="flex items-center gap-2">
             <button 
               onClick={toggleSelectAll} 
-              className="w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center transition-colors"
+              className="w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center transition-colors outline-none"
               title="Select all"
             >
               {threads.length > 0 && checked.size === threads.length 
@@ -310,14 +334,14 @@ export function ThreadList({
                 <button 
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="w-6 h-6 rounded hover:bg-white/[0.06] text-white/50 hover:text-white flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="w-6 h-6 rounded hover:bg-white/[0.06] text-white/50 hover:text-white flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors outline-none"
                 >
                   <CaretLeft className="w-3 h-3" weight="bold" />
                 </button>
                 <button 
                   onClick={() => setPage(p => p + 1)}
                   disabled={page >= totalPages - 1}
-                  className="w-6 h-6 rounded hover:bg-white/[0.06] text-white/50 hover:text-white flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="w-6 h-6 rounded hover:bg-white/[0.06] text-white/50 hover:text-white flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors outline-none"
                 >
                   <CaretRight className="w-3 h-3" weight="bold" />
                 </button>
@@ -327,19 +351,38 @@ export function ThreadList({
               onClick={() => fetchThreads(true)} 
               disabled={refreshing}
               className={cn(
-                "w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center transition-colors",
+                "w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center transition-colors outline-none",
                 refreshing && "text-white/70"
               )}
               title="Refresh"
             >
               <ArrowClockwise className={cn("w-3.5 h-3.5", refreshing && "animate-spin")} />
             </button>
-            <button 
-              className="w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center transition-colors"
-              title="More"
-            >
-              <DotsThree className="w-4 h-4" weight="bold" />
-            </button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button 
+                  className="w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center transition-colors outline-none"
+                  title="More actions"
+                >
+                  <DotsThree className="w-4 h-4" weight="bold" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-[#0f0f11] border-white/[0.08] text-white rounded-xl shadow-2xl">
+                <DropdownMenuItem onClick={() => fetchThreads(true)} className="cursor-pointer focus:bg-white/[0.06] text-[13px]">
+                  Refresh list
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleSelectAll} className="cursor-pointer focus:bg-white/[0.06] text-[13px]">
+                  {checked.size === threads.length ? 'Deselect all' : 'Select all'}
+                </DropdownMenuItem>
+                {unreadCount > 0 && (
+                  <DropdownMenuItem onClick={handleMarkAllRead} className="cursor-pointer focus:bg-white/[0.06] text-[13px]">
+                    Mark all as read
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
           </div>
         </div>
       )}
