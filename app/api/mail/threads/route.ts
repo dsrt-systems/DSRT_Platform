@@ -106,6 +106,12 @@ export async function GET(request: Request) {
           .eq('is_spam', false)
           .eq('is_snoozed', false)
         break
+      case 'archive':
+        partQuery = partQuery
+          .eq('is_archived', true)
+          .eq('is_trashed', false)
+          .eq('is_spam', false)
+        break
       case 'starred':
         partQuery = partQuery.eq('is_starred', true).eq('is_trashed', false)
         break

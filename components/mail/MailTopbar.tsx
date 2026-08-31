@@ -24,40 +24,39 @@ export function MailTopbar({
   return (
     <div
       className={cn(
-        'h-[68px] flex items-center px-4 gap-4 flex-shrink-0 border-b border-white/[0.06]',
+        'h-[76px] flex items-center px-4 gap-4 flex-shrink-0 border-b border-white/[0.06]',
         'bg-gradient-to-b from-[#0d0d13] via-[#0b0b10] to-[#08080c]'
       )}
     >
       {/* Left */}
-      <div className="flex items-center gap-3 min-w-[220px]">
+      <div className="flex items-center gap-3 min-w-[240px]">
         <button
           onClick={onToggleSidebar}
-          className="w-9 h-9 rounded-lg hover:bg-white/[0.06] text-white/60 hover:text-white flex items-center justify-center transition-colors"
+          className="w-10 h-10 rounded-lg hover:bg-white/[0.06] text-white/60 hover:text-white flex items-center justify-center transition-colors"
           title="Toggle sidebar"
         >
-          <List className="w-[18px] h-[18px]" weight="bold" />
+          <List className="w-[19px] h-[19px]" weight="bold" />
         </button>
 
-        <div className="flex items-center gap-2.5">
-          {/* Custom transparent icon: place file at public/dsrt-mail-icon.png */}
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center overflow-hidden">
+        <Link href="/inbox" className="flex items-center gap-3 group">
+          <div className="w-11 h-11 rounded-lg flex items-center justify-center overflow-hidden">
             <Image
               src="/dsrt-mail-icon.png"
               alt="DSRT Mail"
-              width={36}
-              height={36}
-              className="w-9 h-9 object-contain"
+              width={44}
+              height={44}
+              className="w-11 h-11 object-contain transition-transform group-hover:scale-[1.04]"
               priority
             />
           </div>
-          <h1 className="text-[17px] font-bold text-white tracking-tight leading-none">
+          <h1 className="text-[20px] font-bold text-white tracking-tight leading-none">
             DSRT <span className="text-white/50 font-medium">Mail</span>
           </h1>
-        </div>
+        </Link>
       </div>
 
       {/* Center search */}
-      <div className="flex-1 max-w-[560px] mx-auto">
+      <div className="flex-1 max-w-[580px] mx-auto">
         <div className="relative group">
           <MagnifyingGlass className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-white/70 transition-colors" />
           <input
@@ -67,7 +66,7 @@ export function MailTopbar({
             className={cn(
               'w-full h-10 pl-10 pr-14 rounded-lg',
               'bg-white/[0.04] border border-white/[0.06]',
-              'text-[12.5px] text-white placeholder:text-white/40',
+              'text-[13px] text-white placeholder:text-white/40',
               'focus:outline-none focus:border-white/[0.18] focus:bg-white/[0.06]',
               'transition-all'
             )}
