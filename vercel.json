@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/mail/cron?token=${CRON_SECRET}",
-      "schedule": "* * * * *"
+      "schedule": "0 1 * * *"
     },
     {
       "path": "/api/cron/dispatch-emails?secret=${CRON_SECRET}",
