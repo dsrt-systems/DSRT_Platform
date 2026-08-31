@@ -181,37 +181,38 @@ export function AccountSwitcher() {
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          "relative w-9 h-9 rounded-full overflow-hidden border-2 transition-all flex items-center justify-center",
-          open 
-            ? "border-white/40 ring-2 ring-white/10" 
-            : "border-white/[0.15] hover:border-white/30"
+          'relative w-10 h-10 rounded-full transition-all flex items-center justify-center',
+          open ? 'ring-2 ring-white/15' : 'hover:ring-1 hover:ring-white/20'
         )}
         title={isUnified ? 'Unified Inbox' : (typeof activeIdentity === 'object' ? activeIdentity?.display_name : '')}
       >
-        {isUnified ? (
-          <div className="w-full h-full bg-gradient-to-br from-violet-500/40 to-blue-500/40 flex items-center justify-center">
-            <Stack className="w-4 h-4 text-white" weight="fill" />
-          </div>
-        ) : typeof activeIdentity === 'object' && activeIdentity?.avatar_url ? (
-          <img 
-            src={activeIdentity.avatar_url} 
-            alt="" 
-            className="w-full h-full object-cover" 
-          />
-        ) : activeMeta ? (
-          <div className={cn("w-full h-full flex items-center justify-center", activeMeta.bgColor)}>
-            <activeMeta.icon className={cn("w-4 h-4", activeMeta.color)} weight="fill" />
-          </div>
-        ) : (
-          <div className="w-full h-full bg-white/[0.06] flex items-center justify-center">
-            <User className="w-4 h-4 text-white/60" weight="fill" />
-          </div>
-        )}
+        {/* Avatar surface (clips image only) */}
+        <span className="w-9 h-9 rounded-full overflow-hidden border border-white/[0.15] flex items-center justify-center">
+          {isUnified ? (
+            <span className="w-full h-full bg-gradient-to-br from-white/15 to-white/5 flex items-center justify-center">
+              <Stack className="w-4 h-4 text-white" weight="fill" />
+            </span>
+          ) : typeof activeIdentity === 'object' && activeIdentity?.avatar_url ? (
+            <img
+              src={activeIdentity.avatar_url}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : activeMeta ? (
+            <span className={cn('w-full h-full flex items-center justify-center', activeMeta.bgColor)}>
+              <activeMeta.icon className={cn('w-4 h-4', activeMeta.color)} weight="fill" />
+            </span>
+          ) : (
+            <span className="w-full h-full bg-white/[0.06] flex items-center justify-center">
+              <User className="w-4 h-4 text-white/60" weight="fill" />
+            </span>
+          )}
+        </span>
 
-        {/* Unread indicator dot */}
+        {/* Badge OUTSIDE overflow clip */}
         {totalUnread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-[#0a0a0f] flex items-center justify-center">
-            <span className="text-[8px] font-bold text-white leading-none">
+          <span className="absolute -top-1 -right-1 z-10 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 border-2 border-[#0a0a0f] flex items-center justify-center shadow-sm">
+            <span className="text-[9px] font-bold text-white leading-none">
               {totalUnread > 9 ? '9+' : totalUnread}
             </span>
           </span>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
-  ArrowLeft, Archive, Trash, Clock, Printer, Warning, Star
+  ArrowLeft, Archive, Trash, Printer, Warning, Star
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -122,16 +122,28 @@ ${lastMessage.body_html || lastMessage.body_text || ''}
 
           <div className="w-px h-5 bg-white/[0.1] mx-2" />
 
-          <button onClick={() => updateThreadState({ is_archived: true }, 'Archived')} className="w-9 h-9 rounded-full hover:bg-white/[0.08] text-white/60 hover:text-white flex items-center justify-center transition-colors" title="Archive">
-            <Archive className="w-[18px] h-[18px]" />
+          <button 
+            onClick={() => updateThreadState({ is_archived: true }, 'Archived')} 
+            className="w-10 h-10 rounded-full hover:bg-white/[0.08] text-white/60 hover:text-white flex items-center justify-center transition-colors" 
+            title="Archive"
+          >
+            <Archive className="w-5 h-5" />
           </button>
-          <button onClick={() => updateThreadState({ is_trashed: true }, 'Deleted')} className="w-9 h-9 rounded-full hover:bg-red-500/15 text-white/60 hover:text-red-400 flex items-center justify-center transition-colors" title="Delete">
-            <Trash className="w-[18px] h-[18px]" />
+          <button 
+            onClick={() => updateThreadState({ is_trashed: true }, 'Deleted')} 
+            className="w-10 h-10 rounded-full hover:bg-red-500/15 text-white/60 hover:text-red-400 flex items-center justify-center transition-colors" 
+            title="Delete"
+          >
+            <Trash className="w-5 h-5" />
           </button>
         </div>
 
-        <button onClick={() => window.print()} className="w-9 h-9 rounded-full hover:bg-white/[0.08] text-white/60 hover:text-white flex items-center justify-center transition-colors" title="Print">
-          <Printer className="w-[18px] h-[18px]" />
+        <button 
+          onClick={() => window.print()} 
+          className="w-10 h-10 rounded-full hover:bg-white/[0.08] text-white/60 hover:text-white flex items-center justify-center transition-colors" 
+          title="Print"
+        >
+          <Printer className="w-5 h-5" />
         </button>
       </div>
 
@@ -171,12 +183,12 @@ ${lastMessage.body_html || lastMessage.body_text || ''}
                 <button
                   onClick={() => updateThreadState({ is_starred: !isStarred }, isStarred ? 'Unstarred' : 'Starred')}
                   className={cn(
-                    "w-9 h-9 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors flex-shrink-0 mt-0.5",
+                    "w-10 h-10 rounded-full hover:bg-white/[0.06] flex items-center justify-center transition-colors flex-shrink-0 mt-0.5",
                     isStarred ? "text-amber-400" : "text-white/30 hover:text-amber-400"
                   )}
                   title={isStarred ? "Remove star" : "Star message"}
                 >
-                  <Star className="w-[18px] h-[18px]" weight={isStarred ? "fill" : "regular"} />
+                  <Star className="w-5 h-5" weight={isStarred ? "fill" : "regular"} />
                 </button>
               </div>
 
@@ -199,15 +211,17 @@ ${lastMessage.body_html || lastMessage.body_text || ''}
                 )}
               </div>
 
-              {/* Reply Bar */}
-              <QuickReplyBar
-                threadId={thread.id}
-                smartReplyIdentityId={smartReplyIdentityId}
-                activeMode={activeReplyMode}
-                setActiveMode={setActiveReplyMode}
-                onReplySent={loadThread}
-                onExpandToFull={handleReplyInComposer}
-              />
+              {/* Reply Bar Guarded by Thread ID presence */}
+              {thread?.id && (
+                <QuickReplyBar
+                  threadId={thread.id}
+                  smartReplyIdentityId={smartReplyIdentityId}
+                  activeMode={activeReplyMode}
+                  setActiveMode={setActiveReplyMode}
+                  onReplySent={loadThread}
+                  onExpandToFull={handleReplyInComposer}
+                />
+              )}
             </div>
           )}
         </div>
