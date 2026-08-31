@@ -9,6 +9,8 @@ import {
   CaretUp,
   Paperclip,
   User,
+  ShieldWarning,
+  CheckCircle,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +21,7 @@ interface MessageCardProps {
   onReply?: () => void
   onReplyAll?: () => void
   onForward?: () => void
+  securityResult?: any
 }
 
 function formatDateTime(value?: string) {
@@ -51,6 +54,7 @@ export function MessageCard({
   onReply,
   onReplyAll,
   onForward,
+  securityResult,
 }: MessageCardProps) {
   const [expanded, setExpanded] = useState(Boolean(isLast || isFirst))
 
@@ -68,6 +72,8 @@ export function MessageCard({
     return raw.length > 140 ? `${raw.slice(0, 140)}…` : raw
   }, [bodyHtml, bodyText])
 
+  const isPhishingOrMalware = securityResult?.classification === 'PHISHING' || securityResult?.classification === 'MALWARE'
+
   return (
     <div
       className={cn(
@@ -82,7 +88,6 @@ export function MessageCard({
       >
         <div className="w-9 h-9 rounded-full overflow-hidden bg-white/[0.06] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
           {sender?.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={sender.avatar_url} alt={senderName} className="w-full h-full object-cover" />
           ) : senderName ? (
             <span className="text-[11px] font-bold text-white/80">{getInitials(senderName)}</span>
@@ -116,7 +121,20 @@ export function MessageCard({
 
       {expanded && (
         <div className="px-4 pb-4">
-          <div className="pl-12">
+          <div className="pl-12 space-y-3">
+            {/* Security Warning Banner if flagged */}
+            {isPhishingOrMalware && (
+              <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/[0.06] flex items-start gap-2.5 text-[12px]">
+                <ShieldWarning className="w-4 h-4 text-red-400 shrink-0 mt-0.5" weight="fill" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-red-200">Security Warning: {securityResult.classification}</p>
+                  <p className="text-white/60 mt-0.5">
+                    This message was flagged by DSRT Security ({securityResult.decision_reason_code || 'Suspicious Content'}). Be careful clicking links or downloading attachments.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {bodyHtml ? (
               <div
                 className="prose prose-invert max-w-none text-[13.5px] leading-relaxed text-white/85

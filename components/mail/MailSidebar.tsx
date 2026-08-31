@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import {
+import { 
   Envelope, Star, Clock, PaperPlaneRight, FileText, CalendarBlank,
-  Trash, Warning, PencilSimple, Bell, Files, Users, Handshake, Archive
+  Trash, Warning, PencilSimple, Bell, Files, Users, Handshake, ShieldWarning
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -22,8 +22,8 @@ const MAIN_FOLDERS = [
   { key: 'sent', label: 'Sent', icon: PaperPlaneRight, countKey: 'sent', showBadge: false },
   { key: 'drafts', label: 'Drafts', icon: FileText, countKey: 'drafts', showBadge: false, showCount: true },
   { key: 'scheduled', label: 'Scheduled', icon: CalendarBlank, countKey: 'scheduled', showBadge: false, showCount: true },
-  { key: 'archive', label: 'Archive', icon: Archive, countKey: 'archive', showBadge: false, showCount: true },
   { key: 'all', label: 'All Mail', icon: Files, countKey: 'all', showBadge: false },
+  { key: 'quarantine', label: 'Quarantine', icon: ShieldWarning, countKey: 'quarantine', showBadge: true, warningBadge: true },
   { key: 'spam', label: 'Spam', icon: Warning, countKey: 'spam', showBadge: true },
   { key: 'trash', label: 'Trash', icon: Trash, countKey: 'trash', showBadge: false },
 ]
@@ -43,15 +43,17 @@ export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Pr
   const supabase = createClient()
 
   const fetchCounts = useCallback(async () => {
-    const identityId = isUnified
-      ? 'unified'
-      : (typeof activeIdentity === 'object' && activeIdentity !== null
-          ? activeIdentity.identity_id
+    const identityId = isUnified 
+      ? 'unified' 
+      : (typeof activeIdentity === 'object' && activeIdentity !== null 
+          ? activeIdentity.identity_id 
           : '')
     if (!identityId) return
 
     try {
-      const res = await fetch(`/api/mail/counts?identity_id=${identityId}`, { cache: 'no-store' })
+      const res = await fetch(`/api/mail/counts?identity_id=${identityId}`, {
+        cache: 'no-store'
+      })
       const d = await res.json()
       setCounts(d.counts || {})
     } catch (e) {
@@ -59,14 +61,23 @@ export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Pr
     }
   }, [activeIdentity, isUnified])
 
-  useEffect(() => { fetchCounts() }, [fetchCounts])
-  useOnIdentityChange(() => { fetchCounts() })
+  useEffect(() => {
+    fetchCounts()
+  }, [fetchCounts])
+
+  useOnIdentityChange(() => {
+    fetchCounts()
+  })
 
   useEffect(() => {
     const channel = supabase
       .channel('mail_sidebar_counts')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mail_thread_participants' }, () => fetchCounts())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mail_messages' }, () => fetchCounts())
+      .on('postgres_changes', { 
+        event: '*', schema: 'public', table: 'mail_thread_participants' 
+      }, () => fetchCounts())
+      .on('postgres_changes', { 
+        event: '*', schema: 'public', table: 'mail_messages' 
+      }, () => fetchCounts())
       .subscribe()
 
     const refresh = () => fetchCounts()
@@ -92,32 +103,35 @@ export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Pr
         key={item.key}
         onClick={() => onFolderChange(item.key)}
         className={cn(
-          'w-full flex items-center gap-3 pl-3 pr-2.5 h-8 rounded-md text-[12.5px] font-medium transition-all group relative',
+          "w-full flex items-center gap-3 pl-3 pr-2.5 h-8 rounded-md text-[12.5px] font-medium transition-all group relative",
           active
-            ? 'bg-white/[0.09] text-white'
-            : 'text-white/55 hover:bg-white/[0.04] hover:text-white/90'
+            ? "bg-white/[0.09] text-white"
+            : "text-white/55 hover:bg-white/[0.04] hover:text-white/90"
         )}
       >
         {active && (
           <div className="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-white rounded-r" />
         )}
-        <Icon
-          className={cn('w-4 h-4 flex-shrink-0', active ? 'text-white' : 'text-white/40 group-hover:text-white/70')}
-          weight={active ? 'fill' : 'regular'}
+        <Icon 
+          className={cn(
+            "w-4 h-4 flex-shrink-0", 
+            active ? "text-white" : item.warningBadge ? "text-red-400/80" : "text-white/40 group-hover:text-white/70"
+          )} 
+          weight={active ? "fill" : "regular"} 
         />
         <span className="flex-1 truncate text-left">{item.label}</span>
         {showBadge && (
           <span className={cn(
-            'text-[10px] font-bold px-1.5 h-4 min-w-[16px] flex items-center justify-center rounded',
-            active ? 'bg-white text-black' : 'bg-white/[0.08] text-white/75'
+            "text-[10px] font-bold px-1.5 h-4 min-w-[16px] flex items-center justify-center rounded",
+            item.warningBadge ? "bg-red-500/20 text-red-300 border border-red-500/30" : active ? "bg-white text-black" : "bg-white/[0.08] text-white/75"
           )}>
             {count > 99 ? '99+' : count}
           </span>
         )}
         {showCount && (
           <span className={cn(
-            'text-[10.5px] font-medium',
-            active ? 'text-white/70' : 'text-white/40'
+            "text-[10.5px] font-medium",
+            active ? "text-white/70" : "text-white/40"
           )}>
             {count}
           </span>
@@ -132,10 +146,10 @@ export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Pr
         <button
           onClick={onComposeClick}
           className={cn(
-            'w-full flex items-center justify-center gap-2 h-10 rounded-xl transition-all',
-            'bg-white text-black hover:bg-zinc-100',
-            'font-bold text-[13px] tracking-tight',
-            'shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_2px_8px_rgba(0,0,0,0.4)]'
+            "w-full flex items-center justify-center gap-2 h-10 rounded-xl transition-all",
+            "bg-white text-black hover:bg-zinc-100",
+            "font-bold text-[13px] tracking-tight",
+            "shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_2px_8px_rgba(0,0,0,0.4)]"
           )}
         >
           <PencilSimple className="w-4 h-4" weight="bold" />
@@ -143,21 +157,29 @@ export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Pr
         </button>
 
         <div className={cn(
-          'rounded-xl p-2',
-          'bg-gradient-to-b from-white/[0.035] to-white/[0.015]',
-          'border border-white/[0.06]'
+          "rounded-xl p-2",
+          "bg-gradient-to-b from-white/[0.035] to-white/[0.015]",
+          "border border-white/[0.06]"
         )}>
-          <p className="text-[9px] uppercase tracking-[0.12em] font-bold text-white/40 px-2.5 py-1.5">Mail</p>
-          <nav className="space-y-[1px]">{MAIN_FOLDERS.map(renderItem)}</nav>
+          <p className="text-[9px] uppercase tracking-[0.12em] font-bold text-white/40 px-2.5 py-1.5">
+            Mail
+          </p>
+          <nav className="space-y-[1px]">
+            {MAIN_FOLDERS.map(renderItem)}
+          </nav>
         </div>
 
         <div className={cn(
-          'rounded-xl p-2',
-          'bg-gradient-to-b from-white/[0.035] to-white/[0.015]',
-          'border border-white/[0.06]'
+          "rounded-xl p-2",
+          "bg-gradient-to-b from-white/[0.035] to-white/[0.015]",
+          "border border-white/[0.06]"
         )}>
-          <p className="text-[9px] uppercase tracking-[0.12em] font-bold text-white/40 px-2.5 py-1.5">Smart Views</p>
-          <nav className="space-y-[1px]">{SMART_VIEWS.map(renderItem)}</nav>
+          <p className="text-[9px] uppercase tracking-[0.12em] font-bold text-white/40 px-2.5 py-1.5">
+            Smart Views
+          </p>
+          <nav className="space-y-[1px]">
+            {SMART_VIEWS.map(renderItem)}
+          </nav>
         </div>
 
         <div className="px-3 pt-1">

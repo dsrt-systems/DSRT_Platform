@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { runInboundSecurityPipeline } from '@/lib/mail/security/InboundPipeline'
+import { inspectOutboundMessage } from '@/lib/mail/security/OutboundProtection'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +18,7 @@ function generateSlug(name: string): string {
 }
 
 async function ensureIdentity(
-  supabase: any, 
+  supabase: any,
   recipient: Recipient
 ): Promise<string | null> {
   if (recipient.identity_id) {
@@ -153,7 +155,7 @@ export async function POST(request: Request) {
     }
 
     const resolveRecipients = async (list: Recipient[]) => {
-      const resolved: Array<{ identity_id: string, original: Recipient }> = []
+      const resolved: Array<{ identity_id: string; original: Recipient }> = []
       for (const r of list) {
         const id = await ensureIdentity(supabase, r)
         if (id) resolved.push({ identity_id: id, original: r })
@@ -166,16 +168,36 @@ export async function POST(request: Request) {
     const resolvedBcc = await resolveRecipients(bcc)
 
     if (resolvedTo.length === 0) {
-      return NextResponse.json({ 
-        error: 'Could not resolve any valid recipients. Please check the addresses.' 
+      return NextResponse.json({
+        error: 'Could not resolve any valid recipients. Please check the addresses.',
       }, { status: 400 })
+    }
+
+    const bodyText = body_html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    const totalRecipients = resolvedTo.length + resolvedCc.length + resolvedBcc.length
+
+    // --- PHASE 14: PRE-FLIGHT OUTBOUND SECURITY & QUOTA CHECK ---
+    const outboundCheck = await inspectOutboundMessage({
+      userId: user.id,
+      fromIdentityId: from_identity_id,
+      recipientCount: totalRecipients,
+      subject: subject.trim(),
+      bodyText,
+    })
+
+    if (!outboundCheck.allowed) {
+      return NextResponse.json({
+        error: outboundCheck.reason || 'Outbound message blocked by security policy.',
+        daily_quota: outboundCheck.dailyQuota,
+        sent_today: outboundCheck.sentToday,
+      }, { status: outboundCheck.isAccountFrozen ? 403 : 429 })
     }
 
     if (scheduled_send_at) {
       const scheduleDate = new Date(scheduled_send_at)
       if (scheduleDate.getTime() <= Date.now()) {
-        return NextResponse.json({ 
-          error: 'Scheduled time must be in the future' 
+        return NextResponse.json({
+          error: 'Scheduled time must be in the future',
         }, { status: 400 })
       }
 
@@ -205,8 +227,8 @@ export async function POST(request: Request) {
         await supabase.from('mail_drafts').delete().eq('id', draft_id).eq('user_id', user.id)
       }
 
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         scheduled: true,
         scheduled_id: scheduled.id,
         scheduled_for: scheduleDate.toISOString(),
@@ -216,8 +238,8 @@ export async function POST(request: Request) {
     let finalBodyHtml = body_html
     if (entity_attachments && entity_attachments.length > 0) {
       const cards = entity_attachments.map((ea: any) => {
-        const url = ea.type === 'venture' ? `/ventures/${ea.slug}` 
-                  : ea.type === 'project' ? `/projects/${ea.slug}` 
+        const url = ea.type === 'venture' ? `/ventures/${ea.slug}`
+                  : ea.type === 'project' ? `/projects/${ea.slug}`
                   : `/profile/${ea.slug}`
         return `<div style="margin:16px 0;padding:14px;border:1px solid rgba(255,255,255,0.08);border-radius:12px;background:rgba(255,255,255,0.02);display:flex;align-items:center;gap:12px;">
           <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;flex-shrink:0;">
@@ -232,8 +254,6 @@ export async function POST(request: Request) {
       }).join('')
       finalBodyHtml += cards
     }
-
-    const bodyText = finalBodyHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 
     let threadId: string
     let isReply = false
@@ -270,7 +290,6 @@ export async function POST(request: Request) {
         })
       }
     } else {
-      // FIX: Pass last_message_sender_identity_id upon insert to satisfy RLS SELECT check
       const { data: newThread, error: threadErr } = await supabase
         .from('mail_threads')
         .insert({
@@ -301,33 +320,33 @@ export async function POST(request: Request) {
       resolvedTo.forEach(({ identity_id }) => {
         if (!seenIdentities.has(identity_id)) {
           seenIdentities.add(identity_id)
-          allParticipants.push({ 
-            thread_id: threadId, 
-            identity_id, 
-            role: 'to', 
-            folder: 'inbox' 
+          allParticipants.push({
+            thread_id: threadId,
+            identity_id,
+            role: 'to',
+            folder: 'inbox',
           })
         }
       })
       resolvedCc.forEach(({ identity_id }) => {
         if (!seenIdentities.has(identity_id)) {
           seenIdentities.add(identity_id)
-          allParticipants.push({ 
-            thread_id: threadId, 
-            identity_id, 
-            role: 'cc', 
-            folder: 'inbox' 
+          allParticipants.push({
+            thread_id: threadId,
+            identity_id,
+            role: 'cc',
+            folder: 'inbox',
           })
         }
       })
       resolvedBcc.forEach(({ identity_id }) => {
         if (!seenIdentities.has(identity_id)) {
           seenIdentities.add(identity_id)
-          allParticipants.push({ 
-            thread_id: threadId, 
-            identity_id, 
-            role: 'bcc', 
-            folder: 'inbox' 
+          allParticipants.push({
+            thread_id: threadId,
+            identity_id,
+            role: 'bcc',
+            folder: 'inbox',
           })
         }
       })
@@ -356,21 +375,34 @@ export async function POST(request: Request) {
 
     if (msgErr) throw msgErr
 
+    // --- EXECUTE SECURITY PIPELINE ---
+    void runInboundSecurityPipeline({
+      messageId: message.id,
+      threadId,
+      senderIdentityId: from_identity_id,
+      recipientIdentityIds: resolvedTo.map((r) => r.identity_id),
+      actualUserId: user.id,
+      subject: subject.trim(),
+      bodyHtml: finalBodyHtml,
+      bodyText,
+      attachments,
+    })
+
     if (draft_id) {
       await supabase.from('mail_drafts').delete().eq('id', draft_id).eq('user_id', user.id)
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      thread_id: threadId, 
+    return NextResponse.json({
+      success: true,
+      thread_id: threadId,
       message_id: message.id,
       is_reply: isReply,
-      recipient_count: resolvedTo.length + resolvedCc.length + resolvedBcc.length,
+      recipient_count: totalRecipients,
     })
   } catch (e: any) {
     console.error('Send mail error:', e)
-    return NextResponse.json({ 
-      error: e?.message || 'Failed to send message' 
+    return NextResponse.json({
+      error: e?.message || 'Failed to send message',
     }, { status: 500 })
   }
 }

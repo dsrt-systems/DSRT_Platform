@@ -3,8 +3,17 @@ import './globals.css'
 import { AppProviders } from '@/components/providers/AppProviders'
 
 export const metadata: Metadata = {
-  title: 'DSRT — Build with the right people',
+  title: 'DSRT | Build with the right people',
   description: 'The command center for builders. Where mission meets execution.',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180' }],
+  },
+  manifest: '/site.webmanifest',
 }
 
 export default function RootLayout({

@@ -12,7 +12,6 @@ export async function GET(request: Request) {
   const identityId = searchParams.get('identity_id')
 
   try {
-    // 1. Resolve owned identities
     const { data: userIdentities } = await supabase.rpc('fn_get_user_mail_identities', { p_user_id: user.id })
     const ownedIds = (userIdentities || []).map((i: any) => i.identity_id)
     if (ownedIds.length === 0) return NextResponse.json({ counts: {} })
@@ -23,7 +22,6 @@ export async function GET(request: Request) {
     
     if (targetIds.length === 0) return NextResponse.json({ counts: {} })
 
-    // 2. Fetch all participations WITH thread data joined
     const { data: parts, error } = await supabase
       .from('mail_thread_participants')
       .select(`
@@ -34,7 +32,6 @@ export async function GET(request: Request) {
 
     if (error) throw error
 
-    // 3. Fetch Drafts & Scheduled counts
     const { count: draftsCount } = await supabase
       .from('mail_drafts')
       .select('id', { count: 'exact', head: true })
@@ -47,7 +44,6 @@ export async function GET(request: Request) {
       .eq('user_id', user.id)
       .not('scheduled_send_at', 'is', null)
 
-    // 4. Deduplicate by thread
     const threadMap = new Map<string, any>()
     ;(parts || []).forEach(p => {
       const existing = threadMap.get(p.thread_id)
@@ -55,7 +51,6 @@ export async function GET(request: Request) {
     })
     const all = Array.from(threadMap.values())
 
-    // 5. Calculate Smart Views
     const counts = {
       inbox: all.filter(p => p.folder === 'inbox' && !p.is_trashed && !p.is_archived && !p.is_spam && !p.is_snoozed && !p.is_read).length,
       starred: all.filter(p => p.is_starred && !p.is_trashed).length,
@@ -64,28 +59,23 @@ export async function GET(request: Request) {
       drafts: draftsCount || 0,
       scheduled: schedCount || 0,
       all: all.filter(p => !p.is_trashed).length,
+      quarantine: all.filter(p => p.folder === 'quarantine' && !p.is_trashed).length,
       spam: all.filter(p => p.is_spam && !p.is_trashed).length,
       trash: all.filter(p => p.is_trashed).length,
       
-      // SMART VIEWS LOGIC
       important: all.filter(p => p.is_important && !p.is_trashed && !p.is_read).length,
-      
-      // Action Required: It's an invite/app AND the action state is still null
       action_required: all.filter(p => 
         !p.is_trashed && 
         p.mail_threads && 
         ['connect', 'application', 'venture_invite', 'project_invite'].includes(p.mail_threads.source_type) &&
         p.mail_threads.action_state === null
       ).length,
-      
-      // Awaiting Reply: We sent the original message, and the LAST message in the thread was ALSO sent by us (meaning they haven't replied)
       awaiting_reply: all.filter(p => 
         p.role === 'from' && 
         !p.is_trashed && 
         p.mail_threads && 
         targetIds.includes(p.mail_threads.last_message_sender_identity_id)
       ).length,
-      
       unread: all.filter(p => !p.is_read && !p.is_trashed && !p.is_spam).length,
       with_attachments: all.filter(p => !p.is_trashed && p.mail_threads?.has_attachments).length,
       shared_with_me: all.filter(p => p.role !== 'from' && !p.is_trashed && !p.is_read).length,

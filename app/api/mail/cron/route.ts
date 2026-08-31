@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { wakeDueSnoozes } from '@/lib/mail/security/SnoozeEngine'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,14 +9,15 @@ export async function GET(request: Request) {
   const cronToken = searchParams.get('token')
 
   // Security check: match token with env variable
-  const expectedSecret = process.env.CRON_SECRET || 'dsrt_cron_secret_key_2026'
+  const expectedSecret = process.env.CRON_SECRET || 'dsrt_cron_2025_secure_key'
   if (cronToken !== expectedSecret) {
     return NextResponse.json({ error: 'Unauthorized cron trigger' }, { status: 401 })
   }
 
   // Use Supabase Service Role Key to bypass RLS in background processing
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   const supabase = createClient(supabaseUrl, serviceRoleKey)
 
   try {
@@ -25,10 +27,12 @@ export async function GET(request: Request) {
       errors: [] as string[],
     }
 
-    // 1. Process Snoozed Emails
-    const { data: unsnoozedCount, error: snoozeErr } = await supabase.rpc('fn_restore_snoozed_threads')
-    if (snoozeErr) results.errors.push(`Snooze restore error: ${snoozeErr.message}`)
-    else results.unsnoozed = unsnoozedCount || 0
+    // 1. Process Snoozed Emails via Phase 13 SnoozeEngine
+    try {
+      results.unsnoozed = await wakeDueSnoozes()
+    } catch (snoozeErr: any) {
+      results.errors.push(`Snooze restore error: ${snoozeErr.message}`)
+    }
 
     // 2. Fetch all drafts that are scheduled for NOW or in the past
     const { data: scheduledDrafts, error: draftsErr } = await supabase
@@ -39,7 +43,6 @@ export async function GET(request: Request) {
     if (draftsErr) {
       results.errors.push(`Scheduled fetch error: ${draftsErr.message}`)
     } else if (scheduledDrafts && scheduledDrafts.length > 0) {
-      
       for (const draft of scheduledDrafts) {
         try {
           const bodyText = (draft.body_html || '').replace(/<[^>]*>/g, ' ').trim()

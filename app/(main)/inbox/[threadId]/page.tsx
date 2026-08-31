@@ -1,4 +1,5 @@
 import { ThreadDetailPage } from '@/components/mail/ThreadDetailPage'
+import { MailErrorBoundary } from '@/components/mail/MailErrorBoundary'
 
 export const metadata = {
   title: 'Conversation | DSRT Mail',
@@ -12,6 +13,10 @@ export default async function Page({
   params: Promise<{ threadId: string }>
 }) {
   const { threadId } = await params
-  
-  return <ThreadDetailPage threadId={threadId} />
+
+  return (
+    <MailErrorBoundary label="Conversation">
+      <ThreadDetailPage threadId={threadId} />
+    </MailErrorBoundary>
+  )
 }
