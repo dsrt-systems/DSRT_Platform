@@ -19,9 +19,9 @@ const TABS: Array<{
   icon: any
 }> = [
   { key: 'personal', label: 'Personal', sublabel: 'Direct & important conversations', icon: UserCircle },
+  { key: 'network', label: 'Network', sublabel: 'Community & networking', icon: UsersThree },
   { key: 'projects', label: 'Projects', sublabel: 'Project-related communication', icon: Rocket },
   { key: 'ventures', label: 'Ventures', sublabel: 'Venture & business communication', icon: Buildings },
-  { key: 'network', label: 'Network', sublabel: 'Community & networking', icon: UsersThree },
 ]
 
 export function MailTabs({ activeTab, onTabChange }: Props) {

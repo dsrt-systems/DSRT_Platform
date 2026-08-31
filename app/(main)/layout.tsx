@@ -4,11 +4,6 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { Navbar } from '@/components/layout/Navbar'
 import { MainClientProviders } from '@/components/layout/MainClientProviders'
 
-// Import global mail infrastructure
-import { MailIdentityProvider } from '@/components/mail/hooks/useMailIdentity'
-import { ComposerProvider } from '@/components/mail/composer/ComposerContext'
-import { ComposerModal } from '@/components/mail/composer/ComposerModal'
-
 export const dynamic = 'force-dynamic'
 
 export default async function MainLayout({
@@ -27,7 +22,6 @@ export default async function MainLayout({
     .eq('id', user.id)
     .maybeSingle()
 
-  // Auto-provision profile row if user exists in Auth but missing in public.users
   if (!profile) {
     const email = user.email || ''
     const usernameBase = (email.split('@')[0] || 'user')
@@ -64,18 +58,13 @@ export default async function MainLayout({
 
   return (
     <MainClientProviders>
-      <MailIdentityProvider>
-        <ComposerProvider>
-          <div className="min-h-screen bg-background">
-            <Navbar user={profile} />
-            <Sidebar user={profile} />
-            <main className="md:ml-56 min-h-[calc(100vh-3.5rem)]">
-              {children}
-            </main>
-          </div>
-          <ComposerModal />
-        </ComposerProvider>
-      </MailIdentityProvider>
+      <div className="min-h-screen bg-background">
+        <Navbar user={profile} />
+        <Sidebar user={profile} />
+        <main className="md:ml-56 min-h-[calc(100vh-3.5rem)]">
+          {children}
+        </main>
+      </div>
     </MainClientProviders>
   )
 }

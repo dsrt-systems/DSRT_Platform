@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
-  ArrowLeft, Archive, Trash, Clock, Printer, Warning, Star
+  ArrowLeft, Archive, Trash, Printer, Warning, Star
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -108,7 +108,7 @@ ${lastMessage.body_html || lastMessage.body_text || ''}
   const isStarred = thread?.participant_state?.is_starred
 
   return (
-    <div className="fixed inset-0 md:left-56 top-14 flex flex-col bg-[#050508] text-white z-40">
+    <div className="fixed top-14 bottom-0 left-0 md:left-56 right-0 flex flex-col bg-[#050508] text-white z-40">
       {/* Top Action Bar */}
       <div className="h-14 px-4 md:px-6 border-b border-white/[0.08] bg-[#0a0a0f] flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
@@ -199,15 +199,17 @@ ${lastMessage.body_html || lastMessage.body_text || ''}
                 )}
               </div>
 
-              {/* Reply Bar */}
-              <QuickReplyBar
-                threadId={thread.id}
-                smartReplyIdentityId={smartReplyIdentityId}
-                activeMode={activeReplyMode}
-                setActiveMode={setActiveReplyMode}
-                onReplySent={loadThread}
-                onExpandToFull={handleReplyInComposer}
-              />
+              {/* Reply Bar — only render when thread is loaded */}
+              {thread?.id && (
+                <QuickReplyBar
+                  threadId={thread.id}
+                  smartReplyIdentityId={smartReplyIdentityId}
+                  activeMode={activeReplyMode}
+                  setActiveMode={setActiveReplyMode}
+                  onReplySent={loadThread}
+                  onExpandToFull={handleReplyInComposer}
+                />
+              )}
             </div>
           )}
         </div>
