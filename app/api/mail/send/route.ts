@@ -19,7 +19,6 @@ async function ensureIdentity(
   supabase: any, 
   recipient: Recipient
 ): Promise<string | null> {
-  // Already has identity_id — verify it exists
   if (recipient.identity_id) {
     const { data } = await supabase
       .from('mail_identities')
@@ -29,7 +28,6 @@ async function ensureIdentity(
     if (data) return data.id
   }
 
-  // Try to find by email
   if (recipient.dsrt_email) {
     const { data: existing } = await supabase
       .from('mail_identities')
@@ -39,10 +37,8 @@ async function ensureIdentity(
     if (existing) return existing.id
   }
 
-  // Auto-provision: need entity_type and entity_id
   if (!recipient.entity_type || !recipient.entity_id) return null
 
-  // Fetch entity details from source table
   let email = recipient.dsrt_email
   let displayName = recipient.display_name
   let avatarUrl = null
@@ -84,7 +80,6 @@ async function ensureIdentity(
 
   if (!email) return null
 
-  // Insert new identity
   const { data: newIdentity, error } = await supabase
     .from('mail_identities')
     .insert({
@@ -98,7 +93,6 @@ async function ensureIdentity(
     .single()
 
   if (error) {
-    // Might have been created by concurrent request — try to fetch
     const { data: retry } = await supabase
       .from('mail_identities')
       .select('id')
@@ -137,7 +131,6 @@ export async function POST(request: Request) {
       reply_to_message_id = null,
     } = body
 
-    // --- VALIDATION ---
     if (!from_identity_id) {
       return NextResponse.json({ error: 'Sender identity is required' }, { status: 400 })
     }
@@ -151,7 +144,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Message body is required' }, { status: 400 })
     }
 
-    // --- VERIFY SENDER IDENTITY OWNERSHIP ---
     const { data: userIdentities } = await supabase.rpc('fn_get_user_mail_identities', {
       p_user_id: user.id,
     })
@@ -160,7 +152,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You cannot send as this identity' }, { status: 403 })
     }
 
-    // --- RESOLVE ALL RECIPIENT IDENTITIES (auto-provision missing) ---
     const resolveRecipients = async (list: Recipient[]) => {
       const resolved: Array<{ identity_id: string, original: Recipient }> = []
       for (const r of list) {
@@ -180,7 +171,6 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // --- HANDLE SCHEDULED SEND ---
     if (scheduled_send_at) {
       const scheduleDate = new Date(scheduled_send_at)
       if (scheduleDate.getTime() <= Date.now()) {
@@ -189,7 +179,6 @@ export async function POST(request: Request) {
         }, { status: 400 })
       }
 
-      // Store as scheduled draft (will be picked up by cron)
       const { data: scheduled, error: schedErr } = await supabase
         .from('mail_drafts')
         .insert({
@@ -212,7 +201,6 @@ export async function POST(request: Request) {
 
       if (schedErr) throw schedErr
 
-      // Delete the original draft if we were editing one
       if (draft_id && draft_id !== scheduled.id) {
         await supabase.from('mail_drafts').delete().eq('id', draft_id).eq('user_id', user.id)
       }
@@ -225,7 +213,6 @@ export async function POST(request: Request) {
       })
     }
 
-    // --- BUILD FINAL BODY WITH ENTITY CARDS ---
     let finalBodyHtml = body_html
     if (entity_attachments && entity_attachments.length > 0) {
       const cards = entity_attachments.map((ea: any) => {
@@ -248,12 +235,10 @@ export async function POST(request: Request) {
 
     const bodyText = finalBodyHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 
-    // --- HANDLE REPLY (append to existing thread) ---
     let threadId: string
     let isReply = false
 
     if (reply_to_thread_id) {
-      // Verify user has access to this thread
       const { data: existingPart } = await supabase
         .from('mail_thread_participants')
         .select('id')
@@ -268,7 +253,6 @@ export async function POST(request: Request) {
       threadId = reply_to_thread_id
       isReply = true
 
-      // Ensure the from_identity is a participant
       const { data: senderPart } = await supabase
         .from('mail_thread_participants')
         .select('id')
@@ -286,7 +270,7 @@ export async function POST(request: Request) {
         })
       }
     } else {
-      // Create new thread
+      // FIX: Pass last_message_sender_identity_id upon insert to satisfy RLS SELECT check
       const { data: newThread, error: threadErr } = await supabase
         .from('mail_threads')
         .insert({
@@ -294,6 +278,7 @@ export async function POST(request: Request) {
           source_type,
           source_entity_type,
           source_entity_id,
+          last_message_sender_identity_id: from_identity_id,
         })
         .select()
         .single()
@@ -301,7 +286,6 @@ export async function POST(request: Request) {
       if (threadErr) throw threadErr
       threadId = newThread.id
 
-      // Add sender as 'from' participant
       await supabase.from('mail_thread_participants').insert({
         thread_id: threadId,
         identity_id: from_identity_id,
@@ -311,7 +295,6 @@ export async function POST(request: Request) {
         last_read_at: new Date().toISOString(),
       })
 
-      // Add recipients
       const allParticipants: any[] = []
       const seenIdentities = new Set<string>([from_identity_id])
 
@@ -357,7 +340,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // --- INSERT THE MESSAGE (trigger will auto-update thread) ---
     const { data: message, error: msgErr } = await supabase
       .from('mail_messages')
       .insert({
@@ -374,7 +356,6 @@ export async function POST(request: Request) {
 
     if (msgErr) throw msgErr
 
-    // --- CLEAN UP DRAFT ---
     if (draft_id) {
       await supabase.from('mail_drafts').delete().eq('id', draft_id).eq('user_id', user.id)
     }
