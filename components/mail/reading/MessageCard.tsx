@@ -10,9 +10,9 @@ import {
   Paperclip,
   User,
   ShieldWarning,
-  CheckCircle,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { MessageDetailsPopover } from './MessageDetailsPopover'
 
 interface MessageCardProps {
   message: any
@@ -22,6 +22,8 @@ interface MessageCardProps {
   onReplyAll?: () => void
   onForward?: () => void
   securityResult?: any
+  currentUserEmail?: string
+  currentUserName?: string
 }
 
 function formatDateTime(value?: string) {
@@ -55,6 +57,8 @@ export function MessageCard({
   onReplyAll,
   onForward,
   securityResult,
+  currentUserEmail,
+  currentUserName,
 }: MessageCardProps) {
   const [expanded, setExpanded] = useState(Boolean(isLast || isFirst))
 
@@ -72,22 +76,23 @@ export function MessageCard({
     return raw.length > 140 ? `${raw.slice(0, 140)}…` : raw
   }, [bodyHtml, bodyText])
 
-  const isPhishingOrMalware = securityResult?.classification === 'PHISHING' || securityResult?.classification === 'MALWARE'
+  const isPhishingOrMalware =
+    securityResult?.classification === 'PHISHING' || securityResult?.classification === 'MALWARE'
 
   return (
     <div
       className={cn(
-        'rounded-xl border border-white/[0.08] bg-[#0a0a0f]/80 overflow-hidden',
+        'rounded-xl border border-white/[0.08] bg-[#0a0a0f]/80 overflow-visible',
         !isLast && 'mb-3'
       )}
     >
-      <button
-        type="button"
+      <div
+        className="w-full px-4 py-3 flex items-start gap-3 text-left cursor-pointer hover:bg-white/[0.02] transition-colors"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-white/[0.02] transition-colors"
       >
         <div className="w-9 h-9 rounded-full overflow-hidden bg-white/[0.06] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
           {sender?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={sender.avatar_url} alt={senderName} className="w-full h-full object-cover" />
           ) : senderName ? (
             <span className="text-[11px] font-bold text-white/80">{getInitials(senderName)}</span>
@@ -99,8 +104,34 @@ export function MessageCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-white truncate">{senderName}</p>
-              {senderEmail && <p className="text-[11px] text-white/45 truncate">{senderEmail}</p>}
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-[13px] font-semibold text-white truncate">{senderName}</p>
+                {senderEmail && (
+                  <p className="text-[11px] text-white/45 truncate">&lt;{senderEmail}&gt;</p>
+                )}
+              </div>
+              {expanded && (
+                <div className="mt-0.5" onClick={(e) => e.stopPropagation()}>
+                  <MessageDetailsPopover
+                    fromName={senderName}
+                    fromEmail={senderEmail}
+                    toName={currentUserName || 'me'}
+                    toEmail={currentUserEmail}
+                    date={message?.sent_at || message?.created_at}
+                    subject={message?.subject}
+                    securityInfo={
+                      securityResult
+                        ? {
+                            spf: securityResult.spf_result,
+                            dkim: securityResult.dkim_result,
+                            dmarc: securityResult.dmarc_result,
+                            tls: securityResult.tls_result,
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {attachments.length > 0 && <Paperclip className="w-3.5 h-3.5 text-white/40" />}
@@ -117,19 +148,22 @@ export function MessageCard({
             <p className="mt-1 text-[12px] text-white/50 truncate">{preview}</p>
           )}
         </div>
-      </button>
+      </div>
 
       {expanded && (
         <div className="px-4 pb-4">
           <div className="pl-12 space-y-3">
-            {/* Security Warning Banner if flagged */}
             {isPhishingOrMalware && (
               <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/[0.06] flex items-start gap-2.5 text-[12px]">
                 <ShieldWarning className="w-4 h-4 text-red-400 shrink-0 mt-0.5" weight="fill" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-red-200">Security Warning: {securityResult.classification}</p>
+                  <p className="font-bold text-red-200">
+                    Security Warning: {securityResult.classification}
+                  </p>
                   <p className="text-white/60 mt-0.5">
-                    This message was flagged by DSRT Security ({securityResult.decision_reason_code || 'Suspicious Content'}). Be careful clicking links or downloading attachments.
+                    This message was flagged by DSRT Security (
+                    {securityResult.decision_reason_code || 'Suspicious Content'}). Be careful
+                    clicking links or downloading attachments.
                   </p>
                 </div>
               </div>

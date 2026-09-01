@@ -169,6 +169,32 @@ export function RichEditor({
     [emitChange, persistSelection, refreshActive, restoreSelection]
   )
 
+  const execList = useCallback(
+    (ordered: boolean) => {
+      const el = editorRef.current
+      if (!el) return
+      el.focus()
+      restoreSelection()
+
+      const sel = window.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+
+      // Ensure content is inside a block first
+      const parent = sel.anchorNode?.parentElement
+      if (parent && parent.tagName === 'DIV' && parent === el) {
+        document.execCommand('formatBlock', false, 'p')
+      }
+
+      const command = ordered ? 'insertOrderedList' : 'insertUnorderedList'
+      document.execCommand(command, false)
+
+      persistSelection()
+      emitChange()
+      refreshActive()
+    },
+    [emitChange, persistSelection, refreshActive, restoreSelection]
+  )
+
   const applyBlock = (block: BlockFormat) => {
     setFormatOpen(false)
     // formatBlock expects tag name; some browsers want <p>
@@ -400,8 +426,8 @@ export function RichEditor({
         <ToolbarBtn onClick={() => exec('underline')} icon={TextUnderline} title="Underline (⌘U)" isActive={active.underline} />
         <ToolbarBtn onClick={() => exec('strikeThrough')} icon={TextStrikethrough} title="Strikethrough" isActive={active.strike} />
         <Divider />
-        <ToolbarBtn onClick={() => exec('insertUnorderedList')} icon={ListBullets} title="Bullet list" isActive={active.ul} />
-        <ToolbarBtn onClick={() => exec('insertOrderedList')} icon={ListNumbers} title="Numbered list" isActive={active.ol} />
+        <ToolbarBtn onClick={() => execList(false)} icon={ListBullets} title="Bullet list" isActive={active.ul} />
+        <ToolbarBtn onClick={() => execList(true)} icon={ListNumbers} title="Numbered list" isActive={active.ol} />
         <ToolbarBtn onClick={() => applyBlock('blockquote')} icon={Quotes} title="Quote" isActive={active.block === 'blockquote'} />
         <ToolbarBtn onClick={() => applyBlock('pre')} icon={Code} title="Code block" isActive={active.block === 'pre'} />
         <Divider />
@@ -441,7 +467,7 @@ export function RichEditor({
             'w-full px-5 py-4 text-[14.5px] text-white/90 leading-relaxed focus:outline-none',
             'prose prose-invert prose-sm max-w-none',
             'prose-headings:tracking-tight prose-headings:font-bold prose-headings:text-white',
-            'prose-p:my-2 prose-li:my-0.5',
+            'prose-p:my-2 prose-ul:list-disc prose-ul:pl-6 prose-ol:list-decimal prose-ol:pl-6 prose-li:my-0.5',
             'prose-a:text-white prose-a:underline prose-a:underline-offset-2',
             'prose-blockquote:border-l-white/25 prose-blockquote:text-white/70 prose-blockquote:not-italic',
             'prose-code:text-white/90 prose-code:bg-white/[0.06] prose-code:px-1 prose-code:rounded',

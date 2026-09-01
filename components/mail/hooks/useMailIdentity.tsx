@@ -73,20 +73,14 @@ export function MailIdentityProvider({ children }: { children: ReactNode }) {
         if (found) {
           setActiveIdentityState(found)
         } else {
-          // Saved identity no longer exists — fall back to personal
-          const personal = list.find(i => i.entity_type === 'user')
-          if (personal) {
-            setActiveIdentityState(personal)
-            localStorage.setItem(STORAGE_KEY, personal.identity_id)
-          }
+          // Saved identity no longer exists — fall back to unified
+          setActiveIdentityState('unified')
+          localStorage.setItem(STORAGE_KEY, 'unified')
         }
       } else {
-        // First time — default to personal
-        const personal = list.find(i => i.entity_type === 'user')
-        if (personal) {
-          setActiveIdentityState(personal)
-          localStorage.setItem(STORAGE_KEY, personal.identity_id)
-        }
+        // First time — default to Unified Inbox
+        setActiveIdentityState('unified')
+        localStorage.setItem(STORAGE_KEY, 'unified')
       }
     } catch (e: any) {
       const msg = e?.message || 'Failed to load mail identities'
