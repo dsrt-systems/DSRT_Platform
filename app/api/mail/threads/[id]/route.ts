@@ -14,7 +14,7 @@ export async function GET(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    // 1. Resolve user's identities with auto-provisioning fallback
+    // 1. Resolve user's identities
     const { data: userIdentities } = await supabase.rpc('fn_get_user_mail_identities', {
       p_user_id: user.id,
     })
@@ -22,7 +22,6 @@ export async function GET(
     let ownedIdentities = userIdentities || []
     let ownedIds = ownedIdentities.map((i: any) => i.identity_id)
 
-    // Fallback if RPC returns empty
     if (ownedIds.length === 0) {
       const { data: directIdentities } = await supabase
         .from('mail_identities')
@@ -32,32 +31,10 @@ export async function GET(
 
       if (directIdentities && directIdentities.length > 0) {
         ownedIds = directIdentities.map((i) => i.id)
-      } else {
-        // Auto-provision user identity if missing
-        const { data: profile } = await supabase
-          .from('users')
-          .select('full_name, username, avatar_url, dsrt_email')
-          .eq('id', user.id)
-          .single()
-
-        const email = profile?.dsrt_email || `${profile?.username || 'user'}@dsrt.com`
-        const { data: newIdent } = await supabase
-          .from('mail_identities')
-          .insert({
-            entity_type: 'user',
-            entity_id: user.id,
-            dsrt_email: email,
-            display_name: profile?.full_name || profile?.username || 'User',
-            avatar_url: profile?.avatar_url,
-          })
-          .select('id')
-          .single()
-
-        if (newIdent) ownedIds = [newIdent.id]
       }
     }
 
-    // 2. Fetch thread details
+    // 2. Fetch thread
     const { data: thread, error: threadErr } = await supabase
       .from('mail_threads')
       .select('*')
@@ -68,7 +45,7 @@ export async function GET(
       return NextResponse.json({ error: 'Thread not found' }, { status: 404 })
     }
 
-    // 3. Mark thread as read for owned identities
+    // 3. Mark as read
     if (ownedIds.length > 0) {
       await supabase
         .from('mail_thread_participants')
@@ -77,26 +54,35 @@ export async function GET(
         .in('identity_id', ownedIds)
     }
 
-    // 4. Fetch all messages in thread
+    // 4. Fetch messages
     const { data: messages } = await supabase
       .from('mail_messages')
       .select('*')
       .eq('thread_id', id)
       .order('sent_at', { ascending: true })
 
-    // 5. Fetch all participants (include state columns used by UI)
+    // 5. Fetch all participants
     const { data: allParticipants } = await supabase
       .from('mail_thread_participants')
       .select('identity_id, role, is_read, last_read_at, folder, is_starred, is_archived, is_trashed, is_snoozed, is_important')
       .eq('thread_id', id)
 
-    // 6. Gather all involved identities
-    const allIdentityIds = Array.from(
-      new Set([
-        ...(allParticipants || []).map((p) => p.identity_id),
-        ...(messages || []).map((m) => m.sender_identity_id),
-      ])
-    ).filter(Boolean)
+    // 6. Fetch security results for all messages
+    const messageIds = (messages || []).map((m) => m.id)
+    let securityMap: Record<string, any> = {}
+    if (messageIds.length > 0) {
+      const { data: secResults } = await supabase
+        .from('mail_security_results')
+        .select('*')
+        .in('message_id', messageIds)
+      securityMap = Object.fromEntries((secResults || []).map((s) => [s.message_id, s]))
+    }
+
+    // 7. Gather all involved identities
+    const allIdentityIds = Array.from(new Set([
+      ...(allParticipants || []).map((p) => p.identity_id),
+      ...(messages || []).map((m) => m.sender_identity_id),
+    ])).filter(Boolean)
 
     let identityMap: Record<string, any> = {}
     if (allIdentityIds.length > 0) {
@@ -107,26 +93,50 @@ export async function GET(
       identityMap = Object.fromEntries((idents || []).map((i) => [i.id, i]))
     }
 
-    const enrichedMessages = (messages || []).map((m) => ({
-      ...m,
-      sender_identity: identityMap[m.sender_identity_id] || null,
-    }))
+    // 8. Build TO/CC/BCC recipient lists PER thread (all participants except sender)
+    const toParticipants = (allParticipants || [])
+      .filter((p) => p.role === 'to')
+      .map((p) => identityMap[p.identity_id])
+      .filter(Boolean)
+
+    const ccParticipants = (allParticipants || [])
+      .filter((p) => p.role === 'cc')
+      .map((p) => identityMap[p.identity_id])
+      .filter(Boolean)
+
+    // 9. Enrich messages with sender + full recipient context
+    const enrichedMessages = (messages || []).map((m) => {
+      const senderIdent = identityMap[m.sender_identity_id]
+      const isSentByMe = ownedIds.includes(m.sender_identity_id)
+
+      return {
+        ...m,
+        sender_identity: senderIdent || null,
+        is_sent_by_me: isSentByMe,
+        to_recipients: toParticipants,
+        cc_recipients: ccParticipants,
+        security_result: securityMap[m.id] || null,
+      }
+    })
 
     const enrichedParticipants = (allParticipants || []).map((p) => ({
       ...p,
       identity: identityMap[p.identity_id] || null,
     }))
 
-    // Prefer personal identity for reply; fall back to first owned
     const personalIdentity =
       ownedIdentities.find((i: any) => i.entity_type === 'user') ||
       ownedIdentities[0]
     const smartReplyIdentityId: string | null =
       personalIdentity?.identity_id || ownedIds[0] || null
 
-    // Attach current user's participant state for star/archive UI
     const myParticipantState =
       (allParticipants || []).find((p) => ownedIds.includes(p.identity_id)) || null
+
+    // Current user's mail identity display info
+    const currentUserIdentity = ownedIds.length > 0
+      ? identityMap[ownedIds[0]] || personalIdentity
+      : null
 
     return NextResponse.json({
       thread: {
@@ -137,6 +147,7 @@ export async function GET(
       participants: enrichedParticipants,
       owned_identity_ids: ownedIds,
       smart_reply_identity_id: smartReplyIdentityId,
+      current_user_identity: currentUserIdentity,
       attachments_count: enrichedMessages.reduce(
         (acc, m) => acc + (Array.isArray(m.attachments) ? m.attachments.length : 0),
         0

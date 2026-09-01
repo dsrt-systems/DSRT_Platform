@@ -22,6 +22,7 @@ export function ThreadDetailPage({ threadId }: Props) {
   const [messages, setMessages] = useState<any[]>([])
   const [participants, setParticipants] = useState<any[]>([])
   const [smartReplyIdentityId, setSmartReplyIdentityId] = useState<string | null>(null)
+  const [currentUserIdentity, setCurrentUserIdentity] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeReplyMode, setActiveReplyMode] = useState<'reply' | 'reply_all' | 'forward' | null>(null)
@@ -38,6 +39,7 @@ export function ThreadDetailPage({ threadId }: Props) {
       setMessages(data.messages || [])
       setParticipants(data.participants || [])
       setSmartReplyIdentityId(data.smart_reply_identity_id)
+      setCurrentUserIdentity(data.current_user_identity)
     } catch (e: any) {
       setError(e.message || 'Failed to load thread')
     } finally {
@@ -203,6 +205,7 @@ ${lastMessage.body_html || lastMessage.body_text || ''}
                       message={m}
                       isFirst={i === 0}
                       isLast={i === messages.length - 1}
+                      currentUserEmail={currentUserIdentity?.dsrt_email}
                       onReply={() => setActiveReplyMode('reply')}
                       onReplyAll={() => handleReplyInComposer('reply_all')}
                       onForward={() => handleReplyInComposer('forward')}

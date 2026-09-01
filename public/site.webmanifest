@@ -1,7 +1,17 @@
 {
-  "name": "DSRT",
+  "name": "DSRT | Build with the right people",
   "short_name": "DSRT",
+  "description": "The command center for builders. Where mission meets execution.",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#05070D",
+  "theme_color": "#05070D",
   "icons": [
+    {
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
@@ -14,8 +24,5 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ],
-  "theme_color": "#05070D",
-  "background_color": "#05070D",
-  "display": "standalone"
+  ]
 }
