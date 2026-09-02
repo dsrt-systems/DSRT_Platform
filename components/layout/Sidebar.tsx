@@ -46,7 +46,7 @@ export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
   const supabase = createClient()
 
-  const [myOrg, setMyOrg] = useState<{ slug: string; name: string; short_name?: string } | null>(null)
+  const [myOrg, setMyOrg] = useState<{ slug: string; name: string } | null>(null)
   const [badges, setBadges] = useState({ messages: 0, invitations: 0, inbox: 0 })
 
   useEffect(() => {
@@ -61,35 +61,39 @@ export function Sidebar({ user }: SidebarProps) {
         .limit(1)
       if (data?.[0]) {
         const org = (data[0] as any).organizations
-        if (org) setMyOrg({ slug: org.slug, name: org.name, short_name: extractShortName(org.name) })
+        if (org) setMyOrg({ slug: org.slug, name: org.name })
       }
     }
 
     const loadBadges = async () => {
-      const [msgRes, invRes, inboxRes] = await Promise.all([
-        supabase
-          .from('conversation_participants')
-          .select('conversation_id, last_read_at, conversations:conversation_id(last_message_at)')
-          .eq('user_id', user.id),
-        supabase
-          .from('organization_invitations')
-          .select('id', { count: 'exact', head: true })
-          .eq('invited_user_id', user.id)
-          .eq('status', 'pending'),
-        fetch('/api/inbox/count').then(r => r.json()).catch(() => ({ count: 0 })),
-      ])
+      try {
+        const [msgRes, invRes, inboxRes] = await Promise.all([
+          supabase
+            .from('conversation_participants')
+            .select('conversation_id, last_read_at, conversations:conversation_id(last_message_at)')
+            .eq('user_id', user.id),
+          supabase
+            .from('organization_invitations')
+            .select('id', { count: 'exact', head: true })
+            .eq('invited_user_id', user.id)
+            .eq('status', 'pending'),
+          fetch('/api/inbox/count').then(r => r.json()).catch(() => ({ count: 0 })),
+        ])
 
-      let unread = 0
-      ;(msgRes.data || []).forEach((cp: any) => {
-        const lm = cp.conversations?.last_message_at
-        if (lm && (!cp.last_read_at || new Date(lm) > new Date(cp.last_read_at))) unread++
-      })
+        let unread = 0
+        ;(msgRes.data || []).forEach((cp: any) => {
+          const lm = cp.conversations?.last_message_at
+          if (lm && (!cp.last_read_at || new Date(lm) > new Date(cp.last_read_at))) unread++
+        })
 
-      setBadges({
-        messages: unread,
-        invitations: invRes.count || 0,
-        inbox: inboxRes.count || 0,
-      })
+        setBadges({
+          messages: unread,
+          invitations: invRes.count || 0,
+          inbox: inboxRes.count || 0,
+        })
+      } catch {
+        // silent
+      }
     }
 
     loadOrg()
@@ -149,7 +153,7 @@ export function Sidebar({ user }: SidebarProps) {
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-bold text-white truncate leading-tight">{user?.full_name}</p>
             <p className="text-[11px] text-white/50 truncate mt-0.5">
-              {user?.tagline || myOrg?.short_name || 'Builder'}
+              {user?.tagline || 'Builder'}
             </p>
           </div>
         </Link>
@@ -177,14 +181,6 @@ export function Sidebar({ user }: SidebarProps) {
               >
                 <Building2 className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1 truncate">My Organization</span>
-                <span className={cn(
-                  'text-[9px] font-bold px-1.5 py-0.5 rounded leading-none',
-                  pathname.startsWith(`/organizations/${myOrg.slug}`)
-                    ? 'bg-white/15 text-white'
-                    : 'bg-white/[0.06] text-white/60'
-                )}>
-                  {myOrg.short_name}
-                </span>
               </Link>
             )}
           </nav>
@@ -222,20 +218,4 @@ export function Sidebar({ user }: SidebarProps) {
       </div>
     </aside>
   )
-}
-
-function extractShortName(fullName: string): string {
-  if (!fullName) return ''
-  const patterns: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
-    [/Indian Institute of Technology\s+(\w+)/i, (m) => `IIT ${m[1]}`],
-    [/Indian Institute of Management\s+(\w+)/i, (m) => `IIM ${m[1]}`],
-    [/National Institute of Technology\s+(\w+)/i, (m) => `NIT ${m[1]}`],
-    [/Birla Institute of Technology/i, () => 'BITS'],
-  ]
-  for (const [regex, transform] of patterns) {
-    const match = fullName.match(regex)
-    if (match) return transform(match)
-  }
-  const words = fullName.split(/\s+/).filter(w => !['of', 'and', 'the'].includes(w.toLowerCase()))
-  return words.length >= 2 ? words.slice(0, 3).map(w => w[0]).join('').toUpperCase() : fullName.slice(0, 4)
 }
