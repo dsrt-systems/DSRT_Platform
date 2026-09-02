@@ -158,6 +158,7 @@ export function ApplicationsPage() {
 
         <ApplicationsBulkBar
           selectedIds={Array.from(selected)}
+          selectedRows={(rows || []).filter(r => selected.has(r.id))}
           onClear={() => setSelected(new Set())}
           onDone={() => load()}
         />

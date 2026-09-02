@@ -15,6 +15,9 @@ import {
 } from '@/lib/opportunities/requirement-evidence'
 import { ReviewersControl } from './parts/ReviewersControl'
 import { TeamInvitationStatus } from '@/components/looking-for/team-invitations/TeamInvitationStatus'
+import { StageActionDrawer } from '@/components/looking-for/my-opps/command-center/StageActionDrawer'
+import { InterviewAction } from '@/components/looking-for/my-opps/command-center/actions/InterviewAction'
+import type { PipelineStage } from '@/lib/applications/types'
 
 const STAGE_ORDER = [
   'submitted',
@@ -56,6 +59,8 @@ export function ApplicantSidePanel({
   const [data, setData] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [drawerStage, setDrawerStage] = useState<PipelineStage | null>(null)
+  const [showScheduler, setShowScheduler] = useState(false)
 
   const load = useCallback(async () => {
     if (!appId) return
@@ -217,16 +222,7 @@ export function ApplicantSidePanel({
         </div>
         <StageBar
           current={app.pipeline_stage}
-          onChange={async (stage) => {
-            const opp_id = opp.id
-            await fetch(`/api/opportunities/${opp_id}/applicants/${app.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pipeline_stage: stage }),
-            })
-            await load()
-            onChanged()
-          }}
+          onChange={(stage) => setDrawerStage(stage as PipelineStage)}
         />
       </div>
 
@@ -371,6 +367,49 @@ export function ApplicantSidePanel({
         {/* Internal notes */}
         <Notes appId={app.id} initial={data.notes || []} onAdded={load} />
       </div>
+
+      {drawerStage && (
+        <StageActionDrawer
+          open={!!drawerStage}
+          onClose={() => setDrawerStage(null)}
+          onCompleted={() => {
+            const wasInterviewing = drawerStage === 'interviewing'
+            setDrawerStage(null)
+            onChanged()
+            load()
+            // 🔑 If we just transitioned to interviewing, open the scheduler
+            if (wasInterviewing) setShowScheduler(true)
+          }}
+          targetStage={drawerStage}
+          targets={[{
+            applicationId: app.id,
+            applicantName: applicant.full_name || applicant.username || null,
+            currentStage: app.pipeline_stage,
+          }]}
+          opportunity={{
+            id: opp.id,
+            title: opp.title,
+            slug: opp.slug,
+            poster_name: null,
+            organization_name: null,
+          }}
+        />
+      )}
+
+      {showScheduler && (
+        <InterviewAction
+          open
+          onClose={() => setShowScheduler(false)}
+          onCompleted={() => {
+            setShowScheduler(false)
+            onChanged()
+            load()
+          }}
+          applicationId={app.id}
+          opportunityId={opp.id}
+          applicantName={applicant.full_name || applicant.username}
+        />
+      )}
     </div>
   )
 }

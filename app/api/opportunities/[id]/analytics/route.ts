@@ -71,13 +71,13 @@ export async function GET(
   const funnel = {
     views: opp.view_count || 0,
     unique_visitors: opp.unique_view_count || 0,
-    interested: (opp.save_count || 0) + stageCount(['submitted', 'viewed', 'under-review', 'shortlisted', 'interview', 'offer', 'accepted']),
+    interested: (opp.save_count || 0) + stageCount(['applied', 'submitted', 'pending', 'reviewing', 'screening', 'interviewing', 'offered', 'hired']),
     application_starts: daily.reduce((s, d) => s + (d.applications_started || 0), 0) || apps.length,
-    applications: apps.filter(a => a.pipeline_stage !== 'withdrawn').length,
-    qualified: stageCount(['under-review', 'shortlisted', 'interview', 'offer', 'accepted']),
-    shortlisted: stageCount(['shortlisted', 'interview', 'offer', 'accepted']),
-    interviewed: stageCount(['interview', 'offer', 'accepted']),
-    selected: stageCount(['accepted']),
+    applications: apps.filter(a => a.pipeline_stage !== 'withdrawn' && a.pipeline_stage !== 'draft').length,
+    qualified:   stageCount(['reviewing', 'screening', 'interviewing', 'offered', 'hired']),
+    shortlisted: stageCount(['screening', 'interviewing', 'offered', 'hired']),
+    interviewed: stageCount(['interviewing', 'offered', 'hired']),
+    selected:    stageCount(['hired']),
   }
 
   const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 10000) / 100 : 0)

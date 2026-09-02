@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest) {
       .from('opportunity_applications')
       .select('id, opportunity_id')
       .in('opportunity_id', oppIds)
-      .eq('pipeline_stage', 'submitted')
+      .in('pipeline_stage', ['applied', 'submitted', 'pending'])
 
     const count = unreviewed?.length || 0
     if (count > 0) {
@@ -79,7 +79,7 @@ export async function GET(_req: NextRequest) {
       .from('opportunity_applications')
       .select('id')
       .in('opportunity_id', oppIds)
-      .eq('pipeline_stage', 'shortlisted')
+      .in('pipeline_stage', ['screening', 'shortlisted'])
       .lt('stage_updated_at', since)
 
     if ((stale?.length || 0) > 0) {

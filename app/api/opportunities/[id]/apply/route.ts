@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { trackOpportunityEvent } from '@/lib/events/opportunity-events'
+import { WorkflowService } from '@/lib/applications/WorkflowService'
 
 export const dynamic = 'force-dynamic'
 
@@ -273,9 +274,7 @@ export async function DELETE(
 ) {
   const { id } = await params
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
@@ -286,34 +285,20 @@ export async function DELETE(
       .eq('applicant_id', user.id)
       .maybeSingle()
 
-    if (!existing) {
-      return NextResponse.json({ error: 'Application not found' }, { status: 404 })
-    }
+    if (!existing) return NextResponse.json({ error: 'Application not found' }, { status: 404 })
 
-    const { error } = await supabase
-      .from('opportunity_applications')
-      .update({
-        pipeline_stage: 'withdrawn',
-        status: 'withdrawn',
-        stage_updated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('opportunity_id', id)
-      .eq('applicant_id', user.id)
-
-    if (error) throw error
-
-    // Event for manage activity / analytics
-    await trackOpportunityEvent({
-      opportunity_id: id,
-      user_id: user.id,
-      event_type: 'application_abandoned',
-      source: 'apply_withdraw',
-      metadata: {
-        application_id: existing.id,
-        previous_stage: existing.pipeline_stage,
+    await WorkflowService.transition({
+      application_id: existing.id,
+      target_stage: 'withdrawn',
+      actor_id: user.id,
+      source: 'withdraw_endpoint',
+      reason: 'applicant_withdraw',
+      options: {
+        notify_owner: true,
+        notify_owner_in_app: true,
+        notify_candidate: false,
       },
-    }).catch(() => ({ ok: false }))
+    })
 
     return NextResponse.json({ success: true })
   } catch (e: any) {

@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { PipelineStagesCard } from './settings/PipelineStagesCard'
 import { TeamMembersCard } from './settings/TeamMembersCard'
+import { RecruitmentTemplatesPanel } from './settings/RecruitmentTemplatesPanel'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 
 export function SettingsTab({ opp, onRefresh }: { opp: any; onRefresh: () => void }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
-  
+
   // Modal states
   const [modalType, setModalType] = useState<'archive' | 'delete' | null>(null)
   const [isProcessingModal, setIsProcessingModal] = useState(false)
@@ -141,6 +142,10 @@ export function SettingsTab({ opp, onRefresh }: { opp: any; onRefresh: () => voi
 
         <PipelineStagesCard opportunityId={opp.id} />
         <TeamMembersCard opportunityId={opp.id} />
+        <RecruitmentTemplatesPanel
+          opportunityId={opp.id}
+          opportunityTitle={opp.title}
+        />
       </div>
 
       {/* DSRT Custom Confirmation Modal */}
@@ -174,9 +179,15 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 function Toggle({
-  label, value, onChange, disabled,
+  label,
+  value,
+  onChange,
+  disabled,
 }: {
-  label: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean
+  label: string
+  value: boolean
+  onChange: (v: boolean) => void
+  disabled?: boolean
 }) {
   return (
     <label className="flex items-center justify-between gap-3 cursor-pointer">

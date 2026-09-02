@@ -13,8 +13,9 @@ import { MessagesTab } from './tabs/MessagesTab'
 import { PerformanceTab } from './tabs/PerformanceTab'
 import { DistributionTab } from './tabs/DistributionTab'
 import { ActivityTab } from './tabs/ActivityTab'
+import { AutomationTab } from './tabs/AutomationTab'
+import { ComplianceTab } from './tabs/ComplianceTab'
 import { SettingsTab } from './tabs/SettingsTab'
-
 
 export function WorkspaceShell({ opportunityId }: { opportunityId: string }) {
   const router = useRouter()
@@ -135,6 +136,8 @@ export function WorkspaceShell({ opportunityId }: { opportunityId: string }) {
         {tab === 'performance' && <PerformanceTab opportunityId={opp.id} />}
         {tab === 'distribution' && <DistributionTab opportunityId={opp.id} />}
         {tab === 'activity' && <ActivityTab opportunityId={opp.id} />}
+        {tab === 'automation' && <AutomationTab opportunityId={opp.id} />}
+        {tab === 'compliance' && <ComplianceTab opportunityId={opp.id} />}
         {tab === 'settings' && <SettingsTab opp={opp} onRefresh={load} />}
       </div>
     </div>

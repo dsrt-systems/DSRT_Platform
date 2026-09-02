@@ -5,12 +5,18 @@ import Link from 'next/link'
 
 const LABEL: Record<string, string> = {
   application_submitted: 'New application received',
+  applicant_reviewing:   'Applicant moved to reviewing',
   applicant_shortlisted: 'Applicant shortlisted',
-  applicant_selected: 'Applicant selected',
-  applicant_rejected: 'Applicant rejected',
-  opportunity_paused: 'Opportunity paused',
-  opportunity_resumed: 'Opportunity resumed',
-  opportunity_closed: 'Opportunity closed',
+  applicant_screening:   'Applicant shortlisted',
+  applicant_interview:   'Interview scheduled',
+  applicant_interviewing:'Interview scheduled',
+  applicant_offered:     'Offer prepared',
+  applicant_hired:       'Applicant selected',
+  applicant_selected:    'Applicant selected',
+  applicant_rejected:    'Applicant rejected',
+  opportunity_paused:    'Opportunity paused',
+  opportunity_resumed:   'Opportunity resumed',
+  opportunity_closed:    'Opportunity closed',
   opportunity_published: 'Opportunity published',
 }
 

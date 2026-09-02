@@ -45,14 +45,12 @@ export function OpportunityHeader({
           <IconAction Icon={ShareNetwork} label="Share" onClick={onShare} />
           <IconAction Icon={Flag} label="Report" onClick={onReport} />
 
-          <div className="w-[150px]">
-            <SmartApplyButton
-              opportunity={opportunity}
-              isOwner={isOwner}
-              isClosed={isClosed}
-              className="w-full h-8 text-[12px] px-3 shadow-none rounded-lg"
-            />
-          </div>
+          <SmartApplyButton
+            opportunity={opportunity}
+            isOwner={isOwner}
+            isClosed={isClosed}
+            className="inline-flex h-8 min-w-[130px] text-[12px] px-3 shadow-none rounded-lg whitespace-nowrap"
+          />
         </div>
       </div>
 

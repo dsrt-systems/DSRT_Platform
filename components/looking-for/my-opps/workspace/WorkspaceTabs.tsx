@@ -8,6 +8,8 @@ export type WorkspaceTab =
   | 'performance'
   | 'distribution'
   | 'activity'
+  | 'automation'
+  | 'compliance'
   | 'settings'
 
 const ITEMS: { key: WorkspaceTab; label: string }[] = [
@@ -18,6 +20,8 @@ const ITEMS: { key: WorkspaceTab; label: string }[] = [
   { key: 'performance', label: 'Performance' },
   { key: 'distribution', label: 'Distribution' },
   { key: 'activity', label: 'Activity' },
+  { key: 'automation', label: 'Automation' },
+  { key: 'compliance', label: 'Compliance' },
   { key: 'settings', label: 'Settings' },
 ]
 
