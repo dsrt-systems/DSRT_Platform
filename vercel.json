@@ -25,9 +25,9 @@
     "schedule": "* * * * *" 
     },
 
-
+    { "path": "/api/cron/process-workflow-jobs", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/purge-expired-data",    "schedule": "0 2 * * *" }
     
-    { "path": "/api/cron/purge-expired-data", "schedule": "0 2 * * *" }
   ]
   
 }
