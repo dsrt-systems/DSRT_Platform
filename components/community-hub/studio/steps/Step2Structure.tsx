@@ -5,11 +5,7 @@ import { TopicChipsInput } from '../TopicChipsInput'
 import type { DraftData } from '@/lib/community/service.drafts'
 import { cn } from '@/lib/utils'
 import { Info } from 'lucide-react'
-
-const CATEGORIES = [
-  'general', 'technology', 'research', 'design', 'engineering', 'academic',
-  'entrepreneurship', 'creative', 'community', 'ai', 'robotics', 'open-source',
-]
+import { CATEGORY_DATA } from '../../discover/CategoriesGrid'
 
 const COMMUNITY_TYPES = [
   { key: 'university', label: 'University' },
@@ -77,22 +73,26 @@ export function Step2Structure({ data, patch }: Props) {
               </div>
             </StudioField>
 
-            <StudioField label="Category">
-              <div className="flex flex-wrap gap-1.5">
-                {CATEGORIES.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => patch({ category: c })}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-[11.5px] font-mono transition-colors',
-                      data.category === c
-                        ? 'border-white/[0.2] bg-white/[0.08] text-white'
-                        : 'border-white/[0.06] bg-white/[0.02] text-white/70 hover:bg-white/[0.05]'
-                    )}
-                  >
-                    {c.replace(/-/g, ' ')}
-                  </button>
-                ))}
+            <StudioField label="Category" hint="Select the primary industry or vertical.">
+              <div className="flex flex-wrap gap-1.5 max-h-60 overflow-y-auto pr-2 scrollbar-hide border border-white/[0.06] p-2 rounded-xl bg-white/[0.01]">
+                {CATEGORY_DATA.map((c) => {
+                  const Icon = c.icon
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => patch({ category: c.id })}
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11.5px] font-medium transition-colors',
+                        data.category === c.id
+                          ? 'border-white/[0.2] bg-white/[0.08] text-white'
+                          : 'border-white/[0.06] bg-white/[0.02] text-white/70 hover:bg-white/[0.05]'
+                      )}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {c.label}
+                    </button>
+                  )
+                })}
               </div>
             </StudioField>
 

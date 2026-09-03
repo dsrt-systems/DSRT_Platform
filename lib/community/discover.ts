@@ -1,6 +1,6 @@
 // ============================================================
 // lib/community/discover.ts
-// Server-side Discover queries.
+// Server-side Discover & Global Search queries.
 //
 // FIXED: only queries columns that actually exist on public.users:
 //   - preferred_categories (text[])
@@ -18,8 +18,10 @@ export interface DiscoverCommunityCard {
   slug: string
   name: string
   short_description: string | null
+  description?: string | null
   logo_url: string | null
   cover_url: string | null
+  banner_url?: string | null
   category: string | null
   community_type: string | null
   visibility: string
@@ -39,16 +41,33 @@ export interface DiscoverCommunityCard {
   reason_text?: string | null
 }
 
+export interface AllCommunitiesFilters {
+  category?: string
+  community_type?: string
+  join_policy?: string
+  visibility?: string
+  verified_only?: boolean
+  location?: string
+  sort?: 'members' | 'newest' | 'active'
+}
+
 const COMMUNITY_LIST_FIELDS = `
   id, public_id, slug, name, short_description, description,
-  cover_url, banner_url, category, community_type, visibility,
+  logo_url, cover_url, banner_url, category, community_type, visibility,
   join_policy, status, is_verified, member_count, post_count,
   topics, location_text, created_at, published_at
 `
 
 /**
+ * Escapes special character wildcards for Supabase ilike lookups.
+ */
+function escapeIlike(term: string): string {
+  return term.replace(/[\\%_]/g, (m) => '\\' + m)
+}
+
+/**
  * Extracts a lowercase location hint from users.location_data JSONB.
- * Supports { city, region, country, formatted, name } etc.
+ * Supports { city, region, country, formatted, name, etc. }
  */
 function extractLocationHint(locationData: any): string | null {
   if (!locationData) return null
@@ -69,6 +88,9 @@ function extractLocationHint(locationData: any): string | null {
   return parts[0] || null
 }
 
+/**
+ * Resolves personalize signals directly from active user profile attributes.
+ */
 async function loadUserSignals(
   supabase: SupabaseClient,
   actorId: string | null
@@ -88,9 +110,10 @@ async function loadUserSignals(
       ...((user.preferred_categories as string[] | null) || []),
       ...((user.profile_tags as string[] | null) || []),
       ...((user.looking_for_opportunities as string[] | null) || []),
-    ])
-      .values()
-  ).map((t) => (t || '').toString().toLowerCase()).filter(Boolean)
+    ]).values()
+  )
+    .map((t) => (t || '').toString().toLowerCase())
+    .filter(Boolean)
 
   return {
     topics,
@@ -99,6 +122,9 @@ async function loadUserSignals(
   }
 }
 
+/**
+ * Personalizes communities array checking whether user is currently a member or follower.
+ */
 async function enrichWithPersonalization(
   supabase: SupabaseClient,
   cards: DiscoverCommunityCard[],
@@ -132,9 +158,43 @@ async function enrichWithPersonalization(
 }
 
 // -----------------------------------------------------------
+// GLOBAL SEARCH (Communities + People)
+// -----------------------------------------------------------
+export async function searchGlobal(
+  supabase: SupabaseClient,
+  q: string,
+  limit = 5
+) {
+  const term = q.trim()
+  if (!term) return { communities: [], people: [] }
+  const safe = escapeIlike(term)
+
+  const [commsRes, peopleRes] = await Promise.all([
+    supabase
+      .from('communities')
+      .select(COMMUNITY_LIST_FIELDS)
+      .eq('status', 'ACTIVE')
+      .in('visibility', ['PUBLIC', 'UNLISTED'])
+      .or(`name.ilike.%${safe}%,short_description.ilike.%${safe}%`)
+      .order('member_count', { ascending: false })
+      .limit(limit),
+    
+    supabase
+      .from('users')
+      .select('id, username, full_name, avatar_url, tagline, is_verified')
+      .or(`full_name.ilike.%${safe}%,username.ilike.%${safe}%`)
+      .limit(limit)
+  ])
+
+  return {
+    communities: commsRes.data || [],
+    people: peopleRes.data || []
+  }
+}
+
+// -----------------------------------------------------------
 // RECOMMENDED — personalized picks
 // -----------------------------------------------------------
-
 export async function getRecommendedCommunities(
   supabase: SupabaseClient,
   actorId: string | null,
@@ -226,7 +286,6 @@ export async function getRecommendedCommunities(
 // -----------------------------------------------------------
 // RISING — activity-based (view-driven, with popularity fallback)
 // -----------------------------------------------------------
-
 export async function getRisingCommunities(
   supabase: SupabaseClient,
   actorId: string | null,
@@ -275,7 +334,6 @@ export async function getRisingCommunities(
 // -----------------------------------------------------------
 // NEW — recently published
 // -----------------------------------------------------------
-
 export async function getNewCommunities(
   supabase: SupabaseClient,
   actorId: string | null,
@@ -295,7 +353,6 @@ export async function getNewCommunities(
 // -----------------------------------------------------------
 // NEAR ME
 // -----------------------------------------------------------
-
 export async function getNearMeCommunities(
   supabase: SupabaseClient,
   actorId: string | null,
@@ -321,7 +378,6 @@ export async function getNearMeCommunities(
 // -----------------------------------------------------------
 // CATEGORIES
 // -----------------------------------------------------------
-
 export async function getCommunityCategories(supabase: SupabaseClient) {
   const { data } = await supabase
     .from('communities')
@@ -343,17 +399,6 @@ export async function getCommunityCategories(supabase: SupabaseClient) {
 // -----------------------------------------------------------
 // ALL COMMUNITIES (paginated + filtered)
 // -----------------------------------------------------------
-
-export interface AllCommunitiesFilters {
-  category?: string
-  community_type?: string
-  join_policy?: string
-  visibility?: string
-  verified_only?: boolean
-  location?: string
-  sort?: 'members' | 'newest' | 'active'
-}
-
 export async function getAllCommunities(
   supabase: SupabaseClient,
   actorId: string | null,
@@ -361,64 +406,69 @@ export async function getAllCommunities(
   cursor: string | null,
   limit: number
 ) {
-  let query = supabase
-    .from('communities')
-    .select(COMMUNITY_LIST_FIELDS)
-    .eq('status', 'ACTIVE')
-    .in('visibility', ['PUBLIC', 'UNLISTED'])
+  try {
+    let query = supabase
+      .from('communities')
+      .select(COMMUNITY_LIST_FIELDS)
+      .eq('status', 'ACTIVE')
+      .in('visibility', ['PUBLIC', 'UNLISTED'])
 
-  if (filters.category) query = query.eq('category', filters.category)
-  if (filters.community_type) query = query.eq('community_type', filters.community_type)
-  if (filters.join_policy) query = query.eq('join_policy', filters.join_policy)
-  if (filters.verified_only) query = query.eq('is_verified', true)
-  if (filters.location) query = query.ilike('location_text', `%${filters.location}%`)
+    if (filters.category) query = query.eq('category', filters.category)
+    if (filters.community_type) query = query.eq('community_type', filters.community_type)
+    if (filters.join_policy) query = query.eq('join_policy', filters.join_policy)
+    if (filters.verified_only) query = query.eq('is_verified', true)
+    if (filters.location) query = query.ilike('location_text', `%${filters.location}%`)
 
-  const sort = filters.sort ?? 'members'
-  if (sort === 'newest') {
-    query = query.order('published_at', { ascending: false, nullsFirst: false })
-    if (cursor) query = query.lt('published_at', cursor)
-  } else if (sort === 'active') {
-    query = query.order('post_count', { ascending: false })
-    if (cursor) {
-      const [cnt, id] = cursor.split(':')
-      query = query.or(`post_count.lt.${cnt},and(post_count.eq.${cnt},id.gt.${id})`)
+    const sort = filters.sort ?? 'members'
+    if (sort === 'newest') {
+      query = query.order('published_at', { ascending: false, nullsFirst: false })
+      if (cursor) query = query.lt('published_at', cursor)
+    } else if (sort === 'active') {
+      query = query.order('post_count', { ascending: false })
+      if (cursor) {
+        const [cnt, id] = cursor.split(':')
+        query = query.or(`post_count.lt.${cnt},and(post_count.eq.${cnt},id.gt.${id})`)
+      }
+    } else {
+      query = query.order('member_count', { ascending: false })
+      if (cursor) {
+        const [cnt, id] = cursor.split(':')
+        query = query.or(`member_count.lt.${cnt},and(member_count.eq.${cnt},id.gt.${id})`)
+      }
     }
-  } else {
-    query = query.order('member_count', { ascending: false })
-    if (cursor) {
-      const [cnt, id] = cursor.split(':')
-      query = query.or(`member_count.lt.${cnt},and(member_count.eq.${cnt},id.gt.${id})`)
+
+    query = query.limit(limit + 1)
+    const { data, error } = await query
+    
+    if (error) throw error
+
+    const rows = (data || []) as any[]
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    const last = items[items.length - 1]
+
+    let nextCursor: string | null = null
+    if (hasMore && last) {
+      if (sort === 'newest') {
+        nextCursor = last.published_at
+      } else if (sort === 'active') {
+        nextCursor = `${last.post_count}:${last.id}`
+      } else {
+        nextCursor = `${last.member_count}:${last.id}`
+      }
     }
+
+    const enriched = await enrichWithPersonalization(supabase, items, actorId)
+    return { items: enriched, next_cursor: nextCursor, has_more: hasMore }
+  } catch (err: any) {
+    console.error('[getAllCommunities error]', err.message)
+    throw err
   }
-
-  query = query.limit(limit + 1)
-  const { data, error } = await query
-  if (error) throw error
-
-  const rows = (data || []) as any[]
-  const hasMore = rows.length > limit
-  const items = hasMore ? rows.slice(0, limit) : rows
-  const last = items[items.length - 1]
-
-  let nextCursor: string | null = null
-  if (hasMore && last) {
-    if (sort === 'newest') nextCursor = last.published_at
-    else if (sort === 'active') nextCursor = `${last.post_count}:${last.id}`
-    else nextCursor = `${last.member_count}:${last.id}`
-  }
-
-  const enriched = await enrichWithPersonalization(supabase, items, actorId)
-  return { items: enriched, next_cursor: nextCursor, has_more: hasMore }
 }
 
 // -----------------------------------------------------------
-// SEARCH (wildcard-escaped)
+// SEARCH COMMUNITIES (wildcard-escaped)
 // -----------------------------------------------------------
-
-function escapeIlike(term: string): string {
-  return term.replace(/[\\%_]/g, (m) => '\\' + m)
-}
-
 export async function searchCommunities(
   supabase: SupabaseClient,
   actorId: string | null,
@@ -442,9 +492,8 @@ export async function searchCommunities(
 }
 
 // -----------------------------------------------------------
-// TRACK
+// TRACK DISCOVER EVENTS
 // -----------------------------------------------------------
-
 export async function trackDiscoverEvent(
   supabase: SupabaseClient,
   actorId: string | null,
