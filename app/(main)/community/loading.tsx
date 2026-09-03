@@ -1,5 +1,9 @@
-import { DiscoverPageSkeleton } from '@/components/ui/skeleton-variants'
+import { PageShell, LoadingState } from '@/components/kernel-ui'
 
 export default function Loading() {
-  return <DiscoverPageSkeleton />
+  return (
+    <PageShell width="wide">
+      <LoadingState label="Loading Community Hub…" />
+    </PageShell>
+  )
 }

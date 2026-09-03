@@ -1,5 +1,9 @@
-import { MyCommunitiesPageSkeleton } from "@/components/ui/skeleton-variants";
+import { PageShell, LoadingState } from '@/components/kernel-ui'
 
 export default function Loading() {
-  return <MyCommunitiesPageSkeleton />;
+  return (
+    <PageShell width="wide">
+      <LoadingState label="Loading your communities…" />
+    </PageShell>
+  )
 }

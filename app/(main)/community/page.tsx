@@ -1,19 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { DiscoverCommunities } from '@/components/discover/DiscoverCommunities'
+import { CommunityDiscoverPage } from '@/components/community-hub/discover/CommunityDiscoverPage'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Page() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  return <DiscoverCommunities currentUser={profile} />
+export default function Page() {
+  return <CommunityDiscoverPage />
 }

@@ -1,7 +1,6 @@
 // ============================================================
 // components/kernel-ui/index.ts
 // Public exports for kernel UI primitives.
-// Import from here across the app for consistency.
 // ============================================================
 
 export { PageShell } from './PageShell'
