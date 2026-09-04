@@ -10,7 +10,7 @@ import { AuthInput } from './AuthInput'
 import { PasswordInput } from './PasswordInput'
 import { OAuthButton } from './OAuthButton'
 import { AuthDivider } from './AuthDivider'
-import { GoogleIcon, LinkedInIcon, XIcon } from './ProviderIcons'
+import { GoogleIcon, GithubIcon } from './ProviderIcons'
 import { cn } from '@/lib/utils'
 import type { AuthView } from './AuthShell'
 
@@ -26,34 +26,40 @@ export function SignUpForm({ onSwitchView }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
+  const [oauthLoading, setOauthLoading] = useState<'google' | 'github' | null>(null)
 
-  const handleOAuth = async (provider: 'google' | 'linkedin_oidc' | 'twitter') => {
+  const handleOAuth = async (provider: 'google' | 'github') => {
     setOauthLoading(provider)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${window.location.origin}/callback?next=/auth/username` }
+        options: {
+          redirectTo: `${window.location.origin}/callback?next=/auth/username`,
+        },
       })
       if (error) throw error
     } catch (err: any) {
-      toast.error(err.message)
+      toast.error(err.message || `Failed to connect to ${provider}`)
       setOauthLoading(null)
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!fullName || !email || !password) return toast.error('Please fill in all required fields')
-    if (password.length < 8) return toast.error('Password must be at least 8 characters')
+
+    if (!fullName || !email || !password) {
+      return toast.error('Please fill in all required fields')
+    }
+    if (password.length < 8) {
+      return toast.error('Password must be at least 8 characters')
+    }
 
     setLoading(true)
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName })
+        body: JSON.stringify({ email, password, fullName }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Signup failed')
@@ -72,22 +78,38 @@ export function SignUpForm({ onSwitchView }: Props) {
 
   return (
     <div className="w-full">
+      {/* Mobile title */}
       <div className="lg:hidden text-center mb-8">
         <h1 className="text-[28px] font-bold text-white tracking-tight">Join DSRT</h1>
         <p className="text-[14px] text-white/50 mt-1">Build what matters. Together.</p>
       </div>
 
+      {/* Desktop title */}
       <div className="hidden lg:block text-center mb-8">
         <h2 className="text-[22px] font-bold text-white tracking-tight">Create your account</h2>
         <p className="text-[13px] text-white/50 mt-1">Build. Connect. Ship.</p>
       </div>
 
+      {/* OAuth — Google + GitHub only */}
       <div className="space-y-3">
-        <OAuthButton provider="google" onClick={() => handleOAuth('google')} loading={oauthLoading === 'google'} disabled={!!oauthLoading} icon={<GoogleIcon />}>
+        <OAuthButton
+          provider="google"
+          onClick={() => handleOAuth('google')}
+          loading={oauthLoading === 'google'}
+          disabled={!!oauthLoading}
+          icon={<GoogleIcon />}
+        >
           Sign up with Google
         </OAuthButton>
-        <OAuthButton provider="linkedin" onClick={() => handleOAuth('linkedin_oidc')} loading={oauthLoading === 'linkedin_oidc'} disabled={!!oauthLoading} icon={<LinkedInIcon />}>
-          Sign up with LinkedIn
+
+        <OAuthButton
+          provider="github"
+          onClick={() => handleOAuth('github')}
+          loading={oauthLoading === 'github'}
+          disabled={!!oauthLoading}
+          icon={<GithubIcon />}
+        >
+          Sign up with GitHub
         </OAuthButton>
       </div>
 
@@ -128,10 +150,10 @@ export function SignUpForm({ onSwitchView }: Props) {
           type="submit"
           disabled={loading}
           className={cn(
-            "w-full h-[46px] rounded-xl mt-4 flex items-center justify-center gap-2 transition-all",
-            "bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14.5px] font-semibold",
-            "shadow-[0_0_20px_rgba(79,124,255,0.3)]",
-            "disabled:opacity-70 disabled:cursor-not-allowed"
+            'w-full h-[46px] rounded-xl mt-2 flex items-center justify-center gap-2 transition-all',
+            'bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14.5px] font-semibold',
+            'shadow-[0_0_20px_rgba(79,124,255,0.3)]',
+            'disabled:opacity-70 disabled:cursor-not-allowed'
           )}
         >
           {loading ? (
@@ -145,10 +167,11 @@ export function SignUpForm({ onSwitchView }: Props) {
         </button>
       </form>
 
+      {/* Mobile-only CTA */}
       <p className="lg:hidden text-center text-[13.5px] text-white/50 font-medium mt-8">
         Already have an account?{' '}
-        <button 
-          onClick={() => onSwitchView('signin')} 
+        <button
+          onClick={() => onSwitchView('signin')}
           className="text-[#4F7CFF] hover:text-[#7B9AFF] font-semibold transition-colors"
         >
           Sign in
