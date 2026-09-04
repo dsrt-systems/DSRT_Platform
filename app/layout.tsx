@@ -1,3 +1,4 @@
+// filepath: app/layout.tsx
 import type { Metadata } from 'next'
 import './globals.css'
 import { AppProviders } from '@/components/providers/AppProviders'
@@ -6,10 +7,10 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://www.dsrtai.com'),
   title: {
     default: 'DSRT — Build with the right people',
-    template: '%s | DSRT',
+    // IMPORTANT: no extra suffix, prevents duplicated titles
+    template: '%s',
   },
-  description:
-    'The command center for builders. Where mission meets execution.',
+  description: 'The command center for builders. Where mission meets execution.',
   applicationName: 'DSRT',
   keywords: ['DSRT', 'builders', 'ventures', 'projects', 'collaboration'],
   authors: [{ name: 'DSRT' }],
@@ -22,9 +23,7 @@ export const metadata: Metadata = {
       { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
       { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    apple: [
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
     shortcut: [{ url: '/favicon.ico' }],
     other: [
       {
@@ -44,9 +43,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://www.dsrtai.com',
-    title: 'DSRT — Build with the right people',
-    description:
-      'The command center for builders. Where mission meets execution.',
+    title: 'DSRT | Build with the right people',
+    description: 'The command center for builders. Where mission meets execution.',
     siteName: 'DSRT',
     images: [
       {
@@ -60,8 +58,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'DSRT — Build with the right people',
-    description:
-      'The command center for builders. Where mission meets execution.',
+    description: 'The command center for builders. Where mission meets execution.',
     images: ['/og-image.png'],
   },
   robots: {
@@ -78,7 +75,7 @@ export const metadata: Metadata = {
 
 export const viewport = {
   themeColor: '#05070D',
-  colorScheme: 'dark',
+  colorScheme: 'dark' as const,
 }
 
 export default function RootLayout({
