@@ -4,5 +4,9 @@ import { DiscussionFeed } from '@/components/community-hub/content/DiscussionFee
 import type { CommunityDetail } from '@/hooks/useCommunityDetail'
 
 export function DiscussionTab({ detail }: { detail: CommunityDetail }) {
-  return <DiscussionFeed detail={detail} />
+  return (
+    <div className="max-w-[700px]">
+      <DiscussionFeed detail={detail} />
+    </div>
+  )
 }

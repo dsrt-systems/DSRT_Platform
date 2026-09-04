@@ -1,9 +1,9 @@
 'use client'
 
-import {
-  ArrowLeft, BookmarkSimple, ShareNetwork, Flag,
-} from '@phosphor-icons/react'
+import { ArrowLeft, BookmarkSimple, ShareNetwork, Flag } from '@phosphor-icons/react'
 import { SmartApplyButton } from '@/components/looking-for/application-studio/SmartApplyButton'
+import { DsrtTabs, DsrtButton } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
 interface Props {
   opportunity: any
@@ -20,22 +20,28 @@ interface Props {
 }
 
 export function OpportunityHeader({
-  opportunity, tab, onTabChange,
-  isOwner, isClosed,
-  onSave, onShare, onReport, onBack,
+  opportunity,
+  tab,
+  onTabChange,
+  isOwner,
+  isClosed,
+  onSave,
+  onShare,
+  onReport,
+  onBack,
 }: Props) {
   return (
-    <header className="sticky top-0 z-30 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-zinc-800">
-      <div className="max-w-[1200px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-30 bg-[#05070D]/95 backdrop-blur-md border-b border-white/[0.06]">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-[12.5px] text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-[12px] font-mono uppercase tracking-wider text-white/50 hover:text-white transition-colors shrink-0"
         >
-          <ArrowLeft size={13} weight="bold" />
-          Back
+          <ArrowLeft size={12} weight="bold" />
+          <span className="hidden sm:inline">Back</span>
         </button>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <IconAction
             Icon={BookmarkSimple}
             label={opportunity.is_saved ? 'Saved' : 'Save'}
@@ -49,50 +55,31 @@ export function OpportunityHeader({
             opportunity={opportunity}
             isOwner={isOwner}
             isClosed={isClosed}
-            className="inline-flex h-8 min-w-[130px] text-[12px] px-3 shadow-none rounded-lg whitespace-nowrap"
+            className="inline-flex h-8 min-w-[110px] sm:min-w-[130px] text-[12px] px-3 rounded-lg whitespace-nowrap"
           />
         </div>
       </div>
 
-      <div className="max-w-[1200px] mx-auto px-6">
-        <div className="flex items-center gap-6">
-          <TabButton active={tab === 'opportunity'} onClick={() => onTabChange('opportunity')}>
-            Opportunity
-          </TabButton>
-          <TabButton active={tab === 'about-poster'} onClick={() => onTabChange('about-poster')}>
-            About the Poster
-          </TabButton>
-        </div>
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+        <DsrtTabs
+          variant="underline"
+          tabs={[
+            { value: 'opportunity', label: 'Opportunity' },
+            { value: 'about-poster', label: 'About the Poster' },
+          ]}
+          activeValue={tab}
+          onValueChange={(v) => onTabChange(v as 'opportunity' | 'about-poster')}
+        />
       </div>
     </header>
   )
 }
 
-function TabButton({
-  active, onClick, children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={
-        'relative py-2.5 text-[13px] font-semibold tracking-tight transition-colors ' +
-        (active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300')
-      }
-    >
-      {children}
-      {active && (
-        <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-white rounded-full" />
-      )}
-    </button>
-  )
-}
-
 function IconAction({
-  Icon, label, onClick, active,
+  Icon,
+  label,
+  onClick,
+  active,
 }: {
   Icon: any
   label: string
@@ -104,12 +91,12 @@ function IconAction({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={
-        'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-medium transition-colors ' +
-        (active
-          ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
-          : 'border-zinc-800 hover:border-zinc-600 text-zinc-400 hover:text-zinc-200')
-      }
+      className={cn(
+        'inline-flex items-center gap-1.5 h-8 px-2 sm:px-2.5 rounded-lg border text-[12px] font-medium transition-colors',
+        active
+          ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+          : 'border-white/[0.08] hover:border-white/[0.16] text-white/50 hover:text-white'
+      )}
     >
       <Icon size={12} weight={active ? 'fill' : 'regular'} />
       <span className="hidden sm:inline">{label}</span>

@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-
-export const dynamic = 'force-dynamic'
+import { DsrtEmpty, DsrtButton } from '@/components/dsrt'
 
 export default function CreateV2Landing() {
   const router = useRouter()
@@ -26,14 +25,24 @@ export default function CreateV2Landing() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex items-center justify-center">
+    <div className="min-h-screen bg-[#05070D] text-white flex items-center justify-center px-4">
       {error ? (
-        <div className="text-center">
-          <div className="text-[15px] font-bold text-red-300 mb-1">Could not create draft</div>
-          <div className="text-[12.5px] text-zinc-500">{error}</div>
-        </div>
+        <DsrtEmpty
+          title="Could not create draft"
+          description={error}
+          action={
+            <DsrtButton variant="outline" onClick={() => router.push('/looking-for')}>
+              Back to Looking For
+            </DsrtButton>
+          }
+        />
       ) : (
-        <div className="text-[13px] text-zinc-500">Creating draft…</div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-[12px] font-mono uppercase tracking-wider text-white/40">
+            Creating draft…
+          </p>
+        </div>
       )}
     </div>
   )

@@ -1,1 +1,18 @@
-﻿export default function Page() { return (<div className='max-w-3xl mx-auto p-6 md:p-10 text-center'><h1 className='text-3xl font-bold'>Events</h1><p className='text-sm text-muted-foreground mt-2'>Coming soon</p></div>) }
+﻿'use client'
+
+import { DsrtPage, DsrtEmpty, DsrtPanel } from '@/components/dsrt'
+import { CalendarDays } from 'lucide-react'
+
+export default function Page() { 
+  return (
+    <DsrtPage width="narrow" className="py-12">
+      <DsrtPanel>
+        <DsrtEmpty
+          icon={CalendarDays}
+          title="Global Events"
+          description="The global DSRT event directory is launching soon. Check community pages for local events."
+        />
+      </DsrtPanel>
+    </DsrtPage>
+  )
+}

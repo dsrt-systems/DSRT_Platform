@@ -1,10 +1,10 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { DsrtTabs } from '@/components/dsrt'
 
 const ITEMS = [
-  { href: '/looking-for/my-opportunities', label: 'Overview', match: (p: string) => p === '/looking-for/my-opportunities' },
+  { href: '/looking-for/my-opportunities', label: 'Overview' },
   { href: '/looking-for/my-opportunities/portfolio', label: 'Opportunities' },
   { href: '/looking-for/my-opportunities/applications', label: 'Applications' },
   { href: '/looking-for/my-opportunities/messages', label: 'Messages' },
@@ -15,29 +15,16 @@ export function MyOppsSubNav() {
   const pathname = usePathname() || ''
 
   return (
-    <div className="border-b border-zinc-800/80">
-      <div className="flex gap-1 -mb-px overflow-x-auto scrollbar-hide">
-        {ITEMS.map(item => {
-          const active = item.match ? item.match(pathname) : pathname.startsWith(item.href)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={
-                'relative py-3 px-4 text-[13px] font-semibold whitespace-nowrap transition-colors ' +
-                (active ? 'text-white' : 'text-zinc-500 hover:text-zinc-200')
-              }
-            >
-              {item.label}
-              {active && (
-                <span
-                  className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full bg-white"
-                />
-              )}
-            </Link>
-          )
-        })}
-      </div>
+    <div className="sticky top-[116px] md:top-[64px] z-20 bg-[#05070D]/95 backdrop-blur-md -mx-4 px-4 md:mx-0 md:px-0 py-1 border-b border-white/[0.06]">
+      <DsrtTabs
+        variant="underline"
+        tabs={ITEMS.map((item) => ({
+          label: item.label,
+          href: item.href,
+        }))}
+        activeValue={pathname}
+        matchMode="prefix"
+      />
     </div>
   )
 }

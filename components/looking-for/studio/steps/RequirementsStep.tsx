@@ -1,3 +1,4 @@
+// filepath: components/looking-for/studio/steps/RequirementsStep.tsx
 'use client'
 
 import { StepFooter } from './StepFooter'
@@ -5,6 +6,7 @@ import { SkillsRequirementCard } from './parts/SkillsRequirementCard'
 import { CompensationCard } from './parts/CompensationCard'
 import { AvailabilityCard } from './parts/AvailabilityCard'
 import { TeamContextCard } from './parts/TeamContextCard'
+import { TipBox } from './parts/TipBox'
 import { useStudio } from '../StudioContext'
 
 export function RequirementsStep() {
@@ -18,11 +20,11 @@ export function RequirementsStep() {
 
   return (
     <>
-      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-8">
-        <div className="space-y-6">
+      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6 lg:gap-8">
+        <div className="space-y-5 min-w-0">
           <div>
-            <h2 className="text-[20px] font-bold text-white mb-1">Requirements</h2>
-            <p className="text-[12.5px] text-zinc-500">
+            <h2 className="text-[22px] font-bold text-white mb-1 tracking-tight">Requirements</h2>
+            <p className="text-[13px] text-white/50">
               Who are you looking for, and what will they be doing?
             </p>
           </div>
@@ -34,23 +36,30 @@ export function RequirementsStep() {
         </div>
 
         <div className="hidden lg:block">
-          <div className="sticky top-[100px] space-y-4">
-            <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-5 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 mb-4">Requirement summary</h3>
-              <SummaryRow label="Required skills" value={requiredCount} />
+          <div className="sticky top-[130px] space-y-4">
+            <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-[#141821] via-[#101319] to-[#0B0D13] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_4px_20px_rgba(0,0,0,0.3)]">
+              <h3 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#FBBF24] mb-4">
+                Requirement summary
+              </h3>
+              <SummaryRow label="Required skills" value={requiredCount} highlight={requiredCount > 0} />
               <SummaryRow label="Preferred skills" value={preferredCount} />
               {optionalCount > 0 && <SummaryRow label="Optional skills" value={optionalCount} />}
-              <div className="my-3 border-t border-zinc-800/70" />
+              <div className="my-3 border-t border-white/[0.06]" />
               <SummaryRow label="Work mode" value={opp.work_mode || '—'} />
               <SummaryRow label="Time" value={opp.time_commitment || '—'} />
               <SummaryRow label="Length" value={opp.project_length || '—'} />
               <SummaryRow label="Positions" value={opp.positions_open || 1} />
-              <div className="my-3 border-t border-zinc-800/70" />
+              <div className="my-3 border-t border-white/[0.06]" />
               <SummaryRow label="Compensation" value={formatComp(opp)} />
               {opp.application_deadline && (
                 <SummaryRow label="Deadline" value={new Date(opp.application_deadline).toLocaleDateString()} />
               )}
             </div>
+
+            <TipBox variant="tips" title="Requirement Tips" items={[
+              { title: 'Mark 1–3 as required', desc: 'Too many "required" skills scares off strong candidates who match most.' },
+              { title: 'Be clear on comp', desc: 'Opportunities with visible compensation get 3× more applications.' },
+            ]} />
           </div>
         </div>
       </div>
@@ -59,11 +68,17 @@ export function RequirementsStep() {
   )
 }
 
-function SummaryRow({ label, value }: { label: string; value: any }) {
+function SummaryRow({ label, value, highlight }: { label: string; value: any; highlight?: boolean }) {
   return (
     <div className="flex justify-between items-center py-1.5 text-[12px]">
-      <span className="text-zinc-500">{label}</span>
-      <span className="text-zinc-200 font-semibold capitalize">{String(value).replace(/-/g, ' ')}</span>
+      <span className="text-white/45">{label}</span>
+      <span className={
+        highlight
+          ? 'text-[#FBBF24] font-bold capitalize'
+          : 'text-white/85 font-semibold capitalize'
+      }>
+        {String(value).replace(/-/g, ' ')}
+      </span>
     </div>
   )
 }

@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { PageShell, LoadingState, ErrorState, ForbiddenState } from '@/components/kernel-ui'
+import { LoadingState, ErrorState, ForbiddenState } from '@/components/kernel-ui'
 import { CommunityHeader } from './CommunityHeader'
 import { CommunitySubNav } from './CommunitySubNav'
 import { CommunityRightRail } from './CommunityRightRail'
 import { useCommunityDetail } from '@/hooks/useCommunityDetail'
+import { DsrtPage, DsrtLayoutWithRail, DsrtPanel } from '@/components/dsrt'
 
 interface Props {
   slug: string
@@ -15,10 +15,8 @@ interface Props {
 }
 
 export function CommunityDetailShell({ slug, activeTab, children }: Props) {
-  const router = useRouter()
   const { data, loading, error, reload } = useCommunityDetail(slug)
 
-  // Fire-and-forget visit tracker
   useEffect(() => {
     if (!data) return
     fetch(`/api/v1/community/${encodeURIComponent(slug)}/track-visit`, {
@@ -29,71 +27,69 @@ export function CommunityDetailShell({ slug, activeTab, children }: Props) {
 
   if (loading) {
     return (
-      <PageShell width="wide">
+      <DsrtPage width="wide">
         <LoadingState label="Loading community…" />
-      </PageShell>
+      </DsrtPage>
     )
   }
 
   if (error || !data) {
     return (
-      <PageShell width="wide">
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+      <DsrtPage width="wide">
+        <DsrtPanel variant="default" padding="none">
           <ErrorState
             title="Could not load this community"
             description="It may have been archived or renamed."
             errorCode={error || 'UNKNOWN'}
             onRetry={reload}
           />
-        </div>
-      </PageShell>
+        </DsrtPanel>
+      </DsrtPage>
     )
   }
 
-  // Archived visibility
   if (data.community.status === 'ARCHIVED') {
     return (
-      <PageShell width="wide">
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+      <DsrtPage width="wide">
+        <DsrtPanel variant="default" padding="none">
           <ForbiddenState
             title={`${data.community.name} is archived`}
             description="This community is no longer active."
             actionLabel="Explore Discover"
             actionHref="/community"
           />
-        </div>
-      </PageShell>
+        </DsrtPanel>
+      </DsrtPage>
     )
   }
 
-  // Private visibility non-member cannot view content
   const c = data.community
   const caps = data.capabilities
   const isVisibleShell = caps.can_view || c.visibility === 'PUBLIC'
 
   return (
-    <PageShell width="wide">
-      <div className="space-y-6">
-        <CommunityHeader detail={data} onChanged={reload} />
+    <DsrtPage width="wide" className="space-y-5 sm:space-y-6 py-4 sm:py-6">
+      <CommunityHeader detail={data} onChanged={reload} />
 
+      <div className="sticky top-[130px] z-20 bg-[#05070D]/95 backdrop-blur-md -mx-4 px-4 md:mx-0 md:px-0 py-1">
         <CommunitySubNav slug={c.slug} memberCount={c.member_count || 0} />
-
-        {!isVisibleShell ? (
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-            <ForbiddenState
-              title="This community is private"
-              description="Join to view its discussion, events, and members."
-            />
-          </div>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-            <div>{children}</div>
-            <div className="space-y-4 lg:sticky lg:top-24 self-start">
-              <CommunityRightRail detail={data} />
-            </div>
-          </div>
-        )}
       </div>
-    </PageShell>
+
+      {!isVisibleShell ? (
+        <DsrtPanel variant="default" padding="none">
+          <ForbiddenState
+            title="This community is private"
+            description="Join to view its discussion, events, and members."
+          />
+        </DsrtPanel>
+      ) : (
+        <DsrtLayoutWithRail
+          railBreakpoint="lg"
+          rail={<CommunityRightRail detail={data} />}
+        >
+          <div className="min-w-0">{children}</div>
+        </DsrtLayoutWithRail>
+      )}
+    </DsrtPage>
   )
 }

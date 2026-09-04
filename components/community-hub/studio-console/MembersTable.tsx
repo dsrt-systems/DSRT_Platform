@@ -3,48 +3,27 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
-  Users,
-  Search,
-  Crown,
-  Shield,
-  Gavel,
-  User,
-  MoreHorizontal,
-  UserMinus,
-  UserX,
-  Pause,
-  Play,
-  Loader2,
-  ArrowRightLeft,
-  ShieldCheck,
+  Users, Search, Crown, Shield, Gavel, User,
+  MoreHorizontal, UserMinus, UserX, Pause, Play,
+  Loader2, ArrowRightLeft, ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from '@/components/ui/sonner'
+import { ErrorState } from '@/components/kernel-ui'
 import {
-  SectionHeader,
-  LoadingState,
-  ErrorState,
-  EmptyState,
-  SkeletonRows,
-} from '@/components/kernel-ui'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { formatDistanceToNow } from 'date-fns'
 import { useStudioMembers } from '@/hooks/useCommunityStudio'
 import { ReasonPromptDialog, ConfirmDialog } from '@/components/ui/reason-prompt-dialog'
+import { DsrtPanel, DsrtSection, DsrtInput, DsrtTabs, DsrtEmpty, DsrtAvatar, DsrtRowSkeleton } from '@/components/dsrt'
 
 const ROLE_META: Record<string, { label: string; icon: any; tone: string }> = {
-  OWNER: { label: 'Owner', icon: Crown, tone: 'border-white/[0.14] bg-white/[0.06] text-white' },
-  ADMIN: { label: 'Admin', icon: Shield, tone: 'border-white/[0.08] bg-white/[0.04] text-white/85' },
+  OWNER: { label: 'Owner', icon: Crown, tone: 'border-[#2c5282]/40 bg-[#1e3a5f]/20 text-[#93c5fd]' },
+  ADMIN: { label: 'Admin', icon: Shield, tone: 'border-white/[0.08] bg-white/[0.04] text-white' },
   MODERATOR: { label: 'Moderator', icon: Gavel, tone: 'border-white/[0.06] bg-white/[0.02] text-white/70' },
-  MEMBER: { label: 'Member', icon: User, tone: 'border-white/[0.04] bg-white/[0.015] text-white/60' },
+  MEMBER: { label: 'Member', icon: User, tone: 'border-transparent bg-transparent text-white/50' },
 }
 
 const STATUS_META: Record<string, { label: string; tone: string }> = {
@@ -60,23 +39,21 @@ const STATUS_META: Record<string, { label: string; tone: string }> = {
 }
 
 const ROLE_FILTERS = [
-  { key: null, label: 'All roles' },
-  { key: 'OWNER', label: 'Owner' },
-  { key: 'ADMIN', label: 'Admin' },
-  { key: 'MODERATOR', label: 'Moderator' },
-  { key: 'MEMBER', label: 'Member' },
-] as const
+  { value: 'ALL', label: 'All roles' },
+  { value: 'OWNER', label: 'Owner' },
+  { value: 'ADMIN', label: 'Admin' },
+  { value: 'MODERATOR', label: 'Moderator' },
+  { value: 'MEMBER', label: 'Member' },
+]
 
 const STATUS_FILTERS = [
-  { key: 'ACTIVE', label: 'Active' },
-  { key: 'SUSPENDED', label: 'Suspended' },
-  { key: 'BANNED', label: 'Banned' },
-  { key: 'ALL', label: 'All statuses' },
-] as const
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'SUSPENDED', label: 'Suspended' },
+  { value: 'BANNED', label: 'Banned' },
+  { value: 'ALL', label: 'All statuses' },
+]
 
-interface Props {
-  slug: string
-}
+interface Props { slug: string }
 
 type PendingUI =
   | { kind: 'action'; membershipId: string; action: 'suspend' | 'ban'; memberName: string }
@@ -84,41 +61,27 @@ type PendingUI =
   | null
 
 export function MembersTable({ slug }: Props) {
-  const [role, setRole] = useState<string | null>(null)
-  const [status, setStatus] = useState<string | null>('ACTIVE')
+  const [role, setRole] = useState<string>('ALL')
+  const [status, setStatus] = useState<string>('ACTIVE')
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [ui, setUi] = useState<PendingUI>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
-  const {
-    items,
-    loading,
-    loadingMore,
-    hasMore,
-    error,
-    reload,
-    loadMore,
-    patchItem,
-  } = useStudioMembers(slug, { role, status, q })
+  const effectiveRole = role === 'ALL' ? null : role
+  const effectiveStatus = status === 'ALL' ? null : status
+
+  const { items, loading, loadingMore, hasMore, error, reload, loadMore, patchItem } =
+    useStudioMembers(slug, { role: effectiveRole, status: effectiveStatus, q })
 
   useEffect(() => {
     if (!sentinelRef.current || !hasMore || loading) return
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore()
-      },
-      { rootMargin: '400px' }
-    )
+    const io = new IntersectionObserver(entries => { if (entries[0].isIntersecting) loadMore() }, { rootMargin: '400px' })
     io.observe(sentinelRef.current)
     return () => io.disconnect()
   }, [hasMore, loading, loadMore])
 
-  const doAction = async (
-    membershipId: string,
-    action: 'suspend' | 'unsuspend' | 'ban' | 'unban' | 'remove' | 'reinstate',
-    reason?: string
-  ) => {
+  const doAction = async (membershipId: string, action: 'suspend' | 'unsuspend' | 'ban' | 'unban' | 'remove' | 'reinstate', reason?: string) => {
     setBusy(membershipId + action)
     try {
       const res = await fetch(`/api/v1/community/memberships/${membershipId}/action`, {
@@ -133,7 +96,7 @@ export function MembersTable({ slug }: Props) {
       }
       toast.success('Done')
       patchItem(membershipId, { status: json?.data?.new_status })
-      if (status && status !== 'ALL' && json?.data?.new_status !== status) reload()
+      if (effectiveStatus && json?.data?.new_status !== effectiveStatus) reload()
     } finally {
       setBusy(null)
     }
@@ -161,53 +124,40 @@ export function MembersTable({ slug }: Props) {
 
   return (
     <>
-      <section>
-        <div className="flex items-end justify-between gap-4 mb-4 flex-wrap">
-          <SectionHeader
-            title="Members"
-            description="Manage roles, restrictions, and access."
-            variant="mono"
-          />
-          <div className="flex items-center gap-2 flex-wrap">
-            <FilterPills value={role} onChange={setRole} options={ROLE_FILTERS} />
-            <FilterPills value={status} onChange={setStatus} options={STATUS_FILTERS} />
-            <div className="flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.02] px-2.5 py-1">
-              <Search className="w-3 h-3 text-white/40" strokeWidth={1.75} />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search…"
-                className="bg-transparent outline-none text-[12px] text-white placeholder:text-white/30 w-40"
-              />
-            </div>
+      <div className="space-y-4">
+        <DsrtSection
+          title="Members"
+          description="Manage roles, restrictions, and community access."
+          headerVariant="large"
+        />
+
+        <div className="flex flex-col xl:flex-row xl:items-center gap-3 bg-[#0a0a0f] sticky top-[57px] md:top-0 z-20 pt-2 pb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide flex-1">
+            <DsrtTabs variant="segmented" tabs={ROLE_FILTERS} activeValue={role} onValueChange={setRole} className="shrink-0" />
+            <DsrtTabs variant="segmented" tabs={STATUS_FILTERS} activeValue={status} onValueChange={setStatus} className="shrink-0" />
+          </div>
+          <div className="w-full xl:w-64 shrink-0">
+            <DsrtInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search members…" icon={<Search size={14} />} sizeVariant="sm" />
           </div>
         </div>
 
         {loading ? (
-          <SkeletonRows count={6} />
+          <DsrtRowSkeleton count={8} />
         ) : error ? (
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-            <ErrorState errorCode={error} onRetry={reload} />
-          </div>
+          <DsrtPanel><ErrorState errorCode={error} onRetry={reload} /></DsrtPanel>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-            <EmptyState
-              icon={Users}
-              title="No members match"
-              description="Try adjusting filters or search."
-            />
-          </div>
+          <DsrtPanel><DsrtEmpty icon={Users} title="No members match" description="Try adjusting your filters or search." /></DsrtPanel>
         ) : (
-          <>
-            <div className="rounded-2xl border border-white/[0.06] overflow-hidden">
-              <div className="hidden md:grid grid-cols-[minmax(220px,2fr)_1fr_1fr_140px_60px] gap-4 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-                <div className="text-[10.5px] font-mono uppercase tracking-wider text-white/45">Member</div>
-                <div className="text-[10.5px] font-mono uppercase tracking-wider text-white/45">Role</div>
-                <div className="text-[10.5px] font-mono uppercase tracking-wider text-white/45">Status</div>
-                <div className="text-[10.5px] font-mono uppercase tracking-wider text-white/45">Joined</div>
-                <div />
-              </div>
+          <DsrtPanel padding="none" className="overflow-hidden">
+            <div className="hidden lg:grid grid-cols-[minmax(220px,2fr)_1fr_1fr_140px_60px] gap-4 px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-white/40">Member</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-white/40">Role</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-white/40">Status</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-white/40">Joined</div>
+              <div />
+            </div>
 
+            <div className="divide-y divide-white/[0.04]">
               {items.map((m: any) => {
                 const u = m.user
                 const roleMeta = ROLE_META[m.top_role] || ROLE_META.MEMBER
@@ -219,37 +169,21 @@ export function MembersTable({ slug }: Props) {
                 const memberName = u?.full_name || u?.username || 'this member'
 
                 return (
-                  <div
-                    key={m.membership_id}
-                    className="grid grid-cols-[1fr_60px] md:grid-cols-[minmax(220px,2fr)_1fr_1fr_140px_60px] gap-4 items-center px-4 py-3 border-b border-white/[0.04] last:border-none hover:bg-white/[0.02]"
-                  >
+                  <div key={m.membership_id} className="grid grid-cols-[1fr_60px] lg:grid-cols-[minmax(220px,2fr)_1fr_1fr_140px_60px] gap-4 items-center p-4 lg:px-5 hover:bg-white/[0.02] transition-colors">
+                    
                     <div className="flex items-center gap-3 min-w-0">
-                      <Avatar className="w-9 h-9 border border-white/[0.06] flex-shrink-0">
-                        <AvatarImage src={u?.avatar_url ?? undefined} />
-                        <AvatarFallback className="text-[11px] bg-white/[0.06] text-white/80">
-                          {(u?.full_name || '?').charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <DsrtAvatar src={u?.avatar_url} name={u?.full_name} size="sm" />
                       <div className="min-w-0">
-                        <Link
-                          href={`/profile/${u?.username || ''}`}
-                          className="text-[13px] font-semibold text-white truncate hover:underline flex items-center gap-1"
-                        >
+                        <Link href={`/profile/${u?.username || ''}`} className="text-[14px] font-bold text-white truncate hover:text-[#93c5fd] flex items-center gap-1.5 transition-colors">
                           {u?.full_name || 'Unknown'}
-                          {u?.is_verified && (
-                            <ShieldCheck className="w-3 h-3 text-white/60" strokeWidth={1.75} />
-                          )}
+                          {u?.is_verified && <ShieldCheck className="w-3.5 h-3.5 text-[#93c5fd]" strokeWidth={2} />}
                         </Link>
-                        <p className="text-[11px] text-white/45 truncate">@{u?.username || '—'}</p>
-                        {/* Mobile-only role/status row */}
-                        <div className="md:hidden mt-1 flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9.5px] font-mono uppercase tracking-wider',
-                              roleMeta.tone
-                            )}
-                          >
-                            <roleMeta.icon className="w-2.5 h-2.5" strokeWidth={1.75} />
+                        <p className="text-[12px] text-white/40 truncate">@{u?.username || '—'}</p>
+                        
+                        {/* Mobile metadata row */}
+                        <div className="lg:hidden mt-1.5 flex items-center gap-2">
+                          <span className={cn('inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider', roleMeta.tone)}>
+                            <roleMeta.icon className="w-2.5 h-2.5" />
                             {roleMeta.label}
                           </span>
                           <span className={cn('text-[10px] font-mono uppercase tracking-wider', statusMeta.tone)}>
@@ -259,30 +193,25 @@ export function MembersTable({ slug }: Props) {
                       </div>
                     </div>
 
-                    <div className="hidden md:flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-mono uppercase tracking-wider',
-                          roleMeta.tone
-                        )}
-                      >
-                        <roleMeta.icon className="w-3 h-3" strokeWidth={1.75} />
+                    <div className="hidden lg:flex items-center gap-1.5">
+                      <span className={cn('inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider', roleMeta.tone)}>
+                        <roleMeta.icon className="w-3 h-3" />
                         {roleMeta.label}
                       </span>
                     </div>
 
-                    <div className="hidden md:flex items-center gap-2">
-                      <span className={cn('text-[11.5px] font-mono uppercase tracking-wider', statusMeta.tone)}>
+                    <div className="hidden lg:flex flex-col gap-0.5 justify-center">
+                      <span className={cn('text-[11px] font-mono uppercase tracking-wider', statusMeta.tone)}>
                         {statusMeta.label}
                       </span>
                       {m.restrictions?.length > 0 && (
-                        <span className="text-[10px] font-mono text-white/40">
-                          · {m.restrictions.length} restriction{m.restrictions.length > 1 ? 's' : ''}
+                        <span className="text-[10px] text-white/40">
+                          {m.restrictions.length} restriction{m.restrictions.length > 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
 
-                    <div className="hidden md:block text-[11px] text-white/50">
+                    <div className="hidden lg:block text-[11px] font-mono uppercase tracking-wider text-white/40">
                       {formatDistanceToNow(new Date(m.joined_at), { addSuffix: true })}
                     </div>
 
@@ -292,84 +221,44 @@ export function MembersTable({ slug }: Props) {
                           <button
                             disabled={isOwner || busy?.startsWith(m.membership_id)}
                             className={cn(
-                              'w-8 h-8 rounded-full border border-white/[0.06] bg-white/[0.02] flex items-center justify-center transition-colors',
-                              !isOwner
-                                ? 'text-white/60 hover:text-white hover:bg-white/[0.06]'
-                                : 'text-white/20 cursor-not-allowed'
+                              'w-8 h-8 rounded-lg border border-white/[0.08] bg-white/[0.04] flex items-center justify-center transition-colors',
+                              !isOwner ? 'text-white/60 hover:text-white hover:bg-white/[0.08]' : 'text-white/20 cursor-not-allowed border-transparent bg-transparent'
                             )}
                           >
-                            {busy?.startsWith(m.membership_id) ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <MoreHorizontal className="w-4 h-4" strokeWidth={1.75} />
-                            )}
+                            {busy?.startsWith(m.membership_id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreHorizontal className="w-4 h-4" />}
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-52 bg-[#0f0f14] border-white/[0.08] text-white"
-                        >
-                          <DropdownMenuLabel className="text-[10.5px] font-mono uppercase tracking-wider text-white/45">
-                            Change role
-                          </DropdownMenuLabel>
+                        <DropdownMenuContent align="end" className="w-52 bg-[#0a0f1a] border-white/[0.08] text-white rounded-xl shadow-2xl py-1">
+                          <DropdownMenuLabel className="text-[10px] font-mono uppercase tracking-wider text-white/40">Change role</DropdownMenuLabel>
                           {['ADMIN', 'MODERATOR', 'MEMBER'].map((r) => (
-                            <DropdownMenuItem
-                              key={r}
-                              onSelect={() => doAssignRole(m.membership_id, r)}
-                              className="focus:bg-white/[0.06] cursor-pointer"
-                            >
-                              <ArrowRightLeft className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                              Make {r.toLowerCase()}
+                            <DropdownMenuItem key={r} onSelect={() => doAssignRole(m.membership_id, r)} className="focus:bg-white/[0.06] cursor-pointer text-[12.5px] font-medium py-1.5">
+                              <ArrowRightLeft className="w-3.5 h-3.5 mr-2" /> Make {r.toLowerCase()}
                             </DropdownMenuItem>
                           ))}
                           <DropdownMenuSeparator className="bg-white/[0.06]" />
                           {isActive && (
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                setUi({ kind: 'action', membershipId: m.membership_id, action: 'suspend', memberName })
-                              }
-                              className="focus:bg-white/[0.06] cursor-pointer"
-                            >
-                              <Pause className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                              Suspend
+                            <DropdownMenuItem onSelect={() => setUi({ kind: 'action', membershipId: m.membership_id, action: 'suspend', memberName })} className="focus:bg-white/[0.06] cursor-pointer text-[12.5px] font-medium py-1.5">
+                              <Pause className="w-3.5 h-3.5 mr-2" /> Suspend
                             </DropdownMenuItem>
                           )}
                           {isSuspended && (
-                            <DropdownMenuItem
-                              onSelect={() => doAction(m.membership_id, 'unsuspend')}
-                              className="focus:bg-white/[0.06] cursor-pointer"
-                            >
-                              <Play className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                              Unsuspend
+                            <DropdownMenuItem onSelect={() => doAction(m.membership_id, 'unsuspend')} className="focus:bg-white/[0.06] cursor-pointer text-[12.5px] font-medium py-1.5">
+                              <Play className="w-3.5 h-3.5 mr-2" /> Unsuspend
                             </DropdownMenuItem>
                           )}
                           {!isBanned && (
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                setUi({ kind: 'action', membershipId: m.membership_id, action: 'ban', memberName })
-                              }
-                              className="focus:bg-white/[0.06] cursor-pointer text-red-300 focus:text-red-200"
-                            >
-                              <UserX className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                              Ban
+                            <DropdownMenuItem onSelect={() => setUi({ kind: 'action', membershipId: m.membership_id, action: 'ban', memberName })} className="focus:bg-red-500/20 cursor-pointer text-red-400 focus:text-red-300 text-[12.5px] font-medium py-1.5">
+                              <UserX className="w-3.5 h-3.5 mr-2" /> Ban
                             </DropdownMenuItem>
                           )}
                           {isBanned && (
-                            <DropdownMenuItem
-                              onSelect={() => doAction(m.membership_id, 'unban')}
-                              className="focus:bg-white/[0.06] cursor-pointer"
-                            >
-                              <Play className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                              Unban
+                            <DropdownMenuItem onSelect={() => doAction(m.membership_id, 'unban')} className="focus:bg-white/[0.06] cursor-pointer text-[12.5px] font-medium py-1.5">
+                              <Play className="w-3.5 h-3.5 mr-2" /> Unban
                             </DropdownMenuItem>
                           )}
                           {isActive && (
-                            <DropdownMenuItem
-                              onSelect={() => setUi({ kind: 'remove', membershipId: m.membership_id, memberName })}
-                              className="focus:bg-white/[0.06] cursor-pointer text-red-300 focus:text-red-200"
-                            >
-                              <UserMinus className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                              Remove
+                            <DropdownMenuItem onSelect={() => setUi({ kind: 'remove', membershipId: m.membership_id, memberName })} className="focus:bg-red-500/20 cursor-pointer text-red-400 focus:text-red-300 text-[12.5px] font-medium py-1.5">
+                              <UserMinus className="w-3.5 h-3.5 mr-2" /> Remove
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -381,35 +270,27 @@ export function MembersTable({ slug }: Props) {
             </div>
 
             {hasMore && (
-              <div ref={sentinelRef} className="pt-6">
-                {loadingMore && <LoadingState variant="compact" label="Loading more…" />}
+              <div ref={sentinelRef} className="py-6 flex justify-center">
+                {loadingMore && <span className="text-[11px] font-mono text-white/40 uppercase tracking-wider">Loading...</span>}
               </div>
             )}
-          </>
+          </DsrtPanel>
         )}
-      </section>
+      </div>
 
-      {/* Suspend / Ban with reason */}
       {ui?.kind === 'action' && (
         <ReasonPromptDialog
           open
           onOpenChange={(v) => !v && setUi(null)}
           title={ui.action === 'ban' ? `Ban ${ui.memberName}` : `Suspend ${ui.memberName}`}
-          description={
-            ui.action === 'ban'
-              ? 'Ban is permanent until manually lifted. The affected member will be notified.'
-              : 'Suspension prevents posting and participation. Reason is sent to the member.'
-          }
+          description={ui.action === 'ban' ? 'Ban is permanent until manually lifted. The affected member will be notified.' : 'Suspension prevents posting and participation. Reason is sent to the member.'}
           placeholder="Reason (optional but recommended)…"
           submitLabel={ui.action === 'ban' ? 'Ban member' : 'Suspend'}
           destructive
-          onSubmit={async (reason) => {
-            await doAction(ui.membershipId, ui.action, reason || undefined)
-          }}
+          onSubmit={async (reason) => { await doAction(ui.membershipId, ui.action, reason || undefined) }}
         />
       )}
 
-      {/* Remove confirm */}
       {ui?.kind === 'remove' && (
         <ConfirmDialog
           open
@@ -418,30 +299,9 @@ export function MembersTable({ slug }: Props) {
           description="They can re-apply or be re-invited later. No notification is sent."
           confirmLabel="Remove member"
           destructive
-          onConfirm={async () => {
-            await doAction(ui.membershipId, 'remove')
-          }}
+          onConfirm={async () => { await doAction(ui.membershipId, 'remove') }}
         />
       )}
     </>
-  )
-}
-
-function FilterPills({ value, onChange, options }: any) {
-  return (
-    <div className="flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.02] p-1">
-      {options.map((o: any) => (
-        <button
-          key={String(o.key)}
-          onClick={() => onChange(o.key)}
-          className={cn(
-            'inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium transition-colors',
-            value === o.key ? 'bg-white text-black' : 'text-white/60 hover:text-white'
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
   )
 }

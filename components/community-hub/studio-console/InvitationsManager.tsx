@@ -2,17 +2,14 @@
 
 import { useState } from 'react'
 import { Mail, X, Loader2, Copy, Check } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from '@/components/ui/sonner'
-import { SectionHeader, EmptyState, ErrorState, SkeletonRows } from '@/components/kernel-ui'
+import { ErrorState } from '@/components/kernel-ui'
 import { formatDistanceToNow } from 'date-fns'
 import { useStudioInvitations } from '@/hooks/useCommunityStudio'
+import { DsrtPanel, DsrtSection, DsrtEmpty, DsrtInput, DsrtButton, DsrtRowSkeleton } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
-interface Props {
-  slug: string
-  communityId: string
-}
+interface Props { slug: string; communityId: string }
 
 export function InvitationsManager({ slug, communityId }: Props) {
   const { items, loading, error, reload } = useStudioInvitations(slug)
@@ -24,32 +21,18 @@ export function InvitationsManager({ slug, communityId }: Props) {
   const [copied, setCopied] = useState(false)
 
   const send = async () => {
-    if (!email.trim()) {
-      toast.error('Enter an email')
-      return
-    }
+    if (!email.trim()) { toast.error('Enter an email'); return }
     setSending(true)
     try {
       const res = await fetch(`/api/v1/communities/${communityId}/invitations`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key': `inv-${communityId}-${Date.now()}`,
-        },
-        body: JSON.stringify({
-          invited_email: email.trim(),
-          role_key: roleKey,
-          message: message.trim() || undefined,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `inv-${communityId}-${Date.now()}` },
+        body: JSON.stringify({ invited_email: email.trim(), role_key: roleKey, message: message.trim() || undefined }),
       })
       const json = await res.json()
-      if (!res.ok) {
-        toast.error(json?.error?.message || 'Could not send invitation')
-        return
-      }
+      if (!res.ok) { toast.error(json?.error?.message || 'Could not send invitation'); return }
       toast.success('Invitation created')
-      const link = typeof window !== 'undefined' ? `${window.location.origin}${json.data.invite_url}` : json.data.invite_url
-      setLastLink(link)
+      setLastLink(typeof window !== 'undefined' ? `${window.location.origin}${json.data.invite_url}` : json.data.invite_url)
       setEmail('')
       setMessage('')
       reload()
@@ -61,106 +44,59 @@ export function InvitationsManager({ slug, communityId }: Props) {
   const revoke = async (id: string) => {
     if (!confirm('Revoke this invitation?')) return
     const res = await fetch(`/api/v1/community/invitations/${id}/revoke`, { method: 'POST' })
-    if (!res.ok) {
-      toast.error('Could not revoke')
-      return
-    }
+    if (!res.ok) { toast.error('Could not revoke'); return }
     toast.success('Revoked')
     reload()
-  }
-
-  const copyLink = async () => {
-    if (!lastLink) return
-    await navigator.clipboard.writeText(lastLink)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   const pending = items.filter((i: any) => i.status === 'PENDING')
   const history = items.filter((i: any) => i.status !== 'PENDING')
 
   return (
-    <div className="space-y-8">
-      <section className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-white/[0.01] p-5">
-        <SectionHeader title="Send an invitation" variant="mono" />
-        <div className="grid gap-3 md:grid-cols-[1fr_180px_auto]">
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email address"
-            type="email"
-            className="rounded-lg border border-white/[0.08] bg-white/[0.02] focus:border-white/[0.18] outline-none px-3 py-2 text-[13px] text-white placeholder:text-white/30"
+    <div className="space-y-6">
+      <DsrtPanel>
+        <DsrtSection title="Send an Invitation" headerVariant="mono">
+          <div className="grid gap-3 md:grid-cols-[1fr_160px_auto] pt-2">
+            <DsrtInput value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" type="email" />
+            <select value={roleKey} onChange={(e) => setRoleKey(e.target.value as any)} className="h-10 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white px-3 focus:outline-none focus:border-white/[0.2]">
+              <option value="MEMBER" className="bg-[#0f172a]">Member</option>
+              <option value="MODERATOR" className="bg-[#0f172a]">Moderator</option>
+              <option value="ADMIN" className="bg-[#0f172a]">Admin</option>
+            </select>
+            <DsrtButton variant="primary" loading={sending} onClick={send} className="h-10">Send</DsrtButton>
+          </div>
+          <textarea
+            value={message} onChange={(e) => setMessage(e.target.value)} rows={2}
+            placeholder="Optional personal message..."
+            className="mt-3 w-full rounded-lg bg-white/[0.03] border border-white/[0.08] text-white text-[13px] px-3 py-2.5 focus:outline-none focus:border-white/[0.2] resize-none"
           />
-          <select
-            value={roleKey}
-            onChange={(e) => setRoleKey(e.target.value as any)}
-            className="rounded-lg border border-white/[0.08] bg-white/[0.02] focus:border-white/[0.18] outline-none px-3 py-2 text-[13px] text-white appearance-none"
-          >
-            <option value="MEMBER">Member</option>
-            <option value="MODERATOR">Moderator</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-          <button
-            onClick={send}
-            disabled={sending}
-            className="rounded-full bg-white text-black hover:bg-zinc-100 px-4 py-2 text-[12.5px] font-semibold transition-colors inline-flex items-center gap-1.5"
-          >
-            {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" strokeWidth={1.75} />}
-            Send
-          </button>
-        </div>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={2}
-          placeholder="Optional personal message"
-          className="mt-3 w-full rounded-lg border border-white/[0.08] bg-white/[0.02] focus:border-white/[0.18] outline-none px-3 py-2 text-[12.5px] text-white placeholder:text-white/30 resize-none"
-        />
+          {lastLink && (
+            <div className="mt-4 p-3 rounded-lg bg-[#1e3a5f]/20 border border-[#2c5282]/40 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+              <p className="text-[12px] text-[#93c5fd] font-mono truncate">{lastLink}</p>
+              <DsrtButton size="xs" variant="white" onClick={async () => { await navigator.clipboard.writeText(lastLink); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
+                {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Copied' : 'Copy link'}
+              </DsrtButton>
+            </div>
+          )}
+        </DsrtSection>
+      </DsrtPanel>
 
-        {lastLink && (
-          <div className="mt-4 rounded-lg border border-white/[0.08] bg-white/[0.02] p-3 flex items-center gap-2">
-            <p className="text-[12px] text-white/70 font-mono truncate flex-1">{lastLink}</p>
-            <button
-              onClick={copyLink}
-              className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-white/80 hover:text-white px-3 py-1 text-[11px] font-medium transition-colors"
-            >
-              {copied ? <Check className="w-3 h-3" strokeWidth={2} /> : <Copy className="w-3 h-3" strokeWidth={1.75} />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
+      <DsrtPanel padding="none" className="overflow-hidden">
+        <DsrtSection title="Pending Invitations" headerVariant="mono" className="p-4 sm:p-5 border-b border-white/[0.06]" />
+        {loading ? <div className="p-4"><DsrtRowSkeleton count={3} /></div> : error ? <div className="p-4"><ErrorState errorCode={error} onRetry={reload} /></div> : pending.length === 0 ? <DsrtEmpty icon={Mail} title="No pending invites" /> : (
+          <div className="divide-y divide-white/[0.04]">
+            {pending.map((inv: any) => <InvitationRow key={inv.id} inv={inv} onRevoke={() => revoke(inv.id)} />)}
           </div>
         )}
-      </section>
-
-      <section>
-        <SectionHeader title="Pending invitations" variant="mono" />
-        {loading ? (
-          <SkeletonRows count={3} />
-        ) : error ? (
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-            <ErrorState errorCode={error} onRetry={reload} />
-          </div>
-        ) : pending.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-            <EmptyState variant="compact" icon={Mail} title="No pending invitations" />
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {pending.map((inv: any) => (
-              <InvitationRow key={inv.id} inv={inv} onRevoke={() => revoke(inv.id)} />
-            ))}
-          </div>
-        )}
-      </section>
+      </DsrtPanel>
 
       {history.length > 0 && (
-        <section>
-          <SectionHeader title="History" variant="mono" />
-          <div className="space-y-2">
-            {history.slice(0, 15).map((inv: any) => (
-              <InvitationRow key={inv.id} inv={inv} history />
-            ))}
+        <DsrtPanel padding="none" className="overflow-hidden">
+          <DsrtSection title="History" headerVariant="mono" className="p-4 sm:p-5 border-b border-white/[0.06]" />
+          <div className="divide-y divide-white/[0.04]">
+            {history.slice(0, 15).map((inv: any) => <InvitationRow key={inv.id} inv={inv} history />)}
           </div>
-        </section>
+        </DsrtPanel>
       )}
     </div>
   )
@@ -168,40 +104,33 @@ export function InvitationsManager({ slug, communityId }: Props) {
 
 function InvitationRow({ inv, onRevoke, history }: { inv: any; onRevoke?: () => void; history?: boolean }) {
   const statusTone: Record<string, string> = {
-    PENDING: 'text-amber-300/85',
-    ACCEPTED: 'text-emerald-300/85',
-    DECLINED: 'text-white/50',
-    EXPIRED: 'text-white/40',
-    REVOKED: 'text-white/40',
+    PENDING: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
+    ACCEPTED: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
+    DECLINED: 'text-white/50 border-white/[0.1] bg-white/[0.04]',
+    EXPIRED: 'text-white/40 border-white/[0.08] bg-transparent',
+    REVOKED: 'text-white/40 border-white/[0.08] bg-transparent',
   }
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-      <div className="w-9 h-9 rounded-full border border-white/[0.06] bg-white/[0.03] flex items-center justify-center text-white/60">
-        <Mail className="w-4 h-4" strokeWidth={1.75} />
+    <div className="flex items-center gap-3 p-4 sm:p-5 hover:bg-white/[0.02] transition-colors">
+      <div className="w-10 h-10 rounded-full border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-white/50 shrink-0">
+        <Mail className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] text-white truncate">
-          {inv.invitee?.full_name || inv.invited_email || 'Recipient'}
-        </p>
-        <p className="text-[11px] text-white/45 truncate">
-          {inv.role?.name ? `Role: ${inv.role.name}` : 'Member'}
-          {inv.inviter && ` · Invited by ${inv.inviter.full_name}`}
-          {' · '}
-          {formatDistanceToNow(new Date(inv.created_at), { addSuffix: true })}
+        <p className="text-[14px] font-bold text-white truncate">{inv.invitee?.full_name || inv.invited_email || 'Recipient'}</p>
+        <p className="text-[11px] font-mono text-white/40 truncate mt-0.5">
+          {inv.role?.name ? `${inv.role.name}` : 'Member'} · {formatDistanceToNow(new Date(inv.created_at), { addSuffix: true })}
         </p>
       </div>
-      <span className={cn('text-[10.5px] font-mono uppercase tracking-wider', statusTone[inv.status] || 'text-white/60')}>
-        {inv.status.toLowerCase()}
-      </span>
-      {!history && onRevoke && (
-        <button
-          onClick={onRevoke}
-          className="w-8 h-8 rounded-full border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] text-white/60 hover:text-white flex items-center justify-center transition-colors"
-          title="Revoke"
-        >
-          <X className="w-3.5 h-3.5" strokeWidth={1.75} />
-        </button>
-      )}
+      <div className="flex items-center gap-2 shrink-0">
+        <span className={cn('text-[9px] font-mono uppercase tracking-wider px-2 py-1 rounded border', statusTone[inv.status] || 'text-white/50')}>
+          {inv.status}
+        </span>
+        {!history && onRevoke && (
+          <DsrtButton size="icon-sm" variant="ghost" onClick={onRevoke} className="hover:text-red-400 hover:bg-red-500/10">
+            <X size={14} />
+          </DsrtButton>
+        )}
+      </div>
     </div>
   )
 }

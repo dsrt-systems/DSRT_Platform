@@ -2,11 +2,12 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { HomePageV2 } from '@/components/home-v2/HomePageV2'
 import { VerificationBanner } from '@/components/trust/VerificationBanner'
+import { DsrtPage } from '@/components/dsrt'
 
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
@@ -18,13 +19,13 @@ export default async function HomePage() {
     .single()
 
   return (
-    <div className="flex flex-col min-h-full">
-      {/* Contextual Adaptive Trust Banner (Injects seamlessly above the feed without breaking layout) */}
-      <div className="w-full max-w-[1024px] mx-auto px-4 md:px-6 pt-6 pb-2">
+    <DsrtPage width="wide" padding="none" className="min-h-full">
+      {/* Contextual Adaptive Trust Banner */}
+      <div className="w-full px-4 md:px-6 pt-4 pb-2">
         <VerificationBanner />
       </div>
       
       <HomePageV2 currentUser={profile} />
-    </div>
+    </DsrtPage>
   )
 }

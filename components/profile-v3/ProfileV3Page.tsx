@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react'
 import { BannerSection } from './left-panel/BannerSection'
 import { LeftPanel } from './left-panel/LeftPanel'
 import { RightPanel } from './right-panel/RightPanel'
+import { DsrtPage, DsrtSkeleton } from '@/components/dsrt'
 
 interface ProfileV3PageProps {
   profile: any
@@ -31,17 +32,20 @@ export function ProfileV3Page(props: ProfileV3PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b]">
-      {/* The ONE and ONLY full-width banner at the top of the entire page */}
-      <BannerSection
-        bannerUrl={profile.cover_url || profile.banner_url}
-        isOwner={props.isOwner}
-        onBannerChange={(url) => handleProfileUpdate({ cover_url: url })}
-      />
+    <DsrtPage width="wide" padding="none" className="pt-4 pb-12">
+      <div className="px-3 sm:px-4 md:px-6">
+        {/* Contained Banner — Rounded and integrated with the shell */}
+        <div className="rounded-2xl overflow-hidden border border-white/[0.08] shadow-lg">
+          <BannerSection
+            bannerUrl={profile.cover_url || profile.banner_url}
+            isOwner={props.isOwner}
+            onBannerChange={(url) => handleProfileUpdate({ cover_url: url })}
+          />
+        </div>
 
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-        <div className="flex flex-col lg:flex-row gap-5">
-          <aside className="lg:w-[35%] w-full flex-shrink-0">
+        {/* Main Grid: Stacks on mobile, side-by-side on desktop */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)] gap-4 lg:gap-6 mt-4">
+          <aside className="w-full min-w-0">
             <LeftPanel
               profile={profile}
               isOwner={props.isOwner}
@@ -54,7 +58,7 @@ export function ProfileV3Page(props: ProfileV3PageProps) {
             />
           </aside>
 
-          <main className="lg:w-[65%] w-full min-w-0">
+          <main className="w-full min-w-0">
             <Suspense fallback={<RightPanelSkeleton />}>
               <RightPanel
                 profile={profile}
@@ -66,15 +70,15 @@ export function ProfileV3Page(props: ProfileV3PageProps) {
           </main>
         </div>
       </div>
-    </div>
+    </DsrtPage>
   )
 }
 
 function RightPanelSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="h-12 border-b border-zinc-800/60 animate-pulse" />
-      <div className="h-64 bg-zinc-900/40 border border-zinc-800/60 rounded-2xl animate-pulse" />
+      <DsrtSkeleton className="h-12 w-full" />
+      <DsrtSkeleton className="h-64 w-full rounded-2xl" />
     </div>
   )
 }

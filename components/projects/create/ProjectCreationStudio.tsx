@@ -16,6 +16,7 @@ import { DefinitionStep } from './steps/DefinitionStep'
 import { BuildStep } from './steps/BuildStep'
 import { CollaborationStep } from './steps/CollaborationStep'
 import { PublishStep } from './steps/PublishStep'
+import { DsrtPage, DsrtButton } from '@/components/dsrt'
 
 const STEP_HEADINGS: Record<ProjectStepKey, { heading: string; description: string }> = {
   identity: {
@@ -65,22 +66,19 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
     hydrateFromServer,
   } = useProjectCreationStore()
 
-  // ─── FRESH vs CONTINUE INITIALIZATION ───
   useEffect(() => {
     const init = async () => {
-      // Fetch draft count first
       try {
         const countRes = await fetch('/api/projects/drafts/count')
         const countData = await countRes.json()
         setDraftCount(countData.count || 0)
 
         if (continueDraftId) {
-          // CONTINUE existing draft
           const res = await fetch(`/api/projects/draft/${continueDraftId}`)
           if (res.ok) {
             const json = await res.json()
             if (json.draft) {
-              reset() // Clear old state first
+              reset()
               hydrateFromServer(json.draft)
               toast.success(`Resumed draft: ${json.draft.name}`)
             }
@@ -90,10 +88,7 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
             return
           }
         } else {
-          // NEW project - reset the store completely
           reset()
-
-          // Check limit BEFORE letting them start
           if ((countData.count || 0) >= (countData.limit || 10)) {
             setShowLimitWarning(true)
           }
@@ -107,10 +102,8 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
     }
 
     init()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [continueDraftId])
 
-  // ─── AUTO-SAVE ───
   const triggerAutoSave = useCallback(
     async (isExiting = false) => {
       if (!data.name || data.name.trim().length < 2) return
@@ -141,7 +134,7 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
         markSaved()
         if (isExiting) {
           toast.success('Project draft saved')
-          reset() // Clear store so next visit is fresh
+          reset()
           router.push('/projects')
         }
       } catch (e: any) {
@@ -184,10 +177,10 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
 
   if (!mounted || initializing) {
     return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-[#05070D] flex flex-col items-center justify-center gap-4">
         <DsrtLogo size={48} showText={false} />
-        <p className="text-[11px] font-bold text-white/40 tracking-widest uppercase">
-          LOADING CREATION STUDIO...
+        <p className="text-[11px] font-mono font-bold text-white/40 tracking-widest uppercase">
+          Loading Studio...
         </p>
       </div>
     )
@@ -196,17 +189,16 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
   const { heading, description } = STEP_HEADINGS[currentStep]
   const currentStepNumber = PROJECT_STEPS.findIndex(s => s.key === currentStep) + 1
   const canContinueCurrent = completedSteps[currentStep] || currentStep === 'publish' || currentStep === 'build' || currentStep === 'collaboration'
-  
-  const isNearLimit = draftCount >= 8 && draftCount < 10 && !continueDraftId
   const isAtLimit = draftCount >= 10 && !continueDraftId
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col selection:bg-white/20">
-      <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-md border-b border-white/[0.06] h-16 flex items-center px-6 lg:px-10">
-        <div className="max-w-[1200px] w-full mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-[#05070D] text-white flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-30 bg-[#05070D]/95 backdrop-blur-md border-b border-white/[0.06] h-16 flex items-center px-4 sm:px-6">
+        <div className="max-w-[1400px] w-full mx-auto flex items-center justify-between">
           <DsrtLogo size={26} showText />
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {isSaving ? (
               <span className="text-[11px] font-mono text-white/40 flex items-center gap-1.5">
                 <Loader2 className="w-3 h-3 animate-spin" /> Saving...
@@ -215,20 +207,19 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
               <span className="text-[11px] font-mono text-white/40">Draft saved</span>
             ) : null}
 
-            <button
+            <DsrtButton
+              size="xs"
+              variant="ghost"
               onClick={handleSaveExit}
               disabled={isSaving || !data.name}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[13px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-all disabled:opacity-40"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Save & exit</span>
-            </button>
+              <LogOut className="w-3.5 h-3.5" /> Save & Exit
+            </DsrtButton>
           </div>
         </div>
       </header>
 
-      {/* ─── DRAFT LIMIT WARNING BANNER (Auto-dismisses) ─── */}
-      {(showLimitWarning || isNearLimit || isAtLimit) && (
+      {(showLimitWarning || isAtLimit) && (
         <DraftLimitBanner
           count={draftCount}
           limit={10}
@@ -238,9 +229,9 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
         />
       )}
 
-      <main className="flex-1 py-10 lg:py-14 px-6 lg:px-10">
-        <div className="max-w-[1200px] mx-auto">
-          <div className="flex flex-col lg:flex-row gap-10 lg:gap-16">
+      <main className="flex-1 py-6 sm:py-10">
+        <DsrtPage width="wide">
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
             <ProjectCreationSidebar
               currentStep={currentStep}
               completedSteps={completedSteps}
@@ -248,20 +239,20 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
               onStepClick={setCurrentStep}
             />
 
-            <div className="flex-1 min-w-0 max-w-[640px]">
-              <div className="mb-8">
-                <p className="text-[10px] font-bold text-white/40 tracking-widest uppercase mb-2">
+            <div className="flex-1 min-w-0 max-w-[680px]">
+              <div className="mb-6">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-1">
                   Step {currentStepNumber} of {PROJECT_STEPS.length}
                 </p>
-                <h1 className="text-[26px] lg:text-[28px] font-semibold text-white tracking-tight leading-tight">
+                <h1 className="text-[22px] sm:text-[26px] font-bold text-white tracking-tight leading-tight">
                   {heading}
                 </h1>
-                <p className="text-[14px] text-white/60 mt-2 leading-relaxed">
+                <p className="text-[13px] text-white/60 mt-1.5 leading-relaxed">
                   {description}
                 </p>
               </div>
 
-              <div className="animate-in fade-in duration-300">
+              <div className="space-y-6">
                 {currentStep === 'identity' && <IdentityStep />}
                 {currentStep === 'definition' && <DefinitionStep />}
                 {currentStep === 'build' && <BuildStep />}
@@ -281,13 +272,12 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
               />
             </div>
           </div>
-        </div>
+        </DsrtPage>
       </main>
     </div>
   )
 }
 
-// ─── AUTO-DISMISS WARNING BANNER ───
 function DraftLimitBanner({
   count,
   limit,
@@ -301,52 +291,23 @@ function DraftLimitBanner({
   onDismiss: () => void
   onGoBack: () => void
 }) {
-  const [visible, setVisible] = useState(true)
-
-  useEffect(() => {
-    if (!isAtLimit) {
-      // Only auto-dismiss the "nearing" warning, not the hard block
-      const timer = setTimeout(() => {
-        setVisible(false)
-        onDismiss()
-      }, 8000)
-      return () => clearTimeout(timer)
-    }
-  }, [isAtLimit, onDismiss])
-
-  if (!visible && !isAtLimit) return null
-
   return (
-    <div className={`border-b transition-all ${isAtLimit ? 'bg-[#1a0f0f] border-red-500/20' : 'bg-[#181410] border-white/[0.06]'}`}>
-      <div className="max-w-[1200px] mx-auto px-6 lg:px-10 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <WarningCircle className={`w-4 h-4 shrink-0 ${isAtLimit ? 'text-red-400' : 'text-white/60'}`} />
-          <p className="text-[13px] text-white/80">
+    <div className={`border-b ${isAtLimit ? 'bg-red-500/10 border-red-500/20' : 'bg-amber-500/10 border-amber-500/20'}`}>
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <WarningCircle className={`w-4 h-4 shrink-0 ${isAtLimit ? 'text-red-400' : 'text-amber-300'}`} />
+          <p className="text-[12px] text-white/80">
             {isAtLimit ? (
-              <>
-                <strong className="text-white">Draft limit reached.</strong> You have {count}/{limit} active drafts. Publish or delete one to create a new project.
-              </>
+              <>Draft limit reached ({count}/{limit}). Publish or archive a draft to continue.</>
             ) : (
-              <>
-                You have <strong className="text-white">{count} of {limit}</strong> draft projects active. Consider publishing or deleting older drafts.
-              </>
+              <>You have {count} of {limit} active drafts.</>
             )}
           </p>
         </div>
         {isAtLimit ? (
-          <button
-            onClick={onGoBack}
-            className="text-[12px] font-medium text-white/80 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 h-7 px-3 rounded-md transition-all"
-          >
-            Manage drafts
-          </button>
+          <DsrtButton size="xs" variant="outline" onClick={onGoBack}>Manage Drafts</DsrtButton>
         ) : (
-          <button
-            onClick={() => { setVisible(false); onDismiss() }}
-            className="text-[11px] font-medium text-white/40 hover:text-white transition-colors"
-          >
-            Dismiss
-          </button>
+          <button onClick={onDismiss} className="text-[11px] font-mono text-white/40 hover:text-white">Dismiss</button>
         )}
       </div>
     </div>

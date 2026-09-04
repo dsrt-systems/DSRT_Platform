@@ -1,11 +1,11 @@
+// filepath: components/auth/AuthShell.tsx
 'use client'
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LockKey } from '@phosphor-icons/react'
+import { ShieldCheck } from '@phosphor-icons/react'
 import { DsrtLogo } from '@/components/ui/DsrtLogo'
 import { SignInForm } from './SignInForm'
-// FIX: Imported as SignUpForm (capital U) to match the actual export in your file!
 import { SignUpForm } from './SignupForm'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
 import { VerifyEmailScreen } from './VerifyEmailScreen'
@@ -14,44 +14,56 @@ export type AuthView = 'signin' | 'signup' | 'forgot' | 'verify'
 
 interface Props {
   initialView?: AuthView
+  onViewChange?: (view: AuthView) => void
 }
 
-export function AuthShell({ initialView = 'signin' }: Props) {
+export function AuthShell({ initialView = 'signin', onViewChange }: Props) {
   const [view, setView] = useState<AuthView>(initialView)
   const [verifyEmail, setVerifyEmail] = useState('')
 
+  const handleSwitchView = (newView: AuthView) => {
+    setView(newView)
+    if (onViewChange) onViewChange(newView)
+  }
+
   const handleVerify = (email: string) => {
     setVerifyEmail(email)
-    setView('verify')
+    handleSwitchView('verify')
   }
 
   const renderView = () => {
     switch (view) {
       case 'signin':
-        return <SignInForm onSwitchView={setView} />
+        return <SignInForm onSwitchView={handleSwitchView} />
       case 'signup':
-        // FIX: Renders the properly capitalized SignUpForm component
-        return <SignUpForm onSwitchView={setView} onVerify={handleVerify} />
+        return <SignUpForm onSwitchView={handleSwitchView} onVerify={handleVerify} />
       case 'forgot':
-        return <ForgotPasswordForm onSwitchView={setView} />
+        return <ForgotPasswordForm onSwitchView={handleSwitchView} />
       case 'verify':
-        return <VerifyEmailScreen email={verifyEmail} onSwitchView={setView} />
+        return <VerifyEmailScreen email={verifyEmail} />
       default:
         return null
     }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut', delay: 0.2 }}
-      className="w-full max-w-[420px] relative z-10"
-    >
-      <div className="rounded-xl border border-white/[0.08] bg-[#0A0D14] shadow-2xl overflow-hidden">
-        <div className="px-8 pt-8 pb-8">
-          <div className="flex justify-center mb-8">
-            <DsrtLogo size={32} showText={false} />
+    <div className="w-full flex flex-col items-center">
+      {/* Mobile Logo (Desktop logo is in layout header) */}
+      <div className="lg:hidden flex flex-col items-center mb-8">
+        <DsrtLogo size={42} showText={false} />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+        className="w-full max-w-[420px] relative z-10"
+      >
+        <div className="lg:bg-[#0B0D14]/80 lg:backdrop-blur-xl lg:border lg:border-white/[0.08] lg:shadow-2xl lg:rounded-[24px] lg:p-10 flex flex-col items-center">
+          
+          {/* Card Top Logo - Desktop Only */}
+          <div className="hidden lg:flex justify-center mb-6">
+            <DsrtLogo size={36} showText={false} />
           </div>
 
           <AnimatePresence mode="wait">
@@ -61,18 +73,19 @@ export function AuthShell({ initialView = 'signin' }: Props) {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="w-full"
             >
               {renderView()}
             </motion.div>
           </AnimatePresence>
         </div>
 
-        {/* Clean Enterprise Security Footer */}
-        <div className="border-t border-white/[0.06] px-8 py-3.5 bg-[#05070A] flex items-center justify-center gap-2 text-white/40">
-          <LockKey className="w-3.5 h-3.5" weight="bold" />
-          <span className="text-[11.5px] font-medium">Secured by enterprise-grade encryption</span>
+        {/* Security Badge - Below form on Mobile, Below Card on Desktop */}
+        <div className="flex items-center justify-center gap-2 mt-8 lg:mt-6 text-white/40">
+          <ShieldCheck className="w-[15px] h-[15px]" weight="regular" />
+          <span className="text-[11px] font-mono uppercase tracking-[0.15em] font-medium">Secured by Enterprise Encryption</span>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   )
 }

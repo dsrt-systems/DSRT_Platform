@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { IntegrationsHub } from '@/components/integrations/IntegrationsHub'
+import { DsrtPage } from '@/components/dsrt'
+
+export const dynamic = 'force-dynamic'
 
 export default async function IntegrationsPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { data: integrations } = await supabase
@@ -17,11 +20,11 @@ export default async function IntegrationsPage() {
     .eq('provider', 'github')
 
   return (
-    <div className="max-w-4xl mx-auto p-6 md:p-8">
+    <DsrtPage width="default" className="py-6 sm:py-8">
       <IntegrationsHub 
         integrations={integrations || []}
         trackedRepos={trackedRepos || []}
       />
-    </div>
+    </DsrtPage>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { EditorTopBar } from './EditorTopBar'
 import { EditorTabs, type EditorTab } from './EditorTabs'
@@ -13,6 +13,7 @@ import { PreviewModal } from './PreviewModal'
 import { PublishValidator } from './PublishValidator'
 import { useDraft } from './hooks/useDraft'
 import { useAutosave } from './hooks/useAutosave'
+import { DsrtPage, DsrtTabs } from '@/components/dsrt'
 
 export function CreateOpportunityPage() {
   const router = useRouter()
@@ -24,7 +25,7 @@ export function CreateOpportunityPage() {
   const [showValidator, setShowValidator] = useState(false)
   const [publishing, setPublishing] = useState(false)
 
-  const { draft, loading, updateDraft, resetDraft } = useDraft(editId)
+  const { draft, loading, updateDraft } = useDraft(editId)
   const { saveStatus, lastSavedAt } = useAutosave(draft)
 
   const handlePublish = async () => {
@@ -38,8 +39,6 @@ export function CreateOpportunityPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to publish')
-
-      // Navigate to detail page
       router.push('/looking-for/' + (json.opportunity?.slug || draft.id))
     } catch (e: any) {
       alert(e?.message || 'Failed to publish')
@@ -51,15 +50,19 @@ export function CreateOpportunityPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-[13px] text-zinc-500">Loading editor...</div>
+      <div className="min-h-screen bg-[#05070D] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-[12px] font-mono uppercase tracking-wider text-white/40">
+            Loading editor…
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 flex flex-col">
-      {/* Sticky top bar */}
+    <div className="min-h-screen bg-[#05070D] text-white flex flex-col">
       <EditorTopBar
         draft={draft}
         saveStatus={saveStatus}
@@ -70,70 +73,55 @@ export function CreateOpportunityPage() {
         onBack={() => router.push('/looking-for')}
       />
 
-      {/* Tabs */}
-      <div className="border-b border-zinc-800 bg-[#0a0a0a] sticky top-[64px] z-20">
+      <div className="border-b border-white/[0.06] bg-[#05070D] sticky top-[64px] z-20">
         <div className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8">
-          <EditorTabs active={tab} onChange={setTab} />
+          <DsrtTabs
+            variant="underline"
+            tabs={[
+              { value: 'opportunity', label: 'Opportunity' },
+              { value: 'poster', label: 'About Poster' },
+              { value: 'settings', label: 'Settings' },
+            ]}
+            activeValue={tab}
+            onValueChange={(v) => setTab(v as EditorTab)}
+          />
         </div>
       </div>
 
-      {/* Main workspace */}
       <main className="flex-1">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-6">
+        <DsrtPage width="wide" className="py-6">
           {tab === 'opportunity' && (
-            <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)_320px] gap-6">
-              {/* Left: Media */}
+            <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)_300px] gap-4 lg:gap-6">
               <aside className="order-3 lg:order-1">
-                <MediaPanel
-                  draft={draft}
-                  onUpdate={updateDraft}
-                />
+                <MediaPanel draft={draft} onUpdate={updateDraft} />
               </aside>
 
-              {/* Center: Editor */}
               <div className="min-w-0 order-1 lg:order-2">
-                <TemplateEditor
-                  draft={draft}
-                  onUpdate={updateDraft}
-                />
+                <TemplateEditor draft={draft} onUpdate={updateDraft} />
               </div>
 
-              {/* Right: Configuration */}
               <aside className="order-2 lg:order-3">
-                <ConfigurationPanel
-                  draft={draft}
-                  onUpdate={updateDraft}
-                />
+                <ConfigurationPanel draft={draft} onUpdate={updateDraft} />
               </aside>
             </div>
           )}
 
           {tab === 'poster' && (
             <div className="max-w-3xl mx-auto">
-              <PosterAboutPanel
-                draft={draft}
-                onUpdate={updateDraft}
-              />
+              <PosterAboutPanel draft={draft} onUpdate={updateDraft} />
             </div>
           )}
 
           {tab === 'settings' && (
             <div className="max-w-3xl mx-auto">
-              <AdvancedSettingsPanel
-                draft={draft}
-                onUpdate={updateDraft}
-              />
+              <AdvancedSettingsPanel draft={draft} onUpdate={updateDraft} />
             </div>
           )}
-        </div>
+        </DsrtPage>
       </main>
 
-      {/* Modals */}
       {showPreview && draft && (
-        <PreviewModal
-          draft={draft}
-          onClose={() => setShowPreview(false)}
-        />
+        <PreviewModal draft={draft} onClose={() => setShowPreview(false)} />
       )}
 
       {showValidator && draft && (
@@ -144,7 +132,6 @@ export function CreateOpportunityPage() {
           onClose={() => setShowValidator(false)}
           onGoToField={(field) => {
             setShowValidator(false)
-            // Scroll to field
             const el = document.querySelector(`[data-field="${field}"]`) as HTMLElement
             if (el) {
               el.scrollIntoView({ behavior: 'smooth', block: 'center' })

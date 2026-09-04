@@ -3,14 +3,13 @@ import Link from 'next/link'
 import { AdminNav } from '@/components/admin/AdminNav'
 import { Trophy, Plus, Calendar, Users } from 'lucide-react'
 import { format } from 'date-fns'
+import { DsrtPage, DsrtSection, DsrtGrid, DsrtPanel, DsrtButton, DsrtEmpty, DsrtChip } from '@/components/dsrt'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminHackathonsPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: profile } = await supabase
     .from('users')
@@ -24,83 +23,76 @@ export default async function AdminHackathonsPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#05070D] text-white">
       <AdminNav profile={profile} />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Hackathon Management</h1>
-            <p className="text-sm text-white/60 mt-1">
-              Create and manage DSRT hackathons
-            </p>
-          </div>
-          <Link
-            href="/admin/hackathons/new"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-semibold hover:scale-105 transition-transform"
-          >
-            <Plus className="w-4 h-4" />
-            Create Hackathon
-          </Link>
-        </div>
+      <DsrtPage width="default" className="py-8">
+        <DsrtSection
+          title="Hackathon Management"
+          description="Create and orchestrate DSRT hackathon events globally."
+          headerVariant="large"
+          className="mb-8"
+          actions={
+            <DsrtButton asChild variant="primary" size="md">
+              <Link href="/admin/hackathons/new">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Create Hackathon
+              </Link>
+            </DsrtButton>
+          }
+        />
 
         {!hackathons || hackathons.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm p-12 text-center space-y-3">
-            <Trophy className="w-10 h-10 text-white/40 mx-auto" />
-            <p className="text-white/60">No hackathons yet</p>
-            <p className="text-sm text-white/40">
-              Create your first hackathon to get started
-            </p>
-          </div>
+          <DsrtPanel>
+            <DsrtEmpty
+              icon={Trophy}
+              title="No hackathons yet"
+              description="Create your first hackathon to open registrations."
+            />
+          </DsrtPanel>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DsrtGrid cols={{ base: 1, md: 2 }} gap="md">
             {hackathons.map((h: any) => (
-              <Link
-                key={h.id}
-                href={`/admin/hackathons/${h.slug}`}
-                className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm p-5 hover:bg-white/[0.04] hover:border-white/20 transition-all"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center flex-shrink-0">
-                    <Trophy className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span
-                        className={`px-2 py-0.5 text-[10px] font-semibold rounded-full uppercase tracking-wider ${
-                          h.approved
-                            ? 'bg-emerald-500/20 text-emerald-400'
-                            : 'bg-amber-500/20 text-amber-400'
-                        }`}
-                      >
-                        {h.approved ? 'Live' : 'Draft'}
-                      </span>
+              <Link key={h.id} href={`/admin/hackathons/${h.slug}`} className="block group">
+                <DsrtPanel padding="md" className="hover:border-white/[0.14] transition-all h-full group-hover:-translate-y-0.5">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] border border-[#2c5282]/40 flex items-center justify-center flex-shrink-0">
+                      <Trophy className="w-5 h-5 text-[#93c5fd]" />
                     </div>
-                    <h3 className="font-bold text-white">{h.title}</h3>
-                    {h.tagline && (
-                      <p className="text-sm text-white/60 line-clamp-1 mt-1">
-                        {h.tagline}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 mt-3 text-xs text-white/50">
-                      {h.start_date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {format(new Date(h.start_date), 'MMM d')}
-                        </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <h3 className="font-bold text-[15px] text-white truncate">{h.title}</h3>
+                        <DsrtChip size="sm" tone={h.approved ? 'success' : 'warning'}>
+                          {h.approved ? 'Live' : 'Draft'}
+                        </DsrtChip>
+                      </div>
+                      
+                      {h.tagline && (
+                        <p className="text-[12.5px] text-white/60 line-clamp-1">
+                          {h.tagline}
+                        </p>
                       )}
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {h.participants || 0} registered
-                      </span>
+                      
+                      <div className="flex items-center gap-4 mt-3 text-[11px] font-mono text-white/40 uppercase tracking-wider">
+                        {h.start_date && (
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {format(new Date(h.start_date), 'MMM d')}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5" />
+                          {h.participants || 0} registered
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </DsrtPanel>
               </Link>
             ))}
-          </div>
+          </DsrtGrid>
         )}
-      </main>
+      </DsrtPage>
     </div>
   )
 }

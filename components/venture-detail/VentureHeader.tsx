@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Camera, Heart, Share, DotsThree, X, Check } from '@phosphor-icons/react'
+import { Camera, Share, DotsThree, X, Check, ArrowLeft } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { ConnectButton } from '@/components/shared/ConnectButton'
 import { AssessmentBadge } from '@/components/venture-assessment/AssessmentBadge'
 import { BrandAssetCropper } from './brand/BrandAssetCropper'
+import { DsrtPanel, DsrtButton, DsrtChip } from '@/components/dsrt'
 
 interface Props {
   venture: any
@@ -56,31 +57,17 @@ export function VentureHeader({
   const [taglineDraft, setTaglineDraft] = useState(venture.tagline || '')
   const [stageDraft, setStageDraft] = useState(venture.stage || 'idea')
 
-  // ─── Real-time sync: listen for venture updates from anywhere ───
   useEffect(() => {
     if (!venture.id) return
-
     const channel = supabase
       .channel(`venture:${venture.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'ventures',
-          filter: `id=eq.${venture.id}`,
-        },
-        (payload) => {
-          const updated = payload.new as any
-          setVenture((prev: any) => ({ ...prev, ...updated }))
-        }
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ventures', filter: `id=eq.${venture.id}` },
+        (payload) => setVenture((prev: any) => ({ ...prev, ...(payload.new as any) }))
       )
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [venture.id, supabase])
 
-  // Sync state when parent updates
   useEffect(() => {
     setVenture(initialVenture)
     setNameDraft(initialVenture.name)
@@ -89,11 +76,7 @@ export function VentureHeader({
   }, [initialVenture])
 
   const handleAssetSuccess = (kind: 'logo' | 'cover', url: string) => {
-    setVenture((prev: any) => ({
-      ...prev,
-      [kind === 'logo' ? 'logo_url' : 'cover_url']: url,
-    }))
-    // Also propagate up so parent VentureDetailPage state stays in sync
+    setVenture((prev: any) => ({ ...prev, [kind === 'logo' ? 'logo_url' : 'cover_url']: url }))
     onUpdate({ [kind === 'logo' ? 'logo_url' : 'cover_url']: url }).catch(() => {})
   }
 
@@ -102,56 +85,57 @@ export function VentureHeader({
   const statParts: string[] = []
   const teamCount = stats?.team ?? 0
   const followerCount = venture.follower_count ?? 0
-  const applicationCount = stats?.applications ?? 0
   const openRoleCount = stats?.openRoles ?? 0
 
   if (teamCount > 0) statParts.push(teamCount + ' team')
   statParts.push(followerCount + ' follower' + (followerCount !== 1 ? 's' : ''))
   if (openRoleCount > 0) statParts.push(openRoleCount + ' open role' + (openRoleCount !== 1 ? 's' : ''))
-  if (applicationCount > 0) statParts.push(applicationCount + ' application' + (applicationCount !== 1 ? 's' : ''))
   const compactStatLine = statParts.join(' · ')
 
   return (
     <>
       <button
         onClick={() => router.push('/ventures')}
-        className="flex items-center gap-1.5 text-[13px] text-white/50 hover:text-white mb-3 transition-colors"
+        className="flex items-center gap-1.5 text-[12px] font-mono uppercase tracking-wider text-white/50 hover:text-white mb-3 transition-colors"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-        Back
+        <ArrowLeft size={12} />
+        Back to Ventures
       </button>
 
-      <div className="relative rounded-2xl overflow-hidden bg-white/[0.02] border border-white/[0.06] mb-4">
-        <div className="relative h-[320px] md:h-[360px] overflow-hidden">
+      <DsrtPanel padding="none" variant="default" className="overflow-hidden">
+        <div className="relative h-[240px] sm:h-[280px] md:h-[320px] overflow-hidden">
           {venture.cover_url ? (
             <img src={venture.cover_url} alt="" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+            <div className="w-full h-full bg-gradient-to-br from-[#0f172a] via-[#0a0a0f] to-[#1e3a5f]">
+              <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#2c5282_1px,transparent_1px)] [background-size:16px_16px]" />
+            </div>
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/10" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#05070D] via-[#05070D]/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent" />
 
           {isOwner && (
-            <button
+            <DsrtButton
+              size="xs"
+              variant="outline"
               onClick={() => setCropperOpen('cover')}
-              className="absolute top-4 right-4 flex items-center gap-1.5 text-[12px] font-semibold text-white bg-black/60 backdrop-blur-md border border-white/20 hover:bg-black/80 px-3 h-8 rounded-lg transition-colors z-20"
+              className="absolute top-4 right-4 z-20 bg-black/60 backdrop-blur-md"
             >
-              <Camera size={13} weight="regular" />
-              {venture.cover_url ? 'Change cover' : 'Add cover'}
-            </button>
+              <Camera size={13} />
+              {venture.cover_url ? 'Change Cover' : 'Add Cover'}
+            </DsrtButton>
           )}
 
-          <div className="absolute inset-x-0 bottom-0 px-6 md:px-8 pb-6 md:pb-7 z-10">
-            <div className="flex items-end gap-5">
+          <div className="absolute inset-x-0 bottom-0 px-4 sm:px-6 md:px-8 pb-5 md:pb-7 z-10">
+            <div className="flex items-end gap-4 sm:gap-5 flex-wrap sm:flex-nowrap">
+              {/* Logo */}
               <div className="relative flex-shrink-0">
-                <div className="w-[96px] h-[96px] md:w-[112px] md:h-[112px] rounded-2xl border-[3px] border-black/40 bg-[#0f0f18] overflow-hidden shadow-2xl">
+                <div className="w-[80px] h-[80px] sm:w-[96px] sm:h-[96px] md:w-[112px] md:h-[112px] rounded-2xl border-[3px] border-[#05070D] bg-[#0f172a] overflow-hidden shadow-2xl">
                   {venture.logo_url ? (
                     <img src={venture.logo_url} alt={venture.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center text-white text-4xl font-bold">
+                    <div className="w-full h-full bg-gradient-to-br from-[#1e3a5f] to-[#0a0a0f] flex items-center justify-center text-white text-3xl sm:text-4xl font-bold">
                       {venture.name?.charAt(0)}
                     </div>
                   )}
@@ -159,29 +143,28 @@ export function VentureHeader({
                 {isOwner && (
                   <button
                     onClick={() => setCropperOpen('logo')}
-                    className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/80 backdrop-blur-md border border-white/25 hover:bg-black flex items-center justify-center transition-colors"
+                    className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-[#1e3a5f] border-2 border-[#05070D] hover:bg-[#2c5282] flex items-center justify-center transition-colors"
                     title="Change logo"
                   >
-                    <Camera size={13} weight="regular" className="text-white" />
+                    <Camera size={12} weight="regular" className="text-white" />
                   </button>
                 )}
               </div>
 
+              {/* Info block */}
               <div className="flex-1 min-w-0 pb-1">
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {editingName && isOwner ? (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 w-full max-w-md">
                       <input
                         autoFocus
                         value={nameDraft}
                         onChange={(e) => setNameDraft(e.target.value)}
-                        className="bg-white/[0.1] border border-white/[0.3] rounded px-3 py-1 text-[30px] md:text-[36px] font-bold text-white focus:outline-none focus:border-white/[0.5] min-w-[240px]"
+                        className="flex-1 bg-white/[0.1] border border-white/[0.3] rounded px-3 py-1 text-[22px] sm:text-[28px] font-bold text-white focus:outline-none focus:border-white/[0.5]"
                       />
                       <button
-                        onClick={async () => {
-                          if (nameDraft.trim()) { await onUpdate({ name: nameDraft.trim() }); setEditingName(false) }
-                        }}
-                        className="w-8 h-8 rounded bg-white text-black hover:bg-white/90 flex items-center justify-center"
+                        onClick={async () => { if (nameDraft.trim()) { await onUpdate({ name: nameDraft.trim() }); setEditingName(false) } }}
+                        className="w-8 h-8 rounded bg-white text-black hover:bg-zinc-200 flex items-center justify-center"
                       >
                         <Check size={14} weight="bold" />
                       </button>
@@ -195,10 +178,7 @@ export function VentureHeader({
                   ) : (
                     <h1
                       onClick={() => isOwner && setEditingName(true)}
-                      className={
-                        'text-[30px] md:text-[36px] font-bold text-white leading-none tracking-tight ' +
-                        (isOwner ? 'cursor-pointer hover:opacity-80 transition-opacity' : '')
-                      }
+                      className={'text-[22px] sm:text-[28px] md:text-[32px] font-bold text-white leading-none tracking-tight ' + (isOwner ? 'cursor-pointer hover:opacity-80' : '')}
                       style={{ textShadow: '0 2px 12px rgba(0,0,0,0.7)' }}
                     >
                       {venture.name}
@@ -207,49 +187,38 @@ export function VentureHeader({
 
                   {editingStage && isOwner ? (
                     <select
-                      autoFocus
-                      value={stageDraft}
+                      autoFocus value={stageDraft}
                       onChange={async (e) => {
                         setStageDraft(e.target.value)
                         await onUpdate({ stage: e.target.value })
                         setEditingStage(false)
                       }}
                       onBlur={() => setEditingStage(false)}
-                      className="bg-white/[0.15] border border-white/[0.3] text-white text-[11px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1.5 outline-none"
+                      className="bg-[#0f172a] border border-white/[0.2] text-white text-[11px] font-mono uppercase tracking-wider rounded-md px-2 py-1 outline-none"
                     >
-                      {STAGES.map(s => <option key={s.value} value={s.value} className="bg-[#12121a]">{s.label}</option>)}
+                      {STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                   ) : (
-                    <button
-                      onClick={() => isOwner && setEditingStage(true)}
-                      className={
-                        'inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md bg-white/[0.15] backdrop-blur-md border border-white/[0.2] text-white ' +
-                        (isOwner ? 'hover:bg-white/[0.25] cursor-pointer' : '')
-                      }
-                    >
+                    <DsrtChip size="sm" tone="accent" onClick={isOwner ? () => setEditingStage(true) : undefined}>
                       {currentStage}
-                    </button>
+                    </DsrtChip>
                   )}
 
-                  {venture.has_verified_assessment && (
-                    <AssessmentBadge variant="compact" />
-                  )}
+                  {venture.has_verified_assessment && <AssessmentBadge variant="compact" />}
                 </div>
 
                 <div className="mb-3">
                   {editingTagline && isOwner ? (
                     <div className="flex items-center gap-1.5 max-w-2xl">
                       <input
-                        autoFocus
-                        value={taglineDraft}
-                        onChange={(e) => setTaglineDraft(e.target.value)}
+                        autoFocus value={taglineDraft} onChange={(e) => setTaglineDraft(e.target.value)}
                         maxLength={140}
                         placeholder="Add a one-line company thesis..."
-                        className="flex-1 bg-white/[0.1] border border-white/[0.3] rounded px-3 py-1.5 text-[15px] text-white placeholder:text-white/40 focus:outline-none focus:border-white/[0.5]"
+                        className="flex-1 bg-white/[0.1] border border-white/[0.3] rounded px-3 py-1.5 text-[14px] text-white placeholder:text-white/40 focus:outline-none focus:border-white/[0.5]"
                       />
                       <button
                         onClick={async () => { await onUpdate({ tagline: taglineDraft }); setEditingTagline(false) }}
-                        className="w-7 h-7 rounded bg-white text-black flex items-center justify-center hover:bg-white/90"
+                        className="w-7 h-7 rounded bg-white text-black flex items-center justify-center hover:bg-zinc-200"
                       >
                         <Check size={13} weight="bold" />
                       </button>
@@ -263,11 +232,8 @@ export function VentureHeader({
                   ) : (
                     <p
                       onClick={() => isOwner && setEditingTagline(true)}
-                      className={
-                        'text-[15px] md:text-[16px] leading-relaxed max-w-2xl ' +
-                        (venture.tagline
-                          ? 'text-white/90 ' + (isOwner ? 'cursor-pointer hover:text-white' : '')
-                          : 'text-white/50 italic ' + (isOwner ? 'cursor-pointer hover:text-white/70' : ''))
+                      className={'text-[14px] sm:text-[15px] leading-relaxed max-w-2xl ' +
+                        (venture.tagline ? 'text-white/90 ' + (isOwner ? 'cursor-pointer hover:text-white' : '') : 'text-white/50 italic ' + (isOwner ? 'cursor-pointer hover:text-white/70' : ''))
                       }
                       style={{ textShadow: '0 1px 8px rgba(0,0,0,0.6)' }}
                     >
@@ -277,98 +243,74 @@ export function VentureHeader({
                 </div>
 
                 <div
-                  className="flex items-center gap-2 text-[11.5px] md:text-[12px] text-white/70 flex-wrap"
+                  className="flex items-center gap-2 text-[11px] font-mono text-white/60 flex-wrap"
                   style={{ textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}
                 >
                   {venture.venture_number && (
                     <>
-                      <span className="font-mono text-white/60">{venture.venture_number}</span>
-                      <span className="text-white/30">·</span>
+                      <span>{venture.venture_number}</span>
+                      <span className="text-white/20">·</span>
                     </>
                   )}
-                  <span className="font-medium">{compactStatLine}</span>
-                  {venture.industry && (
-                    <>
-                      <span className="text-white/30">·</span>
-                      <span>{venture.industry}</span>
-                    </>
-                  )}
-                  {venture.headquarters && (
-                    <>
-                      <span className="text-white/30">·</span>
-                      <span>{venture.headquarters}</span>
-                    </>
-                  )}
+                  <span>{compactStatLine}</span>
+                  {venture.industry && (<><span className="text-white/20">·</span><span>{venture.industry}</span></>)}
+                  {venture.headquarters && (<><span className="text-white/20">·</span><span>{venture.headquarters}</span></>)}
                 </div>
               </div>
 
+              {/* Actions (Desktop) */}
               <div className="hidden md:flex items-center gap-2 flex-shrink-0 self-end mb-1">
                 {!isOwner && (
                   <>
                     <ConnectButton
-                      entityType="venture"
-                      entityId={venture.id}
-                      entityName={venture.name}
-                      entitySlug={venture.slug}
-                      sourceType="venture_invite"
-                      variant="primary"
-                      label="Contact Team"
-                      icon={true}
+                      entityType="venture" entityId={venture.id} entityName={venture.name}
+                      entitySlug={venture.slug} sourceType="venture_invite"
+                      variant="primary" label="Contact Team" icon={true}
                     />
-                    <button
+                    <DsrtButton
+                      size="md"
+                      variant={isFollowing ? 'outline' : 'white'}
                       onClick={onFollowToggle}
-                      className={
-                        'flex items-center gap-1.5 text-[12.5px] font-semibold px-4 h-9 rounded-lg transition-colors ' +
-                        (isFollowing
-                          ? 'bg-white/[0.1] backdrop-blur-md border border-white/[0.2] text-white hover:bg-white/[0.15]'
-                          : 'bg-white text-black hover:bg-white/90')
-                      }
                     >
-                      <Heart size={13} weight={isFollowing ? 'fill' : 'regular'} />
                       {isFollowing ? 'Following' : 'Follow'}
-                    </button>
+                    </DsrtButton>
                   </>
                 )}
-                <button
+                <DsrtButton
+                  size="icon"
+                  variant="outline"
                   onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Link copied') }}
-                  className="w-9 h-9 rounded-lg bg-white/[0.1] backdrop-blur-md border border-white/[0.2] hover:bg-white/[0.15] text-white flex items-center justify-center transition-colors"
                 >
                   <Share size={13} />
-                </button>
-                <button className="w-9 h-9 rounded-lg bg-white/[0.1] backdrop-blur-md border border-white/[0.2] hover:bg-white/[0.15] text-white flex items-center justify-center transition-colors">
+                </DsrtButton>
+                <DsrtButton size="icon" variant="outline">
                   <DotsThree size={15} weight="bold" />
-                </button>
+                </DsrtButton>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Mobile Actions */}
         {!isOwner && (
-          <div className="md:hidden px-4 py-3 border-t border-white/[0.06] grid grid-cols-2 gap-2">
+          <div className="md:hidden p-3 border-t border-white/[0.06] grid grid-cols-2 gap-2">
             <ConnectButton
-              entityType="venture"
-              entityId={venture.id}
-              entityName={venture.name}
-              entitySlug={venture.slug}
-              sourceType="venture_invite"
-              variant="primary"
-              label="Contact Team"
-              icon={true}
+              entityType="venture" entityId={venture.id} entityName={venture.name}
+              entitySlug={venture.slug} sourceType="venture_invite"
+              variant="primary" label="Contact" icon={true}
             />
-            <button
+            <DsrtButton
+              size="md"
+              variant={isFollowing ? 'outline' : 'white'}
               onClick={onFollowToggle}
-              className={
-                'text-[11.5px] font-semibold px-4 h-9 rounded-lg transition-colors ' +
-                (isFollowing ? 'bg-white/[0.05] border border-white/[0.08] text-white' : 'bg-white text-black')
-              }
+              fullWidth
             >
               {isFollowing ? 'Following' : 'Follow'}
-            </button>
+            </DsrtButton>
           </div>
         )}
-      </div>
+      </DsrtPanel>
 
-      {/* ─── Cropper Modals ─── */}
       {cropperOpen && (
         <BrandAssetCropper
           open={!!cropperOpen}

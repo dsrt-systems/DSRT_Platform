@@ -6,19 +6,15 @@ import { SecurityDashboard } from '@/components/security/SecurityDashboard'
 export const dynamic = 'force-dynamic'
 
 export default async function SecurityPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const [{ data: profile }, { data: securityEvents }, { data: twoFA }, { data: pinMeta }] =
     await Promise.all([
       adminClient
         .from('users')
-        .select(
-          'id, email, username, full_name, email_verification_status, trust_level, trust_score, verification_readiness_score, pin_configured'
-        )
+        .select('id, email, username, full_name, email_verification_status, trust_level, trust_score, verification_readiness_score, pin_configured')
         .eq('id', user.id)
         .single(),
       supabase

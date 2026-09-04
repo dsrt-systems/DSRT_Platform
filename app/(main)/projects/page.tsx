@@ -1,4 +1,5 @@
 ﻿import { ProjectsDashboard } from '@/components/projects/ProjectsDashboard'
+import { DsrtPage } from '@/components/dsrt'
 
 export const metadata = {
   title: 'Projects | DSRT Connect',
@@ -6,5 +7,9 @@ export const metadata = {
 }
 
 export default function ProjectsPage() {
-  return <ProjectsDashboard />
+  return (
+    <DsrtPage width="wide" padding="none" className="min-h-full py-4 sm:py-6">
+      <ProjectsDashboard />
+    </DsrtPage>
+  )
 }

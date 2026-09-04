@@ -1,15 +1,16 @@
+// filepath: components/auth/SignInForm.tsx
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { At, CircleNotch, ArrowRight } from '@phosphor-icons/react'
+import { EnvelopeSimple, CircleNotch, ArrowRight } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
 import { AuthInput } from './AuthInput'
 import { PasswordInput } from './PasswordInput'
 import { OAuthButton } from './OAuthButton'
 import { AuthDivider } from './AuthDivider'
-import { GoogleIcon, GithubIcon } from './ProviderIcons'
+import { GoogleIcon, LinkedInIcon, XIcon } from './ProviderIcons'
 import { cn } from '@/lib/utils'
 import type { AuthView } from './AuthShell'
 
@@ -22,21 +23,20 @@ export function SignInForm({ onSwitchView }: Props) {
   const supabase = createClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'github' | null>(null)
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
 
-  const handleOAuth = async (provider: 'google' | 'github') => {
+  const handleOAuth = async (provider: 'google' | 'linkedin_oidc' | 'twitter') => {
     setOauthLoading(provider)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { 
-          redirectTo: `${window.location.origin}/callback?next=/home` 
-        }
+        options: { redirectTo: `${window.location.origin}/callback?next=/home` }
       })
       if (error) throw error
     } catch (err: any) {
-      toast.error(err.message || `Failed to connect to ${provider}`)
+      toast.error(err.message || `Failed to connect`)
       setOauthLoading(null)
     }
   }
@@ -67,34 +67,32 @@ export function SignInForm({ onSwitchView }: Props) {
   }
 
   return (
-    <div>
-      <div className="text-center mb-6">
-        <h1 className="text-[22px] font-bold text-white tracking-tight">Welcome back</h1>
-        <p className="text-[13px] text-white/50 mt-1">Continue where you left off.</p>
+    <div className="w-full">
+      {/* Mobile Title (hidden on desktop where it's on the left) */}
+      <div className="lg:hidden text-center mb-8">
+        <h1 className="text-[28px] font-bold text-white tracking-tight">Welcome back</h1>
+        <p className="text-[14px] text-white/50 mt-1">Continue where you left off.</p>
       </div>
 
-      <div className="space-y-2.5">
-        <OAuthButton 
-          provider="google" 
-          onClick={() => handleOAuth('google')} 
-          loading={oauthLoading === 'google'}
-          disabled={!!oauthLoading}
-          icon={<GoogleIcon />}
-        >
+      {/* Desktop Title (hidden on mobile) */}
+      <div className="hidden lg:block text-center mb-8">
+        <h2 className="text-[22px] font-bold text-white tracking-tight">Sign in to DSRT</h2>
+        <p className="text-[13px] text-white/50 mt-1">Access your workspace and continue.</p>
+      </div>
+
+      <div className="space-y-3">
+        <OAuthButton provider="twitter" onClick={() => handleOAuth('twitter')} loading={oauthLoading === 'twitter'} disabled={!!oauthLoading} icon={<XIcon />}>
+          Continue with X
+        </OAuthButton>
+        <OAuthButton provider="google" onClick={() => handleOAuth('google')} loading={oauthLoading === 'google'} disabled={!!oauthLoading} icon={<GoogleIcon />}>
           Continue with Google
         </OAuthButton>
-        <OAuthButton 
-          provider="github" 
-          onClick={() => handleOAuth('github')} 
-          loading={oauthLoading === 'github'}
-          disabled={!!oauthLoading}
-          icon={<GithubIcon />}
-        >
-          Continue with GitHub
+        <OAuthButton provider="linkedin" onClick={() => handleOAuth('linkedin_oidc')} loading={oauthLoading === 'linkedin_oidc'} disabled={!!oauthLoading} icon={<LinkedInIcon />}>
+          Continue with LinkedIn
         </OAuthButton>
       </div>
 
-      <AuthDivider />
+      <AuthDivider label="or" />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <AuthInput
@@ -102,9 +100,8 @@ export function SignInForm({ onSwitchView }: Props) {
           type="email"
           name="email"
           autoComplete="email"
-          autoFocus
           placeholder="name@example.com"
-          leading={<At className="w-4 h-4" weight="bold" />}
+          leading={<EnvelopeSimple className="w-[18px] h-[18px]" weight="regular" />}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -116,17 +113,36 @@ export function SignInForm({ onSwitchView }: Props) {
           placeholder="Enter your password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          showForgotLink
-          onForgotClick={() => onSwitchView('forgot')}
         />
+
+        <div className="flex items-center justify-between pt-1 pb-2">
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+              className="w-[15px] h-[15px] rounded-[4px] border-white/20 bg-white/[0.05] accent-[#4F7CFF] cursor-pointer"
+            />
+            <span className="text-[13px] text-white/50 group-hover:text-white/80 transition-colors">
+              Remember me
+            </span>
+          </label>
+          <button 
+            type="button"
+            onClick={() => onSwitchView('forgot')}
+            className="text-[13px] text-[#4F7CFF] hover:text-[#7B9AFF] font-medium transition-colors"
+          >
+            Forgot password?
+          </button>
+        </div>
 
         <button
           type="submit"
           disabled={loading}
           className={cn(
-            "w-full h-11 rounded-lg mt-2 flex items-center justify-center gap-2",
-            "bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14px] font-bold",
-            "shadow-[0_4px_20px_rgba(79,124,255,0.3)] transition-all",
+            "w-full h-[46px] rounded-xl flex items-center justify-center gap-2 transition-all",
+            "bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14.5px] font-semibold",
+            "shadow-[0_0_20px_rgba(79,124,255,0.3)]",
             "disabled:opacity-70 disabled:cursor-not-allowed"
           )}
         >
@@ -141,11 +157,12 @@ export function SignInForm({ onSwitchView }: Props) {
         </button>
       </form>
 
-      <p className="text-center text-[13px] text-white/50 font-medium mt-6">
+      {/* Mobile-only CTA */}
+      <p className="lg:hidden text-center text-[13.5px] text-white/50 font-medium mt-8">
         New to DSRT?{' '}
         <button 
           onClick={() => onSwitchView('signup')} 
-          className="text-[#4F7CFF] hover:text-[#7093FF] font-semibold transition-colors"
+          className="text-[#4F7CFF] hover:text-[#7B9AFF] font-semibold transition-colors"
         >
           Create account
         </button>

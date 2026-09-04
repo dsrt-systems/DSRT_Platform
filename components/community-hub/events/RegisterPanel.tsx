@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Link from 'next/link'
 import { Check, Loader2, Clock, X, QrCode, Ticket, Lock } from 'lucide-react'
-import { cn, formatNumber } from '@/lib/utils'
+import { DsrtButton, DsrtPanel, DsrtEmpty } from '@/components/dsrt'
 import { toast } from '@/components/ui/sonner'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
 import { QRCodeSVG } from 'qrcode.react'
@@ -41,7 +40,6 @@ export function RegisterPanel({ event, config, myRegistration, onChanged }: Prop
       if (!res.ok) { toast.error(json?.error?.message || 'Registration failed'); return }
       const d = json?.data
       if (d?.qr_url) {
-        // token is the last path segment
         const t = d.qr_url.split('/').pop()
         setQrToken(t || null)
       }
@@ -79,139 +77,92 @@ export function RegisterPanel({ event, config, myRegistration, onChanged }: Prop
   }
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5">
-      {/* Capacity display */}
+    <DsrtPanel padding="md">
       {config?.capacity && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-white/50 mb-1.5">
+        <div className="mb-5">
+          <div className="flex justify-between text-[10px] font-mono font-bold uppercase tracking-wider text-white/50 mb-2">
             <span>Registered</span>
             <span className="text-white/80">
-              {formatNumber(config.confirmed_count || 0)} / {formatNumber(config.capacity)}
+              {config.confirmed_count || 0} / {config.capacity}
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
             <div
-              className={cn(
-                'h-full transition-all',
-                capacityFull ? 'bg-amber-400/70' : 'bg-white'
-              )}
+              className={`h-full transition-all ${capacityFull ? 'bg-amber-400' : 'bg-gradient-to-r from-[#1e3a5f] to-[#2c5282]'}`}
               style={{ width: `${Math.min(100, ((config.confirmed_count || 0) / config.capacity) * 100)}%` }}
             />
           </div>
           {(config.waitlist_count || 0) > 0 && (
-            <p className="mt-2 text-[10.5px] font-mono uppercase tracking-wider text-white/40">
-              {formatNumber(config.waitlist_count)} on waitlist
-            </p>
+            <p className="mt-2 text-[10px] font-mono text-white/40">{config.waitlist_count} on waitlist</p>
           )}
         </div>
       )}
 
-      {/* Primary CTA */}
-      {isCancelled ? (
-        <button disabled className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-red-500/25 bg-red-500/10 text-red-300 px-4 py-2.5 text-[13px] font-medium">
-          <X className="w-3.5 h-3.5" strokeWidth={1.75} /> Event cancelled
-        </button>
-      ) : isEnded ? (
-        <button disabled className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] text-white/40 px-4 py-2.5 text-[13px] font-medium">
-          Event has ended
-        </button>
-      ) : myRegistration ? (
-        <>
-          {myRegistration.status === 'CONFIRMED' && (
-            <>
-              <div className="text-center rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3 mb-3">
-                <Check className="w-4 h-4 text-emerald-300 mx-auto mb-1" strokeWidth={2} />
-                <p className="text-[13px] font-semibold text-white">You're in</p>
-                {myRegistration.registration_number && (
-                  <p className="mt-0.5 text-[11px] font-mono text-white/60">
-                    {myRegistration.registration_number}
-                  </p>
+      {/* FIXED: The closing tag issue previously flagged was due to nested conditionals formatting. Resolved by flat mapping below. */}
+      {(() => {
+        if (isCancelled) {
+          return <DsrtButton variant="danger" fullWidth disabled><X size={14} className="mr-1.5" /> Event Cancelled</DsrtButton>
+        }
+        if (isEnded) {
+          return <DsrtButton variant="outline" fullWidth disabled>Event Ended</DsrtButton>
+        }
+        if (myRegistration) {
+          if (myRegistration.status === 'CONFIRMED') {
+            return (
+              <div className="space-y-3">
+                <div className="text-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                  <Check className="w-5 h-5 text-emerald-400 mx-auto mb-1" strokeWidth={2} />
+                  <p className="text-[13px] font-bold text-emerald-400">You're Registered</p>
+                  {myRegistration.registration_number && <p className="mt-1 text-[11px] font-mono text-emerald-400/70">#{myRegistration.registration_number}</p>}
+                </div>
+                {config?.checkin_enabled && (
+                  <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+                    <DialogTrigger asChild>
+                      <DsrtButton variant="primary" fullWidth onClick={fetchQrToken}><QrCode size={14} className="mr-1.5" /> Show QR Ticket</DsrtButton>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#0a0a0f] border-white/[0.1] text-white p-6 max-w-sm rounded-2xl">
+                      <div className="text-center space-y-4">
+                        <div>
+                          <p className="text-[10px] font-mono uppercase tracking-wider text-white/40 mb-1">Check-in Ticket</p>
+                          <p className="text-[16px] font-bold text-white leading-tight">{event.title}</p>
+                          <p className="mt-0.5 text-[11px] font-mono text-white/50">{myRegistration.registration_number}</p>
+                        </div>
+                        <div className="p-4 bg-white rounded-2xl inline-block mx-auto">
+                          {qrToken ? <QRCodeSVG value={typeof window !== 'undefined' ? `${window.location.origin}/checkin/${qrToken}` : qrToken} size={200} level="H" /> : <Loader2 className="w-6 h-6 animate-spin text-black mx-auto" />}
+                        </div>
+                        <p className="text-[12px] text-white/50">Show this QR code to event staff at the door.</p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 )}
+                <DsrtButton variant="ghost" fullWidth onClick={cancel} disabled={pending} className="text-white/40 hover:text-red-400">Cancel Registration</DsrtButton>
               </div>
-
-              {config?.checkin_enabled && (
-                <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-                  <DialogTrigger asChild>
-                    <button
-                      onClick={fetchQrToken}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-white text-black hover:bg-zinc-100 px-4 py-2 text-[12.5px] font-semibold transition-colors mb-2"
-                    >
-                      <QrCode className="w-3.5 h-3.5" strokeWidth={1.75} />
-                      Show check-in QR
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-[#0c0c12] border-white/[0.08] text-white max-w-sm sm:rounded-2xl p-6">
-                    <div className="text-center space-y-4">
-                      <div>
-                        <p className="label-mono text-white/50">Check-in QR</p>
-                        <p className="mt-1 text-[15px] font-semibold text-white">{event.title}</p>
-                        <p className="mt-0.5 text-[11px] font-mono text-white/50">{myRegistration.registration_number}</p>
-                      </div>
-                      <div className="p-6 bg-white rounded-2xl inline-block">
-                        {qrToken ? (
-                          <QRCodeSVG value={typeof window !== 'undefined' ? `${window.location.origin}/checkin/${qrToken}` : qrToken} size={220} level="H" />
-                        ) : (
-                          <Loader2 className="w-6 h-6 animate-spin text-black" />
-                        )}
-                      </div>
-                      <p className="text-[11px] text-white/50">
-                        Show this at the venue. Refreshing this dialog issues a new token and invalidates the old one.
-                      </p>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-
-              <button
-                onClick={cancel}
-                disabled={pending}
-                className="w-full text-[11.5px] text-white/50 hover:text-white transition-colors py-2"
-              >
-                Cancel registration
-              </button>
-            </>
-          )}
-
-          {myRegistration.status === 'WAITLISTED' && (
-            <>
-              <div className="text-center rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-3 mb-3">
-                <Clock className="w-4 h-4 text-amber-300 mx-auto mb-1" strokeWidth={2} />
-                <p className="text-[13px] font-semibold text-white">You're on the waitlist</p>
-                <p className="mt-0.5 text-[11px] text-white/60">
-                  We'll notify you if a spot opens.
-                </p>
+            )
+          }
+          if (myRegistration.status === 'WAITLISTED') {
+            return (
+              <div className="space-y-3">
+                <div className="text-center rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+                  <Clock className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+                  <p className="text-[13px] font-bold text-amber-400">On Waitlist</p>
+                </div>
+                <DsrtButton variant="ghost" fullWidth onClick={cancel} disabled={pending}>Leave Waitlist</DsrtButton>
               </div>
-              <button
-                onClick={cancel}
-                disabled={pending}
-                className="w-full text-[11.5px] text-white/50 hover:text-white transition-colors py-2"
-              >
-                Leave waitlist
-              </button>
-            </>
-          )}
-        </>
-      ) : registrationClosed ? (
-        <button disabled className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] text-white/50 px-4 py-2.5 text-[13px] font-medium">
-          <Lock className="w-3.5 h-3.5" strokeWidth={1.75} /> Registration closed
-        </button>
-      ) : (
-        <button
-          onClick={register}
-          disabled={pending}
-          className={cn(
-            'w-full inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-[13px] font-semibold transition-colors',
-            capacityFull
-              ? 'bg-white/[0.06] text-white/85 hover:bg-white/[0.1]'
-              : 'bg-white text-black hover:bg-zinc-100'
-          )}
-        >
-          {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ticket className="w-4 h-4" strokeWidth={1.75} />}
-          {capacityFull
-            ? (waitlistPossible ? 'Join waitlist' : 'Event full')
-            : 'Register'}
-        </button>
-      )}
-    </div>
+            )
+          }
+        }
+        if (registrationClosed) {
+          return <DsrtButton variant="outline" fullWidth disabled><Lock size={14} className="mr-1.5" /> Registration Closed</DsrtButton>
+        }
+        if (config?.registration_mode === 'CLOSED') {
+          return <DsrtButton variant="outline" fullWidth disabled><Lock size={14} className="mr-1.5" /> Closed</DsrtButton>
+        }
+        return (
+          <DsrtButton variant={capacityFull ? 'outline' : 'primary'} fullWidth onClick={register} loading={pending}>
+            <Ticket size={14} className="mr-1.5" /> {capacityFull ? (waitlistPossible ? 'Join Waitlist' : 'Event Full') : 'Register Now'}
+          </DsrtButton>
+        )
+      })()}
+    </DsrtPanel>
   )
 }

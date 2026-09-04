@@ -1,19 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import {
-  Pin,
-  Trash2,
-  MoreHorizontal,
-  MessageSquare,
-  ExternalLink,
-  ShieldCheck,
-  Flag,
+  Pin, Trash2, MoreHorizontal, MessageSquare, ExternalLink, ShieldCheck, Flag,
 } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -27,6 +18,8 @@ import { ReactionBar } from './ReactionBar'
 import { CommentThread } from './CommentThread'
 import { ControlledReportModal } from '@/components/community-hub/moderation/ReportModal'
 import { ConfirmDialog } from '@/components/ui/reason-prompt-dialog'
+import { DsrtPanel, DsrtAvatar } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
 interface Props {
   post: any
@@ -80,88 +73,58 @@ export function PostCard({
 
   return (
     <>
-      <article className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-white/[0.01] overflow-hidden">
+      <DsrtPanel padding="none" className="overflow-hidden mb-4">
         {isPinned && (
-          <div className="flex items-center gap-1.5 border-b border-white/[0.04] bg-white/[0.02] px-4 py-1.5">
-            <Pin className="w-3 h-3 text-white/50" strokeWidth={1.75} />
-            <span className="text-[10.5px] font-mono uppercase tracking-wider text-white/50">
+          <div className="flex items-center gap-1.5 border-b border-white/[0.04] bg-[#1e3a5f]/20 px-4 py-2">
+            <Pin className="w-3.5 h-3.5 text-[#93c5fd]" strokeWidth={2} />
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#93c5fd]">
               Pinned by moderators
             </span>
           </div>
         )}
 
-        <div className="p-4 md:p-5 space-y-3">
-          <div className="flex items-start gap-3">
-            <Avatar className="w-9 h-9 border border-white/[0.06] flex-shrink-0">
-              <AvatarImage src={author?.avatar_url ?? undefined} />
-              <AvatarFallback className="text-[11px] bg-white/[0.06] text-white/80">
-                {(author?.full_name || '?').charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5">
-                <Link
-                  href={`/profile/${author?.username || ''}`}
-                  className="text-[13px] font-semibold text-white hover:underline truncate"
-                >
-                  {author?.full_name || 'Unknown'}
-                </Link>
-                {author?.is_verified && (
-                  <ShieldCheck className="w-3 h-3 text-white/60" strokeWidth={1.75} />
-                )}
-                <span className="text-[11px] text-white/40">·</span>
-                <span className="text-[11px] text-white/45">
-                  {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                </span>
-                {post.edited_at && (
-                  <span className="text-[10.5px] text-white/35 italic ml-1">edited</span>
-                )}
+        <div className="p-4 md:p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
+              <DsrtAvatar src={author?.avatar_url} name={author?.full_name} size="md" />
+              <div className="flex-1 min-w-0 pt-0.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[14px] font-bold text-white truncate max-w-[200px]">
+                    {author?.full_name || 'Unknown'}
+                  </span>
+                  {author?.is_verified && (
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#93c5fd]" strokeWidth={2} />
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] font-mono text-white/40 mt-0.5">
+                  <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+                  {post.edited_at && <span>· edited</span>}
+                </div>
               </div>
             </div>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-8 h-8 rounded-full text-white/40 hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors">
-                  <MoreHorizontal className="w-4 h-4" strokeWidth={1.75} />
+                <button className="w-8 h-8 rounded-full text-white/40 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors -mr-2 -mt-1">
+                  <MoreHorizontal className="w-5 h-5" strokeWidth={2} />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-40 bg-[#0f0f14] border-white/[0.08] text-white"
-              >
+              <DropdownMenuContent align="end" className="w-40 bg-[#0a0f1a] border-white/[0.08] text-white rounded-xl shadow-2xl py-1">
                 {canModerate && (
-                  <DropdownMenuItem
-                    onSelect={togglePin}
-                    className="focus:bg-white/[0.06] cursor-pointer"
-                  >
-                    <Pin className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                    {isPinned ? 'Unpin' : 'Pin'}
+                  <DropdownMenuItem onSelect={togglePin} className="focus:bg-white/[0.08] cursor-pointer text-[13px] py-2">
+                    <Pin className="w-4 h-4 mr-2" /> {isPinned ? 'Unpin' : 'Pin'}
                   </DropdownMenuItem>
                 )}
                 {!isOwn && (
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      // Prevent Radix from closing before we open the dialog
-                      e.preventDefault()
-                      setReportOpen(true)
-                    }}
-                    className="focus:bg-white/[0.06] cursor-pointer"
-                  >
-                    <Flag className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                    Report
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setReportOpen(true) }} className="focus:bg-white/[0.08] cursor-pointer text-[13px] py-2">
+                    <Flag className="w-4 h-4 mr-2" /> Report
                   </DropdownMenuItem>
                 )}
                 {canDelete && (
                   <>
                     {(canModerate || !isOwn) && <DropdownMenuSeparator className="bg-white/[0.06]" />}
-                    <DropdownMenuItem
-                      onSelect={(e) => {
-                        e.preventDefault()
-                        setConfirmDelete(true)
-                      }}
-                      className="focus:bg-white/[0.06] cursor-pointer text-red-300 focus:text-red-200"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-2" strokeWidth={1.75} />
-                      Delete
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setConfirmDelete(true) }} className="focus:bg-red-500/20 cursor-pointer text-red-400 focus:text-red-300 text-[13px] py-2">
+                      <Trash2 className="w-4 h-4 mr-2" /> Delete
                     </DropdownMenuItem>
                   </>
                 )}
@@ -169,34 +132,18 @@ export function PostCard({
             </DropdownMenu>
           </div>
 
-          {post.title && (
-            <h3 className="text-[15px] font-semibold text-white leading-snug">{post.title}</h3>
-          )}
-          {post.body && (
-            <p className="text-[13.5px] text-white/80 leading-relaxed whitespace-pre-wrap">{post.body}</p>
-          )}
+          <div>
+            {post.title && <h3 className="text-[16px] font-bold text-white leading-snug mb-2">{post.title}</h3>}
+            {post.body && <p className="text-[14px] text-white/80 leading-relaxed whitespace-pre-wrap">{post.body}</p>}
+          </div>
 
           {post.attachments && post.attachments.length > 0 && (
-            <div
-              className={cn(
-                'grid gap-1.5',
-                post.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-              )}
-            >
+            <div className={cn('grid gap-2', post.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
               {post.attachments.slice(0, 4).map((a: any) => (
-                <div
-                  key={a.id}
-                  className="rounded-lg border border-white/[0.06] bg-white/[0.02] overflow-hidden"
-                >
-                  {a.url &&
-                    (a.attachment_type === 'IMAGE' ||
-                      a.attachment_type?.startsWith('image')) && (
-                      <img
-                        src={a.url}
-                        alt={a.caption || ''}
-                        className="w-full h-auto object-cover max-h-96"
-                      />
-                    )}
+                <div key={a.id} className="rounded-xl border border-white/[0.08] bg-black/40 overflow-hidden">
+                  {a.url && (a.attachment_type === 'IMAGE' || a.attachment_type?.startsWith('image')) && (
+                    <img src={a.url} alt="" className="w-full h-auto object-cover max-h-96" />
+                  )}
                 </div>
               ))}
             </div>
@@ -207,10 +154,12 @@ export function PostCard({
               href={post.link_url}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] transition-colors px-3 py-2 text-[12px] text-white/70 hover:text-white"
+              className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] transition-colors p-3 mt-2 group"
             >
-              <ExternalLink className="w-3.5 h-3.5" strokeWidth={1.75} />
-              <span className="truncate">
+              <div className="w-8 h-8 rounded-lg bg-white/[0.05] flex items-center justify-center shrink-0 text-white/50 group-hover:text-white">
+                <ExternalLink className="w-4 h-4" />
+              </div>
+              <span className="text-[13px] font-medium text-white/70 group-hover:text-white truncate">
                 {post.link_url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
               </span>
             </a>
@@ -219,52 +168,26 @@ export function PostCard({
           {post.poll && <PollWidget poll={post.poll} canVote={!!canPost} />}
         </div>
 
-        <div className="border-t border-white/[0.04] px-4 md:px-5 py-3 flex items-center justify-between">
-          <ReactionBar
-            targetType="post"
-            targetId={post.id}
-            myReaction={post.my_reaction || null}
-            count={post.reaction_count || 0}
-          />
+        <div className="border-t border-white/[0.04] px-4 md:px-5 py-3 flex items-center justify-between bg-white/[0.01]">
+          <ReactionBar targetType="post" targetId={post.id} myReaction={post.my_reaction || null} count={post.reaction_count || 0} />
           <button
             onClick={() => setShowComments((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] text-white/70 hover:text-white px-3 py-1 text-[11.5px] font-medium transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white px-3 py-1.5 text-[12px] font-semibold transition-colors"
           >
-            <MessageSquare className="w-3 h-3" strokeWidth={1.75} />
-            {post.comment_count || 0}
+            <MessageSquare className="w-3.5 h-3.5" />
+            {post.comment_count || 0} Comments
           </button>
         </div>
 
         {showComments && (
           <div className="border-t border-white/[0.04] px-4 md:px-5 py-4">
-            <CommentThread
-              targetType="post"
-              targetId={post.id}
-              canPost={!!canPost}
-              currentUserId={currentUserId ?? null}
-              canModerate={!!canModerate}
-            />
+            <CommentThread targetType="post" targetId={post.id} canPost={!!canPost} currentUserId={currentUserId ?? null} canModerate={!!canModerate} />
           </div>
         )}
-      </article>
+      </DsrtPanel>
 
-      <ControlledReportModal
-        open={reportOpen}
-        onOpenChange={setReportOpen}
-        communityId={post.community_id}
-        targetType="post"
-        targetId={post.id}
-      />
-
-      <ConfirmDialog
-        open={confirmDelete}
-        onOpenChange={setConfirmDelete}
-        title="Delete this post?"
-        description={isOwn ? 'This cannot be undone.' : 'You are moderating this post. It will be removed for everyone.'}
-        confirmLabel="Delete post"
-        destructive
-        onConfirm={del}
-      />
+      <ControlledReportModal open={reportOpen} onOpenChange={setReportOpen} communityId={post.community_id} targetType="post" targetId={post.id} />
+      <ConfirmDialog open={confirmDelete} onOpenChange={setConfirmDelete} title="Delete this post?" description={isOwn ? 'This cannot be undone.' : 'You are moderating this post. It will be removed for everyone.'} confirmLabel="Delete post" destructive onConfirm={del} />
     </>
   )
 }

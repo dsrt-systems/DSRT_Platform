@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { X, CheckCircle } from '@phosphor-icons/react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { DsrtButton } from '@/components/dsrt'
 
 interface PromptState {
   show: boolean
@@ -27,7 +27,6 @@ export function VerificationBanner() {
         const data = await res.json()
         if (!cancelled && data.show) {
           setState(data)
-          // Record that we showed it
           fetch('/api/auth/verification-prompt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -62,7 +61,7 @@ export function VerificationBanner() {
     }
   }
 
-  const handleDismiss = async () => {
+  const handleDismiss = () => {
     setDismissed(true)
     fetch('/api/auth/verification-prompt', {
       method: 'POST',
@@ -74,30 +73,22 @@ export function VerificationBanner() {
   if (!state?.show || dismissed) return null
 
   return (
-    <div className="border border-white/[0.06] bg-[#0A0D14] rounded-lg px-4 py-3 flex items-center gap-3">
-      <div className="w-8 h-8 rounded-md bg-[#4F7CFF]/10 border border-[#4F7CFF]/20 flex items-center justify-center flex-shrink-0">
-        <CheckCircle className="w-4 h-4 text-[#4F7CFF]" weight="regular" />
+    <div className="border border-[#2c5282]/40 bg-gradient-to-r from-[#1e3a5f]/30 to-[#0f172a]/50 rounded-xl px-4 py-3 flex items-center gap-3">
+      <div className="w-9 h-9 rounded-lg bg-[#1e3a5f]/60 border border-[#2c5282]/50 flex items-center justify-center flex-shrink-0">
+        <CheckCircle className="w-4 h-4 text-[#93c5fd]" weight="regular" />
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] text-white/90 font-medium leading-snug">{state.message}</p>
+        <p className="text-[13px] text-white font-medium leading-snug">{state.message}</p>
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        <button
-          onClick={handleVerify}
-          disabled={loading}
-          className={cn(
-            "h-8 px-3 rounded-md text-[12px] font-semibold transition-all",
-            "bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white",
-            "disabled:opacity-60"
-          )}
-        >
-          {loading ? 'Sending...' : 'Verify email'}
-        </button>
+        <DsrtButton size="xs" variant="primary" onClick={handleVerify} loading={loading}>
+          Verify email
+        </DsrtButton>
         <button
           onClick={handleDismiss}
-          className="w-7 h-7 rounded-md flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/[0.04] transition-all"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition-all shrink-0"
           aria-label="Dismiss"
         >
           <X className="w-3.5 h-3.5" weight="bold" />

@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
 import { Bell } from 'lucide-react'
+import { DsrtPanel, DsrtButton } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
 interface NotificationSettingsProps {
   profile: any
@@ -49,45 +50,56 @@ export function NotificationSettings({ profile }: NotificationSettingsProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-6 space-y-4">
+    <DsrtPanel padding="md" className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Bell className="w-5 h-5 text-primary" />
+        <div className="w-10 h-10 rounded-lg bg-[#1e3a5f]/40 border border-[#2c5282]/40 text-[#93c5fd] flex items-center justify-center shrink-0">
+          <Bell className="w-4 h-4" strokeWidth={1.75} />
         </div>
         <div>
-          <h2 className="font-semibold">Notifications</h2>
-          <p className="text-xs text-muted-foreground">
+          <h2 className="text-[14px] font-bold text-white">Notifications</h2>
+          <p className="text-[11px] font-mono uppercase tracking-wider text-white/40 mt-0.5">
             Choose what you want to be notified about
           </p>
         </div>
       </div>
 
-      <div className="space-y-3 pt-2">
+      <div className="space-y-2 pt-2">
         {NOTIFICATION_TYPES.map((t) => (
           <div
             key={t.key}
-            className="flex items-center justify-between p-3 rounded-lg border border-border/40"
+            className="flex items-center justify-between p-3 rounded-lg border border-white/[0.06] bg-white/[0.02]"
           >
-            <div className="flex-1">
-              <p className="text-sm font-medium">{t.label}</p>
-              <p className="text-xs text-muted-foreground">{t.desc}</p>
+            <div className="flex-1 min-w-0 pr-3">
+              <p className="text-[13px] font-semibold text-white">{t.label}</p>
+              <p className="text-[11px] text-white/45">{t.desc}</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={prefs[t.key] ?? true}
-                onChange={() => toggle(t.key)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-muted peer-checked:bg-primary rounded-full peer relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
-            </label>
+            <ToggleSwitch checked={prefs[t.key] ?? true} onToggle={() => toggle(t.key)} />
           </div>
         ))}
       </div>
 
-      <Button onClick={handleSave} disabled={saving} className="w-full">
-        {saving ? 'Saving...' : 'Save Preferences'}
-      </Button>
-    </div>
+      <DsrtButton onClick={handleSave} loading={saving} variant="primary" fullWidth>
+        Save Preferences
+      </DsrtButton>
+    </DsrtPanel>
+  )
+}
+
+function ToggleSwitch({ checked, onToggle }: { checked: boolean; onToggle: () => void }) {
+  return (
+    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+      <input type="checkbox" checked={checked} onChange={onToggle} className="sr-only peer" />
+      <div className={cn(
+        "w-10 h-5 rounded-full peer transition-colors relative border",
+        checked
+          ? "bg-gradient-to-b from-[#1e3a5f] to-[#2c5282] border-[#2c5282]/50"
+          : "bg-white/[0.06] border-white/[0.1]"
+      )}>
+        <div className={cn(
+          "absolute top-[2px] left-[2px] bg-white rounded-full h-4 w-4 transition-all shadow-md",
+          checked && "translate-x-5"
+        )} />
+      </div>
+    </label>
   )
 }

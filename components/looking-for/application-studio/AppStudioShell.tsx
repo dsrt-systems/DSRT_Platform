@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Warning } from '@phosphor-icons/react'
-import { AppStudioContext, type AppDraft, type SaveStatus, type AppStep } from './AppStudioContext'
+import {
+  AppStudioContext,
+  type AppDraft,
+  type SaveStatus,
+  type AppStep,
+} from './AppStudioContext'
 import { AppStudioHeader } from './AppStudioHeader'
 import { AppStudioNav } from './AppStudioNav'
 import { ProfileStep } from './steps/ProfileStep'
@@ -12,6 +17,7 @@ import { ExperienceStep } from './steps/ExperienceStep'
 import { QuestionsStep } from './steps/QuestionsStep'
 import { EvidenceStep } from './steps/EvidenceStep'
 import { ReviewStep } from './steps/ReviewStep'
+import { DsrtEmpty, DsrtButton, DsrtPage } from '@/components/dsrt'
 
 const VALID_STEPS: AppStep[] = ['profile', 'experience', 'questions', 'evidence', 'review']
 
@@ -44,7 +50,6 @@ export function AppStudioShell({
   const draftRef = useRef<AppDraft | null>(null)
   const lastStepInUrlRef = useRef<string | null>(sp.get('step'))
 
-  // Keep ref in sync for save closures
   useEffect(() => {
     draftRef.current = draft
   }, [draft])
@@ -61,10 +66,9 @@ export function AppStudioShell({
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(
-        `/api/opportunities/applications/${applicationId}/draft`,
-        { cache: 'no-store' }
-      )
+      const res = await fetch(`/api/opportunities/applications/${applicationId}/draft`, {
+        cache: 'no-store',
+      })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(d?.error || 'Failed to load application')
       if (mountedRef.current) {
@@ -78,12 +82,10 @@ export function AppStudioShell({
     }
   }, [applicationId])
 
-  // Load once per applicationId — never on a timer
   useEffect(() => {
     load()
   }, [load])
 
-  // URL sync: only when step actually changes — do NOT depend on `sp` object
   useEffect(() => {
     const desired = step === 'profile' ? null : step
     if (lastStepInUrlRef.current === desired) return
@@ -105,24 +107,19 @@ export function AppStudioShell({
     const patch = { ...pendingPatchRef.current }
     if (Object.keys(patch).length === 0) return
 
-    // Clear queued patch up-front; anything typed during save will re-queue
     pendingPatchRef.current = {}
     savingRef.current = true
     if (mountedRef.current) setSaveStatus('saving')
 
     try {
-      const res = await fetch(
-        `/api/opportunities/applications/${applicationId}/draft`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patch }),
-        }
-      )
+      const res = await fetch(`/api/opportunities/applications/${applicationId}/draft`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patch }),
+      })
       const d = await res.json().catch(() => ({}))
 
       if (!res.ok) {
-        // Put failed patch back so a later keystroke / flush can retry
         pendingPatchRef.current = { ...patch, ...pendingPatchRef.current }
         throw new Error(d?.error || 'Save failed')
       }
@@ -145,7 +142,6 @@ export function AppStudioShell({
         setSaveStatus('saved')
       }
 
-      // If user typed while we were saving, schedule another save
       if (Object.keys(pendingPatchRef.current).length > 0) {
         if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
         pendingSaveRef.current = setTimeout(() => {
@@ -161,7 +157,6 @@ export function AppStudioShell({
 
   const updateField = useCallback(
     (patch: Record<string, any>) => {
-      // Optimistic local merge — never wipe sibling fields
       setDraft((prev) => {
         if (!prev) return prev
         const next = {
@@ -192,27 +187,31 @@ export function AppStudioShell({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex items-center justify-center">
-        <div className="text-[13px] text-zinc-500">Loading Application Studio…</div>
+      <div className="min-h-screen bg-[#05070D] text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-[12px] font-mono uppercase tracking-wider text-white/40">
+            Loading Application Studio…
+          </p>
+        </div>
       </div>
     )
   }
 
   if (error || !draft) {
     return (
-      <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex items-center justify-center">
-        <div className="text-center px-6">
-          <Warning size={24} className="mx-auto mb-3 text-red-400" />
-          <div className="text-[15px] font-bold text-white mb-2">
-            {error || 'Application not found'}
-          </div>
-          <Link
-            href={`/looking-for/${opportunityId}`}
-            className="h-9 px-4 rounded-xl border border-zinc-800 text-[13px] text-zinc-300 hover:text-white inline-flex items-center"
-          >
-            <ArrowLeft size={12} className="mr-1.5" /> Back to Opportunity
-          </Link>
-        </div>
+      <div className="min-h-screen bg-[#05070D] text-white flex items-center justify-center px-4">
+        <DsrtEmpty
+          icon={Warning}
+          title={error || 'Application not found'}
+          action={
+            <DsrtButton asChild variant="outline" size="sm">
+              <Link href={`/looking-for/${opportunityId}`}>
+                <ArrowLeft size={12} className="mr-1.5" /> Back to Opportunity
+              </Link>
+            </DsrtButton>
+          }
+        />
       </div>
     )
   }
@@ -230,23 +229,23 @@ export function AppStudioShell({
         setStep,
       }}
     >
-      <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex flex-col">
+      <div className="min-h-screen bg-[#05070D] text-white flex flex-col">
         <AppStudioHeader />
 
-        <div className="sticky top-[57px] z-20 bg-[#0a0a0b]/95 backdrop-blur-md border-b border-zinc-800/80">
+        <div className="sticky top-[57px] z-20 bg-[#05070D]/95 backdrop-blur-md border-b border-white/[0.06]">
           <div className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8">
             <AppStudioNav />
           </div>
         </div>
 
         <main className="flex-1">
-          <div className="max-w-[1600px] mx-auto px-4 md:px-6 lg:px-8 py-6 md:py-8">
+          <DsrtPage width="wide" className="py-6 md:py-8">
             {step === 'profile' && <ProfileStep />}
             {step === 'experience' && <ExperienceStep />}
             {step === 'questions' && <QuestionsStep />}
             {step === 'evidence' && <EvidenceStep />}
             {step === 'review' && <ReviewStep />}
-          </div>
+          </DsrtPage>
         </main>
       </div>
     </AppStudioContext.Provider>

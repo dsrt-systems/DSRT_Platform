@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from '@phosphor-icons/react'
 import { ApplicationBriefModal } from './ApplicationBriefModal'
+import { cn } from '@/lib/utils'
 
 export function SmartApplyButton({
   opportunity,
@@ -35,7 +36,7 @@ export function SmartApplyButton({
   const isSubmitted = !!app && stage !== 'draft' && stage !== 'withdrawn'
 
   const base =
-    'inline-flex items-center justify-center gap-1.5 rounded-xl text-[13px] font-bold transition-all whitespace-nowrap disabled:opacity-60'
+    'inline-flex items-center justify-center gap-1.5 rounded-xl text-[13px] font-semibold transition-all whitespace-nowrap disabled:opacity-60 select-none'
 
   const sizeDefault = 'h-11 px-5'
 
@@ -52,7 +53,11 @@ export function SmartApplyButton({
     return (
       <button
         onClick={() => router.push(`/looking-for/create-v2/${opportunity.id}`)}
-        className={`${base} ${className || `${sizeDefault} w-full`} bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800`}
+        className={cn(
+          base,
+          className || `${sizeDefault} w-full`,
+          'bg-white/[0.04] border border-white/[0.1] text-white/80 hover:text-white hover:bg-white/[0.08]'
+        )}
       >
         <PencilSimple size={14} /> Edit Opportunity
       </button>
@@ -63,7 +68,11 @@ export function SmartApplyButton({
     return (
       <button
         onClick={() => router.push(`/looking-for/my-applications?app=${app.id}`)}
-        className={`${base} ${className || `${sizeDefault} w-full`} border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20`}
+        className={cn(
+          base,
+          className || `${sizeDefault} w-full`,
+          'border border-emerald-500/25 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15'
+        )}
       >
         <CheckCircle size={14} weight="fill" />
         <span className="truncate">Application Submitted</span>
@@ -76,7 +85,11 @@ export function SmartApplyButton({
     return (
       <button
         disabled
-        className={`${base} ${className || `${sizeDefault} w-full`} bg-zinc-950 border border-zinc-800 text-zinc-500 cursor-not-allowed`}
+        className={cn(
+          base,
+          className || `${sizeDefault} w-full`,
+          'bg-white/[0.02] border border-white/[0.08] text-white/40 cursor-not-allowed'
+        )}
       >
         <LockKey size={13} weight="fill" /> Applications Closed
       </button>
@@ -88,7 +101,11 @@ export function SmartApplyButton({
       <button
         onClick={handleApplyClick}
         disabled={busy}
-        className={`${base} ${className || `${sizeDefault} w-full`} bg-blue-500 text-white hover:bg-blue-400 shadow-[0_2px_12px_rgba(59,130,246,0.3)]`}
+        className={cn(
+          base,
+          className || `${sizeDefault} w-full`,
+          'bg-gradient-to-b from-[#1e3a5f] to-[#2c5282] text-white border border-[#2c5282]/50 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] hover:from-[#25467a] hover:to-[#345d94]'
+        )}
       >
         {busy ? (
           <CircleNotch size={13} className="animate-spin" />
@@ -105,7 +122,11 @@ export function SmartApplyButton({
       <button
         onClick={handleApplyClick}
         disabled={busy}
-        className={`${base} ${className || `${sizeDefault} w-full`} bg-white text-black hover:bg-zinc-200 shadow-[0_2px_16px_rgba(255,255,255,0.15)] active:scale-[0.98]`}
+        className={cn(
+          base,
+          className || `${sizeDefault} w-full`,
+          'bg-white text-black hover:bg-zinc-200 border border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.7)] active:scale-[0.98]'
+        )}
       >
         {busy ? (
           <CircleNotch size={13} className="animate-spin" />

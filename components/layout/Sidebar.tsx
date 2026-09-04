@@ -1,221 +1,167 @@
 ﻿'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import {
-  Home, FolderKanban, Rocket, Compass,
-  CalendarDays, Search, BookOpen, User, Settings,
-  Zap, Building2, UsersRound, Network, Inbox, Bot,
-} from 'lucide-react'
+import { User } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { createClient } from '@/lib/supabase/client'
+import { dsrtNavigation } from '@/components/nav/navConfig'
+import { useActiveNav } from '@/hooks/useActiveNav'
+import { DsrtAvatar } from '@/components/dsrt'
 
 interface SidebarProps {
   user: any
+  badges: any
+  isCollapsed: boolean
+  isMobileOpen: boolean
+  onCloseMobile: () => void
+  onLogout: () => void
 }
 
-const mainNav = [
-  { name: 'Home', href: '/home', icon: Home },
-  { name: 'Projects', href: '/projects', icon: FolderKanban },
-  { name: 'Ventures', href: '/ventures', icon: Rocket },
-  { name: 'Looking For', href: '/looking-for', icon: Search },
-  { name: 'DSRT Mail', href: '/inbox', icon: Inbox, badge: 'inbox' },
-  { name: 'COCO', href: '/coco', icon: Bot },
-]
+export function Sidebar({ user, badges, isCollapsed, isMobileOpen, onCloseMobile }: SidebarProps) {
+  const { activePrimary } = useActiveNav()
 
-const communityNav = [
-  { name: 'Discover', href: '/community', icon: Compass },
-  { name: 'My Network', href: '/my-network', icon: Network },
-  { name: 'My Communities', href: '/my-communities', icon: UsersRound },
-]
+  const mainLinks = dsrtNavigation.filter((n) => n.group === 'main')
+  const communityLinks = dsrtNavigation.filter((n) => n.group === 'community')
+  const exploreLinks = dsrtNavigation.filter((n) => n.group === 'explore')
 
-const exploreNav = [
-  { name: 'Events', href: '/events', icon: CalendarDays },
-  { name: 'Resources', href: '/resources', icon: BookOpen },
-]
+  const renderNavGroup = (title: string, links: typeof dsrtNavigation) => (
+    <div className="mb-4">
+      {!isCollapsed && (
+        <p className="text-[9.5px] font-mono font-bold uppercase tracking-wider text-white/30 px-4 mb-1.5">
+          {title}
+        </p>
+      )}
+      <nav className={cn("space-y-0.5", isCollapsed ? "px-2" : "px-2.5")}>
+        {links.map((item) => {
+          const isActive = activePrimary?.id === item.id
+          const Icon = item.icon
+          const badgeCount = item.badgeKey ? badges[item.badgeKey] : 0
 
-const personalNav = [
-  { name: 'My Profile', href: '/profile/me', icon: User },
-  { name: 'Settings', href: '/settings', icon: Settings },
-]
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              onClick={onCloseMobile}
+              className={cn(
+                'group flex items-center rounded-lg transition-all select-none',
+                isCollapsed ? 'justify-center h-10 w-10 mx-auto' : 'justify-between px-3 py-1.5',
+                isActive
+                  ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                  : 'text-white/50 hover:bg-white/[0.04] hover:text-white'
+              )}
+              title={isCollapsed ? item.label : undefined}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Icon
+                  className={cn(
+                    'w-[15px] h-[15px] flex-shrink-0 transition-colors',
+                    isActive ? 'text-white' : 'text-white/50 group-hover:text-white/80',
+                    item.id === 'coco' ? 'fallback-coco flex items-center justify-center font-bold text-xs' : ''
+                  )}
+                >
+                  {item.id === 'coco' && !item.icon ? 'C' : ''}
+                </Icon>
+                {!isCollapsed && (
+                  <span className="text-[13px] font-medium tracking-tight truncate">{item.label}</span>
+                )}
+              </div>
+              {!isCollapsed && badgeCount > 0 && (
+                <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white leading-none">
+                  {badgeCount > 99 ? '99+' : badgeCount}
+                </span>
+              )}
+              {isCollapsed && badgeCount > 0 && (
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#93c5fd] shadow-[0_0_8px_rgba(147,197,253,0.8)]" />
+              )}
+            </Link>
+          )
+        })}
+      </nav>
+    </div>
+  )
 
-export function Sidebar({ user }: SidebarProps) {
-  const pathname = usePathname()
-  const supabase = createClient()
-
-  const [myOrg, setMyOrg] = useState<{ slug: string; name: string } | null>(null)
-  const [badges, setBadges] = useState({ messages: 0, invitations: 0, inbox: 0 })
-
-  useEffect(() => {
-    if (!user?.id) return
-
-    const loadOrg = async () => {
-      const { data } = await supabase
-        .from('organization_members')
-        .select('organizations:organization_id(slug, name)')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .limit(1)
-      if (data?.[0]) {
-        const org = (data[0] as any).organizations
-        if (org) setMyOrg({ slug: org.slug, name: org.name })
-      }
-    }
-
-    const loadBadges = async () => {
-      try {
-        const [msgRes, invRes, inboxRes] = await Promise.all([
-          supabase
-            .from('conversation_participants')
-            .select('conversation_id, last_read_at, conversations:conversation_id(last_message_at)')
-            .eq('user_id', user.id),
-          supabase
-            .from('organization_invitations')
-            .select('id', { count: 'exact', head: true })
-            .eq('invited_user_id', user.id)
-            .eq('status', 'pending'),
-          fetch('/api/inbox/count').then(r => r.json()).catch(() => ({ count: 0 })),
-        ])
-
-        let unread = 0
-        ;(msgRes.data || []).forEach((cp: any) => {
-          const lm = cp.conversations?.last_message_at
-          if (lm && (!cp.last_read_at || new Date(lm) > new Date(cp.last_read_at))) unread++
-        })
-
-        setBadges({
-          messages: unread,
-          invitations: invRes.count || 0,
-          inbox: inboxRes.count || 0,
-        })
-      } catch {
-        // silent
-      }
-    }
-
-    loadOrg()
-    loadBadges()
-
-    const interval = setInterval(loadBadges, 15000)
-    return () => clearInterval(interval)
-  }, [user?.id, supabase])
-
-  const isActive = (href: string) => {
-    if (href === '/feed') return pathname === '/' || pathname === '/feed'
-    if (href === '/profile/me') return pathname === `/profile/${user?.username}`
-    return pathname === href || pathname.startsWith(href + '/')
-  }
-
-  const renderItem = (item: any) => {
-    const Icon = item.icon
-    const href = item.href === '/profile/me' ? `/profile/${user?.username}` : item.href
-    const active = isActive(item.href)
-    const badge = item.badge ? badges[item.badge as keyof typeof badges] : 0
-
-    return (
-      <Link
-        key={item.name}
-        href={href}
-        className={cn(
-          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative',
-          active
-            ? 'bg-white/[0.08] text-white'
-            : 'text-white/60 hover:bg-white/[0.04] hover:text-white'
-        )}
-      >
-        <Icon className="w-4 h-4 flex-shrink-0" />
-        <span className="flex-1 truncate">{item.name}</span>
-        {badge > 0 && (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white min-w-[18px] text-center leading-none">
-            {badge > 99 ? '99+' : badge}
-          </span>
-        )}
-      </Link>
-    )
-  }
-
-  return (
-    <aside className="hidden md:flex flex-col fixed left-0 top-[76px] bottom-0 w-56 border-r border-white/[0.06] bg-[#0a0a0f]">
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 scrollbar-hide">
+  const sidebarContent = (
+    <div className="flex flex-col h-full bg-[#05070D] border-r border-white/[0.06] overflow-y-auto scrollbar-hide py-4">
+      <div className={cn("mb-5 transition-all", isCollapsed ? "px-2" : "px-3")}>
         <Link
           href={`/profile/${user?.username}`}
-          className="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.05] transition-colors"
+          onClick={onCloseMobile}
+          className={cn(
+            "flex items-center gap-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-colors",
+            isCollapsed ? "justify-center p-1.5" : "p-2.5"
+          )}
+          title={isCollapsed ? user?.full_name : undefined}
         >
-          <Avatar className="w-10 h-10 border border-white/[0.1]">
-            <AvatarImage src={user?.avatar_url} />
-            <AvatarFallback className="text-xs bg-white/[0.08] text-white font-bold">
-              {user?.full_name?.[0]?.toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-bold text-white truncate leading-tight">{user?.full_name}</p>
-            <p className="text-[11px] text-white/50 truncate mt-0.5">
-              {user?.tagline || 'Builder'}
-            </p>
-          </div>
-        </Link>
-
-        <div>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-white/40 px-3 mb-2">Main</p>
-          <nav className="space-y-0.5">
-            {mainNav.map(item => renderItem(item))}
-          </nav>
-        </div>
-
-        <div>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-white/40 px-3 mb-2">Community Hub</p>
-          <nav className="space-y-0.5">
-            {communityNav.map(item => renderItem(item))}
-            {myOrg && (
-              <Link
-                href={`/organizations/${myOrg.slug}`}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  pathname.startsWith(`/organizations/${myOrg.slug}`)
-                    ? 'bg-white/[0.08] text-white'
-                    : 'text-white/60 hover:bg-white/[0.04] hover:text-white'
-                )}
-              >
-                <Building2 className="w-4 h-4 flex-shrink-0" />
-                <span className="flex-1 truncate">My Organization</span>
-              </Link>
-            )}
-          </nav>
-        </div>
-
-        <div>
-          <p className="text-[10px] uppercase tracking-wider font-bold text-white/40 px-3 mb-2">Explore</p>
-          <nav className="space-y-0.5">
-            {exploreNav.map(item => renderItem(item))}
-          </nav>
-        </div>
-
-        <div className="pt-3 border-t border-white/[0.06] space-y-0.5">
-          {personalNav.map(item => renderItem(item))}
-        </div>
-
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white/80" />
+          <DsrtAvatar
+            src={user?.avatar_url}
+            name={user?.full_name || user?.username}
+            size={isCollapsed ? "xs" : "sm"}
+            className="shrink-0"
+          />
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-[12.5px] font-bold text-white truncate leading-tight tracking-tight">
+                {user?.full_name || 'Builder'}
+              </p>
+              <p className="text-[10px] text-[#93c5fd] font-mono truncate mt-0.5">
+                {user?.tagline || 'Builder'}
+              </p>
             </div>
-            <p className="text-sm font-semibold text-white">Upgrade to Pro</p>
-          </div>
-          <p className="text-xs text-white/50">Unlock advanced tools and analytics.</p>
-          <Button size="sm" className="w-full bg-white text-black hover:bg-zinc-200 font-semibold">
-            Upgrade Now
-          </Button>
-        </div>
+          )}
+        </Link>
       </div>
 
-      <div className="p-3 border-t border-white/[0.06]">
-        <p className="text-[10px] text-white/30 font-light tracking-wide italic text-center">
-          dedicated to my beautiful wife hajra
-        </p>
+      {renderNavGroup('Main', mainLinks)}
+      {renderNavGroup('Community', communityLinks)}
+      {renderNavGroup('Explore', exploreLinks)}
+
+      <div className="mt-auto pt-2">
+        <div className={cn("border-t border-white/[0.06] pt-2", isCollapsed ? "px-2" : "px-2.5")}>
+          <Link
+            href={`/profile/${user?.username}`}
+            onClick={onCloseMobile}
+            className={cn(
+              'group flex items-center gap-2.5 rounded-lg transition-all',
+              isCollapsed ? 'justify-center h-10 w-10 mx-auto' : 'px-3 py-1.5',
+              'text-white/50 hover:bg-white/[0.04] hover:text-white'
+            )}
+            title={isCollapsed ? 'My Profile' : undefined}
+          >
+            <User className="w-[15px] h-[15px] shrink-0" strokeWidth={2} />
+            {!isCollapsed && <span className="text-[13px] font-medium tracking-tight">My Profile</span>}
+          </Link>
+
+          {!isCollapsed && (
+            <div className="px-3 py-3 mt-1">
+              <p className="text-[9px] text-white/20 font-mono italic">
+                dedicated to my beautiful wife hajra
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </aside>
+    </div>
+  )
+
+  return (
+    <>
+      <aside
+        className={cn(
+          "hidden lg:block sticky top-[64px] z-30 transition-all duration-300 ease-in-out shrink-0",
+          isCollapsed ? "w-[68px]" : "w-[220px]",
+          "h-[calc(100vh-64px)] bg-[#05070D]"
+        )}
+      >
+        {sidebarContent}
+      </aside>
+
+      {isMobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-[100] flex">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={onCloseMobile} />
+          <aside className="relative w-[260px] max-w-[80vw] h-full bg-[#05070D] shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
   )
 }

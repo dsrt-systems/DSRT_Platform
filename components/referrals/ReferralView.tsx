@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Gift, Copy, Check, Share2, Users } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
+import { DsrtPanel, DsrtButton, DsrtSection, DsrtInput, DsrtAvatar, DsrtEmpty } from '@/components/dsrt'
 
 interface ReferralViewProps {
   code: any
@@ -38,109 +37,84 @@ export function ReferralView({ code, referrals }: ReferralViewProps) {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-      <div className="rounded-2xl border border-border/40 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 p-8">
+    <div className="space-y-6">
+      <DsrtPanel variant="accent" padding="lg">
         <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-            <Gift className="w-7 h-7 text-white" />
+          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
+            <Gift className="w-6 h-6 text-white" />
           </div>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold">Invite Builders</h1>
-            <p className="text-sm text-muted-foreground mt-2">
-              Every builder you invite makes DSRT stronger. Share your invite
-              link and grow the ecosystem.
+            <h1 className="text-[24px] sm:text-[28px] font-bold text-white tracking-tight leading-tight">Invite Builders</h1>
+            <p className="text-[14px] text-white/80 mt-1 max-w-lg leading-relaxed">
+              Every builder you invite makes the DSRT ecosystem stronger. Share your invite
+              link and grow the network.
             </p>
           </div>
         </div>
 
-        <div className="mt-6 space-y-3">
-          <div className="rounded-xl border border-border/40 bg-background/60 backdrop-blur-sm p-4">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+        <div className="mt-8 space-y-4 max-w-xl">
+          <div className="bg-[#05070D]/40 border border-white/10 rounded-xl p-4">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-white/50 font-bold mb-2">
               Your invite code
             </p>
-            <p className="text-3xl font-bold font-mono tracking-wider">
+            <p className="text-[28px] font-bold font-mono tracking-widest text-white">
               {code?.code || 'LOADING'}
             </p>
           </div>
 
-          <div className="rounded-xl border border-border/40 bg-background/60 backdrop-blur-sm p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+          <div className="bg-[#05070D]/40 border border-white/10 rounded-xl p-4">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-white/50 font-bold mb-2">
               Invite link
             </p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs truncate bg-muted/40 px-3 py-2 rounded font-mono">
-                {referralLink}
-              </code>
-              <Button size="sm" variant="outline" onClick={copyLink}>
-                {copied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 mr-1" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5 mr-1" />
-                    Copy
-                  </>
-                )}
-              </Button>
-              <Button size="sm" onClick={shareLink}>
-                <Share2 className="w-3.5 h-3.5 mr-1" />
-                Share
-              </Button>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex-1">
+                <DsrtInput value={referralLink} readOnly sizeVariant="lg" />
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <DsrtButton size="md" variant="white" onClick={copyLink} className="flex-1 sm:flex-none">
+                  {copied ? <Check className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </DsrtButton>
+                <DsrtButton size="md" variant="outline" onClick={shareLink} className="flex-1 sm:flex-none text-white border-white/30 hover:bg-white/10">
+                  <Share2 className="w-4 h-4 mr-1.5" />
+                  Share
+                </DsrtButton>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </DsrtPanel>
 
-      <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Users className="w-4 h-4 text-muted-foreground" />
-          <h2 className="font-semibold">
-            Builders you invited ({referrals.length})
-          </h2>
-        </div>
+      <DsrtPanel>
+        <DsrtSection title={`Builders you invited (${referrals.length})`} headerVariant="mono" />
 
         {referrals.length === 0 ? (
-          <div className="text-center py-8 space-y-2">
-            <p className="text-sm text-muted-foreground">
-              No one has joined via your link yet.
-            </p>
-            <p className="text-xs text-muted-foreground/60">
-              Share your link with builders you know.
-            </p>
+          <div className="py-8">
+            <DsrtEmpty icon={Users} title="No invites accepted yet" description="Share your link with builders you know." />
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y divide-white/[0.04] mt-4 border-t border-white/[0.06]">
             {referrals.map((r) => (
               <Link
                 key={r.id}
                 href={`/profile/${r.users?.username}`}
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/40 transition-colors"
+                className="flex items-center gap-4 py-4 group hover:bg-white/[0.02] px-2 -mx-2 transition-colors rounded-lg"
               >
-                <Avatar className="w-10 h-10">
-                  <AvatarImage src={r.users?.avatar_url} />
-                  <AvatarFallback>
-                    {r.users?.full_name?.[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{r.users?.full_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Joined{' '}
-                    {formatDistanceToNow(new Date(r.created_at), {
-                      addSuffix: true,
-                    })}
+                <DsrtAvatar src={r.users?.avatar_url} name={r.users?.full_name} size="md" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-[14px] text-white group-hover:text-[#93c5fd] transition-colors">{r.users?.full_name}</p>
+                  <p className="text-[11px] font-mono text-white/40 mt-0.5">
+                    Joined {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
                   </p>
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">
+                <span className="text-[10px] font-mono uppercase tracking-wider font-bold px-2 py-1 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
                   Active
                 </span>
               </Link>
             ))}
           </div>
         )}
-      </div>
+      </DsrtPanel>
     </div>
   )
 }

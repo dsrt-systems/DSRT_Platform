@@ -1,45 +1,63 @@
+import { LandingHeader } from '@/components/landing/LandingHeader'
+import { LandingFooter } from '@/components/landing/LandingFooter'
+import { DsrtPage, DsrtPanel, DsrtGrid } from '@/components/dsrt'
+
 export const dynamic = 'force-dynamic'
+
+export const metadata = {
+  title: 'Developers — DSRT',
+}
+
 export default function DevelopersPage() {
   return (
-    <div className="max-w-4xl mx-auto p-6 md:p-10">
-      <div className="text-center py-16 space-y-4">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-          Built for Developers
-        </h1>
-        <p className="text-base text-muted-foreground max-w-2xl mx-auto">
-          DSRT is being built with a developer-first mindset.
-          API access, integrations, and documentation coming soon.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-12 max-w-3xl mx-auto">
-          <div className="p-6 border rounded-2xl bg-card">
-            <h3 className="font-bold mb-2">REST API</h3>
-            <p className="text-xs text-muted-foreground">
-              Full REST API to interact with your DSRT data.
-            </p>
-            <p className="text-[10px] text-blue-500 mt-3 font-bold uppercase tracking-wider">
-              Coming Q1 2027
+    <div className="min-h-screen bg-[#05070D] text-white relative flex flex-col">
+      <LandingHeader />
+
+      <main className="flex-1 w-full pt-20 pb-32">
+        <DsrtPage width="narrow" className="space-y-16">
+          <div className="text-center space-y-4">
+            <h1 className="text-[36px] md:text-[48px] font-bold tracking-tight">
+              Built for Developers
+            </h1>
+            <p className="text-[16px] text-white/60 max-w-xl mx-auto leading-relaxed">
+              DSRT is being built with a developer-first mindset.
+              API access, webhooks, and SDK documentation are shipping soon.
             </p>
           </div>
-          <div className="p-6 border rounded-2xl bg-card">
-            <h3 className="font-bold mb-2">Webhooks</h3>
-            <p className="text-xs text-muted-foreground">
-              Get real-time events pushed to your endpoint.
-            </p>
-            <p className="text-[10px] text-blue-500 mt-3 font-bold uppercase tracking-wider">
-              Coming Q1 2027
-            </p>
-          </div>
-          <div className="p-6 border rounded-2xl bg-card">
-            <h3 className="font-bold mb-2">SDKs</h3>
-            <p className="text-xs text-muted-foreground">
-              TypeScript, Python, and Go SDKs for easy integration.
-            </p>
-            <p className="text-[10px] text-blue-500 mt-3 font-bold uppercase tracking-wider">
-              Coming Q2 2027
-            </p>
-          </div>
-        </div>
-      </div>
+
+          <DsrtGrid cols={{ base: 1, sm: 3 }} gap="md">
+            <DsrtPanel padding="md">
+              <h3 className="font-bold text-white mb-1.5 text-[15px]">REST API</h3>
+              <p className="text-[13px] text-white/60 leading-relaxed mb-6">
+                Full REST API to interact with your DSRT projects and venture data programmatically.
+              </p>
+              <p className="text-[10px] text-[#93c5fd] font-mono font-bold uppercase tracking-widest mt-auto">
+                Coming Q1 2027
+              </p>
+            </DsrtPanel>
+            <DsrtPanel padding="md">
+              <h3 className="font-bold text-white mb-1.5 text-[15px]">Webhooks</h3>
+              <p className="text-[13px] text-white/60 leading-relaxed mb-6">
+                Get real-time application and network events pushed securely to your endpoint.
+              </p>
+              <p className="text-[10px] text-[#93c5fd] font-mono font-bold uppercase tracking-widest mt-auto">
+                Coming Q1 2027
+              </p>
+            </DsrtPanel>
+            <DsrtPanel padding="md">
+              <h3 className="font-bold text-white mb-1.5 text-[15px]">SDKs</h3>
+              <p className="text-[13px] text-white/60 leading-relaxed mb-6">
+                TypeScript, Python, and Go SDKs for seamless native platform integration.
+              </p>
+              <p className="text-[10px] text-[#93c5fd] font-mono font-bold uppercase tracking-widest mt-auto">
+                Coming Q2 2027
+              </p>
+            </DsrtPanel>
+          </DsrtGrid>
+        </DsrtPage>
+      </main>
+
+      <LandingFooter />
     </div>
   )
 }

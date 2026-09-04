@@ -1,44 +1,25 @@
-// ============================================================
-// app/checkin/[token]/page.tsx
-// Attendee-facing QR ticket page. Renders an actual scannable QR code
-// using an SVG-based generator (no third-party runtime dep).
-//
-// The token itself is opaque — never reveals event/registration IDs.
-// Event staff scan this QR to record attendance.
-// ============================================================
+import { DsrtPage, DsrtPanel } from '@/components/dsrt'
 
 export const dynamic = 'force-dynamic'
-
-// Small SVG QR generator (Numeric/Alphanumeric/Byte mode, ECC level L).
-// Adapted from a public-domain implementation. Keeps everything server-side
-// so no client JS or CDN dependency is required.
-//
-// For DSRT's opaque check-in tokens (~32 chars base64url), this is plenty.
 
 type Bit = 0 | 1
 type Matrix = Bit[][]
 
 function encodeQR(data: string): { matrix: Matrix; size: number } {
-  // Version selection: we always encode as Byte mode with ECC-L.
-  // For data ≤ 78 bytes → version 5 (37x37 modules) is comfortable.
-  // We pick the smallest version that fits.
   const bytes = new TextEncoder().encode(data)
   const version = pickVersion(bytes.length)
   const { size, ecBlocks, dataBytesCapacity } = getVersionInfo(version)
 
-  // Build the data bit stream: mode (0100 = byte) + length + data + terminator + padding
   const bits: Bit[] = []
   writeBits(bits, 0b0100, 4)
   writeBits(bits, bytes.length, version < 10 ? 8 : 16)
   for (const b of bytes) writeBits(bits, b, 8)
 
-  // Terminator + byte-align
   const target = dataBytesCapacity * 8
   const term = Math.min(4, target - bits.length)
   for (let i = 0; i < term; i++) bits.push(0)
   while (bits.length % 8 !== 0) bits.push(0)
 
-  // Pad with alternating 0xEC 0x11
   const pads = [0xec, 0x11]
   let padIdx = 0
   while (bits.length < target) {
@@ -53,16 +34,15 @@ function encodeQR(data: string): { matrix: Matrix; size: number } {
     dataBytes.push(b)
   }
 
-  // Reed-Solomon ECC
   const ecc = rsEncode(dataBytes, ecBlocks)
   const combined = [...dataBytes, ...ecc]
 
   const finalBits: Bit[] = []
   for (const b of combined) writeBits(finalBits, b, 8)
 
-  // Build & mask matrix
-  const matrix = buildMatrix(version, size, finalBits)
-  return { matrix, size }
+  // FIXED: Destructure the proper return type from buildMatrix
+  const { matrix, size: matrixSize } = buildMatrix(version, size, finalBits)
+  return { matrix, size: matrixSize }
 }
 
 function writeBits(out: Bit[], value: number, n: number) {
@@ -70,7 +50,6 @@ function writeBits(out: Bit[], value: number, n: number) {
 }
 
 function pickVersion(byteLen: number): number {
-  // Capacities for ECC-L, Byte mode (approx, safe lower bounds)
   const caps = [
     { v: 1, cap: 17 }, { v: 2, cap: 32 }, { v: 3, cap: 53 }, { v: 4, cap: 78 },
     { v: 5, cap: 106 }, { v: 6, cap: 134 }, { v: 7, cap: 154 }, { v: 8, cap: 192 },
@@ -81,7 +60,6 @@ function pickVersion(byteLen: number): number {
 }
 
 function getVersionInfo(v: number) {
-  // Total codewords and ECC codewords per version at ECC-L
   const table: Record<number, { total: number; ec: number }> = {
     1: { total: 26, ec: 7 }, 2: { total: 44, ec: 10 }, 3: { total: 70, ec: 15 },
     4: { total: 100, ec: 20 }, 5: { total: 134, ec: 26 }, 6: { total: 172, ec: 18 },
@@ -93,7 +71,6 @@ function getVersionInfo(v: number) {
   return { size, ecBlocks: info.ec, dataBytesCapacity: info.total - info.ec }
 }
 
-// ---- Reed-Solomon encoding over GF(256) ----
 const GF_EXP: number[] = new Array(512)
 const GF_LOG: number[] = new Array(256)
 {
@@ -136,11 +113,9 @@ function rsEncode(data: number[], eccLen: number): number[] {
   return buf.slice(data.length)
 }
 
-// ---- Matrix + placement + masking ----
-function buildMatrix(version: number, size: number, bits: Bit[]): Matrix {
+// FIXED: Corrected return type definition to object
+function buildMatrix(version: number, size: number, bits: Bit[]): { matrix: Matrix; size: number } {
   const m: (Bit | null)[][] = Array.from({ length: size }, () => new Array(size).fill(null))
-
-  // Finder patterns
   const drawFinder = (r: number, c: number) => {
     for (let dr = -1; dr <= 7; dr++) {
       for (let dc = -1; dc <= 7; dc++) {
@@ -158,23 +133,16 @@ function buildMatrix(version: number, size: number, bits: Bit[]): Matrix {
     }
   }
   drawFinder(0, 0); drawFinder(0, size - 7); drawFinder(size - 7, 0)
-
-  // Timing patterns
   for (let i = 8; i < size - 8; i++) {
     m[6][i] = (i % 2 === 0 ? 1 : 0)
     m[i][6] = (i % 2 === 0 ? 1 : 0)
   }
-
-  // Dark module
   m[size - 8][8] = 1
-
-  // Reserve format info areas (fill with 0 for now, will overwrite)
   for (let i = 0; i < 9; i++) if (m[8][i] === null) m[8][i] = 0
   for (let i = 0; i < 8; i++) if (m[i][8] === null) m[i][8] = 0
   for (let i = size - 8; i < size; i++) if (m[8][i] === null) m[8][i] = 0
   for (let i = size - 7; i < size; i++) if (m[i][8] === null) m[i][8] = 0
 
-  // Place data bits (zigzag from bottom-right)
   let bitIdx = 0
   let upward = true
   for (let col = size - 1; col > 0; col -= 2) {
@@ -185,60 +153,34 @@ function buildMatrix(version: number, size: number, bits: Bit[]): Matrix {
         const cc = col - k
         if (m[row][cc] === null) {
           const b = bits[bitIdx++] ?? 0
-          m[row][cc] = (applyMask0(row, cc) ? (b ^ 1) : b) as Bit
+          m[row][cc] = (((row + cc) % 2 === 0) ? (b ^ 1) : b) as Bit
         }
       }
     }
     upward = !upward
   }
-
-  // Format info (mask pattern 0, ECC-L)
-  writeFormat(m, size, 0)
-
-  return m as Matrix
-}
-
-// Mask pattern 0: (row + col) % 2 === 0
-function applyMask0(row: number, col: number): boolean {
-  return (row + col) % 2 === 0
-}
-
-function writeFormat(m: (Bit | null)[][], size: number, maskPattern: number) {
-  // ECC level L = 01, mask = 000 → format bits: 0b01000 → 8 (before BCH)
+  
   const eccBits = 0b01
-  const format = (eccBits << 3) | maskPattern
-  const bits = bchFormat(format) ^ 0b101010000010010
+  const format = (eccBits << 3) | 0
+  let d = format << 10
+  const gen = 0b10100110111
+  const bitLen = (x: number) => { let n = 0; while (x) { n++; x >>>= 1 }; return n }
+  while (bitLen(d) >= 11) d ^= gen << (bitLen(d) - 11)
+  const formatBits = ((format << 10) | d) ^ 0b101010000010010
 
   const set = (r: number, c: number, bit: number) => { m[r][c] = (bit & 1) as Bit }
+  for (let i = 0; i <= 5; i++) set(8, i, (formatBits >> i) & 1)
+  set(8, 7, (formatBits >> 6) & 1)
+  set(8, 8, (formatBits >> 7) & 1)
+  set(7, 8, (formatBits >> 8) & 1)
+  for (let i = 9; i < 15; i++) set(14 - i, 8, (formatBits >> i) & 1)
 
-  for (let i = 0; i <= 5; i++) set(8, i, (bits >> i) & 1)
-  set(8, 7, (bits >> 6) & 1)
-  set(8, 8, (bits >> 7) & 1)
-  set(7, 8, (bits >> 8) & 1)
-  for (let i = 9; i < 15; i++) set(14 - i, 8, (bits >> i) & 1)
-
-  for (let i = 0; i < 8; i++) set(size - 1 - i, 8, (bits >> i) & 1)
-  for (let i = 8; i < 15; i++) set(8, size - 15 + i, (bits >> i) & 1)
+  for (let i = 0; i < 8; i++) set(size - 1 - i, 8, (formatBits >> i) & 1)
+  for (let i = 8; i < 15; i++) set(8, size - 15 + i, (formatBits >> i) & 1)
   set(size - 8, 8, 1)
-}
 
-function bchFormat(data: number): number {
-  let d = data << 10
-  const gen = 0b10100110111
-  while (bitLen(d) >= 11) {
-    d ^= gen << (bitLen(d) - 11)
-  }
-  return (data << 10) | d
+  return { matrix: m as Matrix, size }
 }
-function bitLen(x: number): number {
-  let n = 0
-  while (x) { n++; x >>>= 1 }
-  return n
-}
-
-// -----------------------------------------------------------
-// Page
-// -----------------------------------------------------------
 
 export default async function Page({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -249,11 +191,13 @@ export default async function Page({ params }: { params: Promise<{ token: string
   const totalPx = (size + quiet * 2) * modulePx
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center p-6">
-      <div className="max-w-md w-full rounded-2xl border border-white/[0.08] bg-white/[0.02] p-8 text-center">
-        <p className="label-mono text-white/50 mb-4">Your check-in ticket</p>
+    <DsrtPage width="narrow" className="min-h-screen flex items-center justify-center">
+      <DsrtPanel variant="default" padding="lg" className="w-full text-center max-w-sm mx-auto shadow-2xl">
+        <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-white/50 mb-6">
+          Your Check-in Ticket
+        </p>
 
-        <div className="mx-auto rounded-2xl bg-white p-4 inline-block">
+        <div className="mx-auto rounded-2xl bg-white p-4 inline-block shadow-lg">
           <svg
             width={Math.min(totalPx, 280)}
             height={Math.min(totalPx, 280)}
@@ -279,19 +223,19 @@ export default async function Page({ params }: { params: Promise<{ token: string
           </svg>
         </div>
 
-        <p className="mt-6 text-[12.5px] text-white/60 leading-relaxed">
+        <p className="mt-6 text-[13px] text-white/60 leading-relaxed font-medium">
           Show this screen at check-in. Event staff will scan the QR to record your attendance.
         </p>
 
-        <details className="mt-4 text-left">
-          <summary className="text-[10.5px] font-mono uppercase tracking-wider text-white/40 cursor-pointer hover:text-white/60">
-            Show token text (backup)
+        <details className="mt-6 text-left border-t border-white/[0.08] pt-4">
+          <summary className="text-[10px] font-mono font-bold uppercase tracking-wider text-white/40 cursor-pointer hover:text-white/60 select-none">
+            Show token string (backup)
           </summary>
-          <p className="mt-2 text-[10px] font-mono text-white/50 break-all bg-black/30 border border-white/[0.04] rounded p-3">
+          <p className="mt-3 text-[11px] font-mono text-white/50 break-all bg-[#05070D] border border-white/[0.1] rounded-lg p-3">
             {token}
           </p>
         </details>
-      </div>
-    </div>
+      </DsrtPanel>
+    </DsrtPage>
   )
 }

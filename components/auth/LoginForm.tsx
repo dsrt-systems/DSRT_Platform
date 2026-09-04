@@ -1,232 +1,201 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
-import { Loader2, KeyRound, Lock } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import { AuthInput } from './AuthInput'
-import { PasswordInput } from './PasswordInput'
-import { OAuthButton } from './OAuthButton'
-import { AuthDivider } from './AuthDivider'
-import { GoogleIcon, GithubIcon } from './ProviderIcons'
-import { cn } from '@/lib/utils'
-import type { AuthView } from './AuthShell'
+import Link from 'next/link'
+import { Eye, EyeSlash, Envelope, Lock, ArrowRight } from '@phosphor-icons/react'
+import { DsrtLogo } from '@/components/ui/DsrtLogo'
 
-interface Props {
-  onSwitchView: (view: AuthView) => void
-}
-
-export function LoginForm({ onSwitchView }: Props) {
-  const router = useRouter()
-  const supabase = createClient()
-  const [identifier, setIdentifier] = useState('')
+export function LoginForm() {
+  const [showPassword, setShowPassword] = useState(false)
+  const [remember, setRemember] = useState(true)
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [pin, setPin] = useState('')
-  const [mode, setMode] = useState<'password' | 'pin'>('password')
   const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'github' | null>(null)
-
-  const handleOAuth = async (provider: 'google' | 'github') => {
-    setOauthLoading(provider)
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: `${window.location.origin}/callback` }
-      })
-      if (error) throw error
-    } catch (err: any) {
-      toast.error(err.message)
-      setOauthLoading(null)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (mode === 'password') {
-      await handlePasswordLogin()
-    } else {
-      await handlePinLogin()
-    }
-  }
-
-  const handlePasswordLogin = async () => {
-    if (!identifier || !password) return toast.error('Enter your credentials')
-
     setLoading(true)
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Login failed')
-
-      const clean = identifier.trim().toLowerCase()
-      let loginEmail = clean
-      if (!clean.includes('@')) {
-        router.refresh()
-        router.push(data.next || '/home')
-        return
-      }
-
-      await supabase.auth.signInWithPassword({ email: loginEmail, password })
-      router.push(data.next || '/home')
-      router.refresh()
-    } catch (err: any) {
-      toast.error(err.message || 'Login failed')
-      setLoading(false)
-    }
-  }
-
-  const handlePinLogin = async () => {
-    if (!identifier || !pin) return toast.error('Enter your email and PIN')
-    if (!identifier.includes('@')) return toast.error('Enter your email address (not username) for PIN login')
-    if (pin.length !== 6 || !/^\d{6}$/.test(pin)) return toast.error('PIN must be 6 digits')
-
-    setLoading(true)
-    try {
-      const res = await fetch('/api/auth/pin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier.trim().toLowerCase(), pin })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'PIN login failed')
-
-      // Use magic link token to establish session
-      const { error: verifyErr } = await supabase.auth.verifyOtp({
-        type: 'magiclink',
-        token_hash: data.token_hash,
-      })
-
-      if (verifyErr) throw verifyErr
-
-      router.push('/home')
-      router.refresh()
-    } catch (err: any) {
-      toast.error(err.message || 'PIN login failed')
-      setLoading(false)
-    }
-  }
-
-  const togglePinMode = () => {
-    setMode(mode === 'password' ? 'pin' : 'password')
-    setPin('')
-    setPassword('')
+    // TODO: wire your auth here
+    setTimeout(() => setLoading(false), 800)
   }
 
   return (
-    <div className="w-full">
-      <div className="mb-6">
-        <h1 className="text-[24px] font-semibold text-white tracking-tight">Welcome back</h1>
-        <p className="text-[14px] text-white/60 mt-1.5">Sign in to your DSRT account.</p>
-      </div>
+    <div className="w-full max-w-md">
+      {/* Card wrapper — visible on desktop, transparent on mobile */}
+      <div className="lg:rounded-2xl lg:border lg:border-white/[0.08] lg:bg-white/[0.02] lg:backdrop-blur-md lg:p-8 lg:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)]">
+        
+        {/* Desktop-only mini logo above form */}
+        <div className="hidden lg:flex flex-col items-center mb-6">
+          <DsrtLogo size={36} showText={false} />
+          <h2 className="mt-4 text-[22px] font-bold text-white">Sign in to DSRT</h2>
+          <p className="mt-1 text-[13px] text-white/50">Access your workspace and continue.</p>
+        </div>
 
-      <div className="space-y-2 mb-6">
-        <OAuthButton provider="google" onClick={() => handleOAuth('google')} loading={oauthLoading === 'google'} disabled={!!oauthLoading} icon={<GoogleIcon />}>
-          Continue with Google
-        </OAuthButton>
-        <OAuthButton provider="github" onClick={() => handleOAuth('github')} loading={oauthLoading === 'github'} disabled={!!oauthLoading} icon={<GithubIcon />}>
-          Continue with GitHub
-        </OAuthButton>
-      </div>
+        {/* Social auth buttons */}
+        <div className="space-y-2.5">
+          <SocialButton provider="x" label="Continue with X" />
+          <SocialButton provider="google" label="Continue with Google" />
+          <SocialButton provider="linkedin" label="Continue with LinkedIn" />
+        </div>
 
-      <AuthDivider label="or continue with email" />
+        {/* Divider */}
+        <div className="flex items-center gap-3 my-6">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-[12px] text-white/40 font-medium">or</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <AuthInput
-          label={mode === 'pin' ? 'Email' : 'Email or username'}
-          type="text"
-          name="identifier"
-          autoComplete="username"
-          autoFocus
-          placeholder={mode === 'pin' ? 'alex@example.com' : 'alex@example.com or username'}
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-        />
-
-        {mode === 'password' ? (
-          <div className="space-y-1">
-            <PasswordInput
-              label="Password"
-              name="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <div className="flex items-center justify-between pt-1">
-              <button
-                type="button"
-                onClick={togglePinMode}
-                className="text-[12px] text-[#4F7CFF] hover:text-[#7093FF] font-medium flex items-center gap-1 transition-colors"
-              >
-                <KeyRound className="w-3 h-3" />
-                Sign in with DSRT PIN
-              </button>
-              <button
-                type="button"
-                onClick={() => onSwitchView('forgot')}
-                className="text-[12px] text-white/50 hover:text-white transition-colors"
-              >
-                Forgot password?
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            <div className="space-y-1.5 flex w-full flex-col">
-              <label className="text-[13px] font-medium text-white/90">DSRT PIN</label>
+        {/* Email/Password form */}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label htmlFor="email" className="block text-[11px] font-mono font-bold uppercase tracking-wider text-white/60 mb-2">
+              Email
+            </label>
+            <div className="relative">
+              <Envelope size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
               <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="6-digit PIN"
-                className={cn(
-                  "w-full h-9 px-3 rounded-md bg-transparent border border-white/15 text-white text-[14px] font-mono tracking-widest text-center",
-                  "placeholder:text-white/30 placeholder:tracking-normal placeholder:font-sans",
-                  "focus:outline-none focus:border-[#4F7CFF] focus:ring-1 focus:ring-[#4F7CFF]",
-                  "transition-all"
-                )}
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className="w-full h-11 rounded-lg bg-black/40 border border-white/10 pl-10 pr-4 text-[14px] text-white placeholder:text-white/30 focus:border-[#4F7CFF]/60 focus:bg-black/60 focus:outline-none focus:ring-2 focus:ring-[#4F7CFF]/20 transition-all"
               />
             </div>
-            <div className="flex items-center justify-between pt-1">
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-[11px] font-mono font-bold uppercase tracking-wider text-white/60 mb-2">
+              Password
+            </label>
+            <div className="relative">
+              <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                className="w-full h-11 rounded-lg bg-black/40 border border-white/10 pl-10 pr-11 text-[14px] text-white placeholder:text-white/30 focus:border-[#4F7CFF]/60 focus:bg-black/60 focus:outline-none focus:ring-2 focus:ring-[#4F7CFF]/20 transition-all"
+              />
               <button
                 type="button"
-                onClick={togglePinMode}
-                className="text-[12px] text-[#4F7CFF] hover:text-[#7093FF] font-medium flex items-center gap-1 transition-colors"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors p-1"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                <Lock className="w-3 h-3" />
-                Sign in with password
+                {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className={cn(
-            "w-full h-9 rounded-md mt-2 flex items-center justify-center transition-colors",
-            "bg-white text-black text-[14px] font-semibold hover:bg-white/90",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
-          )}
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : 'Sign in'}
-        </button>
-      </form>
+          {/* Remember + Forgot — desktop only, hidden on mobile per your mock */}
+          <div className="hidden lg:flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded border-white/20 bg-black/40 accent-[#4F7CFF] cursor-pointer"
+              />
+              <span className="text-[13px] text-white/60 group-hover:text-white/80 transition-colors">
+                Remember me
+              </span>
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-[13px] text-[#4F7CFF] hover:text-[#7B9AFF] font-medium transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
-      <p className="text-[13px] text-white/60 mt-6">
-        New to DSRT?{' '}
-        <button onClick={() => onSwitchView('signup')} className="text-white hover:underline transition-colors font-medium">
-          Create account
-        </button>
-      </p>
+          {/* Primary submit */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 rounded-lg bg-[#4F7CFF] hover:bg-[#3D6BF5] active:bg-[#3057E8] text-white text-[14px] font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_4px_20px_-4px_rgba(79,124,255,0.5)]"
+          >
+            {loading ? 'Signing in…' : (
+              <>
+                Sign in to DSRT
+                <ArrowRight size={16} weight="bold" />
+              </>
+            )}
+          </button>
+
+          {/* Mobile-only Create account CTA */}
+          <p className="lg:hidden text-center text-[13px] text-white/50 pt-2">
+            New to DSRT?{' '}
+            <Link href="/signup" className="text-[#4F7CFF] hover:text-[#7B9AFF] font-semibold transition-colors">
+              Create account
+            </Link>
+          </p>
+
+          {/* Mobile-only forgot password */}
+          <p className="lg:hidden text-center">
+            <Link
+              href="/forgot-password"
+              className="text-[12px] text-white/40 hover:text-white/70 font-medium transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
+  )
+}
+
+/* ---------- Social button ---------- */
+
+function SocialButton({ provider, label }: { provider: 'x' | 'google' | 'linkedin'; label: string }) {
+  return (
+    <button
+      type="button"
+      className="w-full h-11 rounded-lg border border-white/10 bg-black/30 hover:bg-black/50 hover:border-white/20 text-white text-[14px] font-medium transition-all flex items-center gap-3 px-4"
+    >
+      <span className="w-6 h-6 flex items-center justify-center shrink-0">
+        {provider === 'x' && <XIcon />}
+        {provider === 'google' && <GoogleIcon />}
+        {provider === 'linkedin' && <LinkedInIcon />}
+      </span>
+      <span className="flex-1 text-left">{label}</span>
+    </button>
+  )
+}
+
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-5 h-5">
+      <path fill="#EA4335" d="M12 5c1.617 0 3.101.554 4.286 1.474l3.207-3.207C17.507 1.393 14.898 0 12 0 7.31 0 3.257 2.69 1.28 6.61l3.739 2.9C5.958 6.717 8.735 5 12 5z" />
+      <path fill="#4285F4" d="M23.49 12.275c0-.815-.075-1.6-.215-2.35H12v4.45h6.44a5.501 5.501 0 01-2.386 3.62l3.65 2.83c2.13-1.97 3.786-4.865 3.786-8.55z" />
+      <path fill="#FBBC05" d="M5.02 14.51A7.02 7.02 0 014.65 12c0-.87.14-1.71.37-2.51L1.28 6.59A11.995 11.995 0 000 12c0 1.94.464 3.77 1.28 5.41l3.74-2.9z" />
+      <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.65-2.83c-1.01.68-2.31 1.09-4.29 1.09-3.265 0-6.042-1.717-7.023-4.51l-3.739 2.9C3.257 21.31 7.31 24 12 24z" />
+    </svg>
+  )
+}
+
+function LinkedInIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-5 h-5">
+      <rect width="24" height="24" rx="3" fill="#0A66C2" />
+      <path
+        fill="white"
+        d="M7.5 9.5H4.75V18.5H7.5V9.5zM6.125 8.375A1.625 1.625 0 106.125 5.125a1.625 1.625 0 000 3.25zM19.25 18.5H16.5V13.875c0-1.104-.02-2.525-1.538-2.525-1.54 0-1.775 1.202-1.775 2.444V18.5H10.44V9.5h2.638v1.235h.037c.367-.696 1.264-1.43 2.6-1.43 2.783 0 3.535 1.834 3.535 4.22V18.5z"
+      />
+    </svg>
   )
 }

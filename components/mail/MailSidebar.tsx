@@ -1,59 +1,74 @@
+// filepath: components/mail/MailSidebar.tsx
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { 
-  Envelope, Star, Clock, PaperPlaneRight, FileText, CalendarBlank,
-  Trash, Warning, PencilSimple, Bell, Files, Users, Handshake, ShieldWarning
+import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  Tray,
+  Star,
+  Clock,
+  PaperPlaneTilt,
+  FileText,
+  CalendarBlank,
+  Trash,
+  ShieldSlash,
+  PencilSimple,
+  Bell,
+  Files,
+  UsersThree,
+  CheckCircle,
+  HourglassMedium,
+  EnvelopeOpen,
+  Archive,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useMailIdentity, useOnIdentityChange } from './hooks/useMailIdentity'
+import { DsrtButton } from '@/components/dsrt'
 
 interface Props {
   activeFolder: string
   onFolderChange: (folder: string) => void
   onComposeClick: () => void
+  mobile?: boolean
 }
 
 const MAIN_FOLDERS = [
-  { key: 'inbox', label: 'Inbox', icon: Envelope, countKey: 'inbox', showBadge: true },
+  { key: 'inbox', label: 'Inbox', icon: Tray, countKey: 'inbox', showBadge: true },
   { key: 'starred', label: 'Starred', icon: Star, countKey: 'starred', showBadge: true },
   { key: 'snoozed', label: 'Snoozed', icon: Clock, countKey: 'snoozed', showBadge: true },
-  { key: 'sent', label: 'Sent', icon: PaperPlaneRight, countKey: 'sent', showBadge: false },
+  { key: 'sent', label: 'Sent', icon: PaperPlaneTilt, countKey: 'sent', showBadge: false },
   { key: 'drafts', label: 'Drafts', icon: FileText, countKey: 'drafts', showBadge: false, showCount: true },
   { key: 'scheduled', label: 'Scheduled', icon: CalendarBlank, countKey: 'scheduled', showBadge: false, showCount: true },
+  { key: 'archive', label: 'Archive', icon: Archive, countKey: 'archive', showBadge: false },
   { key: 'all', label: 'All Mail', icon: Files, countKey: 'all', showBadge: false },
-  { key: 'quarantine', label: 'Quarantine', icon: ShieldWarning, countKey: 'quarantine', showBadge: true, warningBadge: true },
-  { key: 'spam', label: 'Spam', icon: Warning, countKey: 'spam', showBadge: true },
+  { key: 'quarantine', label: 'Quarantine', icon: ShieldSlash, countKey: 'quarantine', showBadge: true, warningBadge: true },
+  { key: 'spam', label: 'Spam', icon: ShieldSlash, countKey: 'spam', showBadge: true },
   { key: 'trash', label: 'Trash', icon: Trash, countKey: 'trash', showBadge: false },
 ]
 
 const SMART_VIEWS = [
   { key: 'important', label: 'Important', icon: Bell, countKey: 'important', showBadge: true },
-  { key: 'action_required', label: 'Action Required', icon: Handshake, countKey: 'action_required', showBadge: true },
-  { key: 'awaiting_reply', label: 'Awaiting Reply', icon: Clock, countKey: 'awaiting_reply', showBadge: true },
-  { key: 'unread', label: 'Unread', icon: Envelope, countKey: 'unread', showBadge: true },
+  { key: 'action_required', label: 'Action Required', icon: CheckCircle, countKey: 'action_required', showBadge: true },
+  { key: 'awaiting_reply', label: 'Awaiting Reply', icon: HourglassMedium, countKey: 'awaiting_reply', showBadge: true },
+  { key: 'unread', label: 'Unread', icon: EnvelopeOpen, countKey: 'unread', showBadge: true },
   { key: 'with_attachments', label: 'With Attachments', icon: Files, countKey: 'with_attachments', showBadge: false, showCount: true },
-  { key: 'shared_with_me', label: 'Shared With Me', icon: Users, countKey: 'shared_with_me', showBadge: true },
+  { key: 'shared_with_me', label: 'Shared With Me', icon: UsersThree, countKey: 'shared_with_me', showBadge: true },
 ]
 
-export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Props) {
+export function MailSidebar({ activeFolder, onFolderChange, onComposeClick, mobile = false }: Props) {
   const { activeIdentity, isUnified } = useMailIdentity()
   const [counts, setCounts] = useState<Record<string, number>>({})
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
 
   const fetchCounts = useCallback(async () => {
-    const identityId = isUnified 
-      ? 'unified' 
-      : (typeof activeIdentity === 'object' && activeIdentity !== null 
-          ? activeIdentity.identity_id 
+    const identityId = isUnified
+      ? 'unified'
+      : (typeof activeIdentity === 'object' && activeIdentity !== null
+          ? activeIdentity.identity_id
           : '')
     if (!identityId) return
-
     try {
-      const res = await fetch(`/api/mail/counts?identity_id=${identityId}`, {
-        cache: 'no-store'
-      })
+      const res = await fetch(`/api/mail/counts?identity_id=${identityId}`, { cache: 'no-store' })
       const d = await res.json()
       setCounts(d.counts || {})
     } catch (e) {
@@ -70,14 +85,13 @@ export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Pr
   })
 
   useEffect(() => {
+    const supabase = supabaseRef.current
+    const channelName = `mail_sidebar_counts:${Math.random().toString(36).slice(2, 9)}`
+
     const channel = supabase
-      .channel('mail_sidebar_counts')
-      .on('postgres_changes', { 
-        event: '*', schema: 'public', table: 'mail_thread_participants' 
-      }, () => fetchCounts())
-      .on('postgres_changes', { 
-        event: '*', schema: 'public', table: 'mail_messages' 
-      }, () => fetchCounts())
+      .channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mail_thread_participants' }, () => fetchCounts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mail_messages' }, () => fetchCounts())
       .subscribe()
 
     const refresh = () => fetchCounts()
@@ -85,11 +99,11 @@ export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Pr
     window.addEventListener('mail:counts:refresh', refresh)
 
     return () => {
-      supabase.removeChannel(channel)
       window.removeEventListener('mail:refresh', refresh)
       window.removeEventListener('mail:counts:refresh', refresh)
+      supabase.removeChannel(channel)
     }
-  }, [fetchCounts, supabase])
+  }, [fetchCounts])
 
   const renderItem = (item: any) => {
     const Icon = item.icon
@@ -103,87 +117,98 @@ export function MailSidebar({ activeFolder, onFolderChange, onComposeClick }: Pr
         key={item.key}
         onClick={() => onFolderChange(item.key)}
         className={cn(
-          "w-full flex items-center gap-3 pl-3 pr-2.5 h-8 rounded-md text-[12.5px] font-medium transition-all group relative",
+          'w-full flex items-center gap-3 pl-3 pr-2.5 h-10 rounded-lg text-[13px] font-medium transition-all group relative',
           active
-            ? "bg-white/[0.09] text-white"
-            : "text-white/55 hover:bg-white/[0.04] hover:text-white/90"
+            ? 'bg-gradient-to-r from-[#1e3a5f]/80 to-[#2c5282]/50 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
+            : 'text-white/60 hover:bg-white/[0.04] hover:text-white'
         )}
       >
         {active && (
-          <div className="absolute left-0 top-1.5 bottom-1.5 w-[2px] bg-white rounded-r" />
+          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[#4F7CFF]" />
         )}
-        <Icon 
+        <Icon
           className={cn(
-            "w-4 h-4 flex-shrink-0", 
-            active ? "text-white" : item.warningBadge ? "text-red-400/80" : "text-white/40 group-hover:text-white/70"
-          )} 
-          weight={active ? "fill" : "regular"} 
+            'w-[16px] h-[16px] flex-shrink-0',
+            active
+              ? 'text-white'
+              : item.warningBadge
+              ? 'text-amber-400/80'
+              : 'text-white/45 group-hover:text-white/75'
+          )}
+          weight={active ? 'duotone' : 'regular'}
         />
         <span className="flex-1 truncate text-left">{item.label}</span>
         {showBadge && (
-          <span className={cn(
-            "text-[10px] font-bold px-1.5 h-4 min-w-[16px] flex items-center justify-center rounded",
-            item.warningBadge ? "bg-red-500/20 text-red-300 border border-red-500/30" : active ? "bg-white text-black" : "bg-white/[0.08] text-white/75"
-          )}>
+          <span
+            className={cn(
+              'text-[10px] font-bold px-1.5 h-[18px] min-w-[20px] flex items-center justify-center rounded-full',
+              item.warningBadge
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                : active
+                ? 'bg-white text-[#1e3a5f]'
+                : 'bg-white/[0.08] text-white/80'
+            )}
+          >
             {count > 99 ? '99+' : count}
           </span>
         )}
         {showCount && (
-          <span className={cn(
-            "text-[10.5px] font-medium",
-            active ? "text-white/70" : "text-white/40"
-          )}>
-            {count}
-          </span>
+          <span className={cn('text-[11px] font-mono', active ? 'text-white/70' : 'text-white/40')}>{count}</span>
         )}
       </button>
     )
   }
 
   return (
-    <aside className="w-[224px] flex-shrink-0 bg-[#08080c] flex flex-col overflow-y-auto scrollbar-hide">
-      <div className="p-3 space-y-3">
-        <button
-          onClick={onComposeClick}
-          className={cn(
-            "w-full flex items-center justify-center gap-2 h-10 rounded-xl transition-all",
-            "bg-white text-black hover:bg-zinc-100",
-            "font-bold text-[13px] tracking-tight",
-            "shadow-[0_1px_0_rgba(255,255,255,0.4)_inset,0_2px_8px_rgba(0,0,0,0.4)]"
-          )}
-        >
-          <PencilSimple className="w-4 h-4" weight="bold" />
+    <aside
+      className={cn(
+        'flex flex-col overflow-y-auto scrollbar-hide',
+        mobile
+          ? 'w-full'
+          : 'w-[248px] flex-shrink-0 border-r border-white/[0.06] bg-gradient-to-b from-[#08090F] to-[#05070D]'
+      )}
+    >
+      <div className="p-3 space-y-4">
+        {/* Compose */}
+        <DsrtButton onClick={onComposeClick} variant="white" size="lg" fullWidth>
+          <PencilSimple className="w-[15px] h-[15px]" weight="bold" />
           Compose
-        </button>
+        </DsrtButton>
 
-        <div className={cn(
-          "rounded-xl p-2",
-          "bg-gradient-to-b from-white/[0.035] to-white/[0.015]",
-          "border border-white/[0.06]"
-        )}>
-          <p className="text-[9px] uppercase tracking-[0.12em] font-bold text-white/40 px-2.5 py-1.5">
+        {/* MAIL group */}
+        <section>
+          <p className="text-[9.5px] uppercase tracking-[0.14em] font-mono font-bold text-white/35 px-3 mb-1.5">
             Mail
           </p>
-          <nav className="space-y-[1px]">
+          <div
+            className={cn(
+              'rounded-xl p-1.5 space-y-0.5',
+              'bg-gradient-to-b from-white/[0.02] to-transparent',
+              'border border-white/[0.05]'
+            )}
+          >
             {MAIN_FOLDERS.map(renderItem)}
-          </nav>
-        </div>
+          </div>
+        </section>
 
-        <div className={cn(
-          "rounded-xl p-2",
-          "bg-gradient-to-b from-white/[0.035] to-white/[0.015]",
-          "border border-white/[0.06]"
-        )}>
-          <p className="text-[9px] uppercase tracking-[0.12em] font-bold text-white/40 px-2.5 py-1.5">
+        {/* SMART VIEWS group */}
+        <section>
+          <p className="text-[9.5px] uppercase tracking-[0.14em] font-mono font-bold text-white/35 px-3 mb-1.5">
             Smart Views
           </p>
-          <nav className="space-y-[1px]">
+          <div
+            className={cn(
+              'rounded-xl p-1.5 space-y-0.5',
+              'bg-gradient-to-b from-white/[0.02] to-transparent',
+              'border border-white/[0.05]'
+            )}
+          >
             {SMART_VIEWS.map(renderItem)}
-          </nav>
-        </div>
+          </div>
+        </section>
 
-        <div className="px-3 pt-1">
-          <p className="text-[9.5px] text-white/25 leading-relaxed">
+        <div className="px-3 pt-2 pb-4">
+          <p className="text-[10px] text-white/25 leading-relaxed font-mono">
             DSRT Mail unifies communication for people, projects and ventures.
           </p>
         </div>

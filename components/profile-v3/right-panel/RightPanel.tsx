@@ -3,18 +3,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '@/lib/utils'
 import { OverviewTab } from './tabs/OverviewTab'
 import { MyWorkTab } from './my-work/MyWorkTab'
 import { FoundersProfileTab } from './founder/FoundersProfileTab'
+import { DsrtTabs } from '@/components/dsrt'
 
 const TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'my-work', label: 'My Work' },
-  { id: 'founder', label: "Founder's Profile" },
+  { value: 'overview', label: 'Overview' },
+  { value: 'my-work', label: 'My Work' },
+  { value: 'founder', label: "Founder's Profile" },
 ] as const
 
-type TabId = typeof TABS[number]['id']
+type TabId = typeof TABS[number]['value']
 
 interface RightPanelProps {
   profile: any
@@ -33,7 +33,7 @@ export function RightPanel({
 
   const readTabFromUrl = (): TabId => {
     const t = searchParams.get('tab')
-    if (t && TABS.some((tab) => tab.id === t)) return t as TabId
+    if (t && TABS.some((tab) => tab.value === t)) return t as TabId
     return 'overview'
   }
 
@@ -45,8 +45,8 @@ export function RightPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  const handleTabChange = useCallback((tab: TabId) => {
-    setActiveTab(tab)
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab as TabId)
     const url = new URL(window.location.href)
     if (tab === 'overview') url.searchParams.delete('tab')
     else url.searchParams.set('tab', tab)
@@ -55,28 +55,14 @@ export function RightPanel({
 
   return (
     <div className="space-y-4">
-      <div className="border-b border-zinc-800/60 -mb-px">
-        <div className="flex gap-0">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={cn(
-                'relative px-5 py-3 text-[13px] font-semibold transition-colors border-b-2 -mb-px',
-                activeTab === tab.id
-                  ? 'text-white border-white'
-                  : 'text-zinc-500 border-transparent hover:text-zinc-300',
-              )}
-              style={
-                activeTab === tab.id
-                  ? { boxShadow: '0 1px 8px rgba(255,255,255,0.15)' }
-                  : undefined
-              }
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      {/* FIXED: top-[116px] md:top-[64px] prevents overlap with Global Header + SubNav */}
+      <div className="sticky top-[116px] md:top-[64px] z-30 bg-[#05070D]/95 backdrop-blur-md border-b border-white/[0.06] -mx-4 sm:mx-0 px-4 sm:px-0 pt-2 pb-0">
+        <DsrtTabs
+          variant="underline"
+          tabs={TABS.map(t => ({ value: t.value, label: t.label }))}
+          activeValue={activeTab}
+          onValueChange={handleTabChange}
+        />
       </div>
 
       <AnimatePresence mode="wait">

@@ -18,7 +18,6 @@ import {
   Clock,
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
 import { ThreadRow } from './ThreadRow'
 import { useMailIdentity, useOnIdentityChange } from './hooks/useMailIdentity'
 import { MailTab } from './MailTabs'
@@ -33,6 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DsrtEmpty, DsrtButton, DsrtSkeleton } from '@/components/dsrt'
 
 interface Props {
   activeFolder: string
@@ -242,7 +242,6 @@ export function ThreadList({
     fetchThreads(true)
   })
 
-  // Phase 4: debounced realtime (replaces raw channel useEffect)
   const refreshList = useCallback(() => {
     fetchThreads(true)
   }, [fetchThreads])
@@ -254,7 +253,6 @@ export function ThreadList({
     onRefresh: refreshList,
   })
 
-  // ── Draft delete ──
   const deleteDrafts = async (ids: string[]) => {
     const results = await Promise.allSettled(
       ids.map((id) => fetch(`/api/mail/drafts/${id}`, { method: 'DELETE' }))
@@ -268,7 +266,6 @@ export function ThreadList({
     emitMailRefresh()
   }
 
-  // ── Optimistic single-thread patch ──
   const patchThreadState = async (
     threadId: string,
     updates: Record<string, any>,
@@ -551,9 +548,9 @@ export function ThreadList({
   const endIdx = Math.min((page + 1) * PAGE_SIZE, total)
 
   return (
-    <section className="flex-1 w-full bg-[#0a0a0f] flex flex-col min-h-0">
+    <section className="flex-1 w-full bg-[#05070D] flex flex-col min-h-0">
       {checked.size > 0 ? (
-        <div className="h-11 border-b border-white/[0.06] bg-white/[0.04] flex items-center justify-between px-3 flex-shrink-0">
+        <div className="h-11 border-b border-white/[0.06] bg-[#1e3a5f]/20 flex items-center justify-between px-3 flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setChecked(new Set())}
@@ -572,7 +569,7 @@ export function ThreadList({
                 onClick={() =>
                   handleBulkAction({ is_archived: true }, 'Archived')
                 }
-                className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
+                className="w-8 h-8 rounded-lg hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
                 title="Archive"
               >
                 <Archive className="w-3.5 h-3.5" />
@@ -582,7 +579,7 @@ export function ThreadList({
               onClick={() =>
                 handleBulkAction({ is_trashed: true, delete: true }, 'Deleted')
               }
-              className="w-7 h-7 rounded hover:bg-red-500/15 text-white/70 hover:text-red-400 flex items-center justify-center"
+              className="w-8 h-8 rounded-lg hover:bg-red-500/15 text-white/70 hover:text-red-400 flex items-center justify-center"
               title="Delete"
             >
               <Trash className="w-3.5 h-3.5" />
@@ -594,7 +591,7 @@ export function ThreadList({
                   onClick={() =>
                     handleBulkAction({ is_read: true }, 'Marked as read')
                   }
-                  className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
                   title="Mark read"
                 >
                   <EnvelopeOpen className="w-3.5 h-3.5" />
@@ -603,7 +600,7 @@ export function ThreadList({
                   onClick={() =>
                     handleBulkAction({ is_read: false }, 'Marked as unread')
                   }
-                  className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
                   title="Mark unread"
                 >
                   <Envelope className="w-3.5 h-3.5" />
@@ -611,7 +608,7 @@ export function ThreadList({
                 <div className="w-px h-4 bg-white/[0.1] mx-1" />
                 <button
                   onClick={() => setBulkSnoozeOpen(true)}
-                  className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
                   title="Snooze"
                 >
                   <Clock className="w-3.5 h-3.5" />
@@ -623,7 +620,7 @@ export function ThreadList({
                 onClick={() =>
                   handleBulkAction({ is_snoozed: false }, 'Unsnoozed')
                 }
-                className="w-7 h-7 rounded hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
+                className="w-8 h-8 rounded-lg hover:bg-white/[0.08] text-white/70 hover:text-white flex items-center justify-center"
                 title="Unsnooze"
               >
                 <ArrowClockwise className="w-3.5 h-3.5" />
@@ -633,10 +630,10 @@ export function ThreadList({
         </div>
       ) : (
         <div className="h-11 border-b border-white/[0.06] flex items-center justify-between px-3 flex-shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={toggleSelectAll}
-              className="w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center"
+              className="w-8 h-8 rounded-lg hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center shrink-0"
               title="Select all"
             >
               {threads.length > 0 && checked.size === threads.length ? (
@@ -645,32 +642,32 @@ export function ThreadList({
                 <Square className="w-3.5 h-3.5" />
               )}
             </button>
-            <div className="flex flex-col leading-tight">
-              <p className="text-[12.5px] font-bold text-white">{meta.title}</p>
+            <div className="flex flex-col leading-tight min-w-0">
+              <p className="text-[12.5px] font-semibold text-white truncate">{meta.title}</p>
               {unreadCount > 0 && !isDraftLike && (
-                <span className="text-[10px] text-white/50 font-medium">
+                <span className="text-[10px] text-white/40 font-mono">
                   {unreadCount} unread
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-0.5 shrink-0">
             {total > 0 && (
-              <div className="flex items-center gap-1 mr-2">
-                <span className="text-[10.5px] text-white/50 font-medium">
+              <div className="hidden sm:flex items-center gap-1 mr-2">
+                <span className="text-[10.5px] text-white/40 font-mono">
                   {startIdx}–{endIdx} of {total}
                 </span>
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="w-6 h-6 rounded hover:bg-white/[0.06] text-white/50 hover:text-white flex items-center justify-center disabled:opacity-30"
+                  className="w-7 h-7 rounded-lg hover:bg-white/[0.06] text-white/50 hover:text-white flex items-center justify-center disabled:opacity-30"
                 >
                   <CaretLeft className="w-3 h-3" weight="bold" />
                 </button>
                 <button
                   onClick={() => setPage((p) => p + 1)}
                   disabled={page >= totalPages - 1}
-                  className="w-6 h-6 rounded hover:bg-white/[0.06] text-white/50 hover:text-white flex items-center justify-center disabled:opacity-30"
+                  className="w-7 h-7 rounded-lg hover:bg-white/[0.06] text-white/50 hover:text-white flex items-center justify-center disabled:opacity-30"
                 >
                   <CaretRight className="w-3 h-3" weight="bold" />
                 </button>
@@ -680,7 +677,7 @@ export function ThreadList({
               onClick={() => fetchThreads(true)}
               disabled={refreshing}
               className={cn(
-                'w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center',
+                'w-8 h-8 rounded-lg hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center',
                 refreshing && 'text-white/70'
               )}
               title="Refresh"
@@ -692,7 +689,7 @@ export function ThreadList({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="w-7 h-7 rounded hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg hover:bg-white/[0.06] text-white/40 hover:text-white flex items-center justify-center"
                   title="More"
                 >
                   <DotsThree className="w-4 h-4" weight="bold" />
@@ -700,7 +697,7 @@ export function ThreadList({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-48 bg-[#0f0f11] border-white/[0.08] text-white rounded-xl shadow-2xl"
+                className="w-48 bg-[#0a0f1a] border-white/[0.08] text-white rounded-xl shadow-2xl"
               >
                 <DropdownMenuItem
                   onClick={() => fetchThreads(true)}
@@ -730,40 +727,30 @@ export function ThreadList({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         {loading || identityLoading ? (
           <div className="p-3 space-y-2">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-[72px] rounded-lg bg-white/[0.03] animate-pulse"
-              />
+              <DsrtSkeleton key={i} className="h-[72px] rounded-xl" />
             ))}
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <Warning className="w-6 h-6 text-red-400 mb-2" />
-            <p className="text-[13px] font-bold text-white mb-1">
-              Something went wrong
-            </p>
-            <p className="text-[11px] text-white/45 mb-3">{error}</p>
-            <button
-              onClick={() => fetchThreads(true)}
-              className="text-[11.5px] font-semibold px-3 py-1.5 rounded bg-white/[0.06] hover:bg-white/[0.1]"
-            >
-              Try again
-            </button>
-          </div>
+          <DsrtEmpty
+            icon={Warning}
+            title="Something went wrong"
+            description={error}
+            action={
+              <DsrtButton variant="outline" size="sm" onClick={() => fetchThreads(true)}>
+                Try again
+              </DsrtButton>
+            }
+          />
         ) : threads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <Envelope className="w-6 h-6 text-white/25 mb-2" />
-            <p className="text-[13px] font-bold text-white mb-1">
-              {searchQ ? 'No results' : meta.emptyTitle}
-            </p>
-            <p className="text-[11px] text-white/45 max-w-[240px]">
-              {searchQ ? `No messages match "${searchQ}"` : meta.emptyDesc}
-            </p>
-          </div>
+          <DsrtEmpty
+            icon={Envelope}
+            title={searchQ ? 'No results' : meta.emptyTitle}
+            description={searchQ ? `No messages match "${searchQ}"` : meta.emptyDesc}
+          />
         ) : (
           <div>
             {threads.map((t) => (
@@ -787,6 +774,31 @@ export function ThreadList({
           </div>
         )}
       </div>
+
+      {/* Mobile pagination */}
+      {total > PAGE_SIZE && (
+        <div className="sm:hidden flex items-center justify-between px-3 py-2 border-t border-white/[0.06]">
+          <DsrtButton
+            size="xs"
+            variant="ghost"
+            disabled={page === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+          >
+            <CaretLeft size={12} /> Prev
+          </DsrtButton>
+          <span className="text-[10px] font-mono text-white/40">
+            {startIdx}–{endIdx} of {total}
+          </span>
+          <DsrtButton
+            size="xs"
+            variant="ghost"
+            disabled={page >= totalPages - 1}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next <CaretRight size={12} />
+          </DsrtButton>
+        </div>
+      )}
 
       <SnoozeModal
         open={!!snoozeThread}

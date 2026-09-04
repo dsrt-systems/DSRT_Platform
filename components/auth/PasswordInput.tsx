@@ -1,7 +1,8 @@
+// filepath: components/auth/PasswordInput.tsx
 'use client'
 
 import { useState, forwardRef, InputHTMLAttributes } from 'react'
-import { Eye, EyeSlash, Lock } from '@phosphor-icons/react'
+import { Eye, EyeSlash, LockKey } from '@phosphor-icons/react'
 import { AuthInput } from './AuthInput'
 
 interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
@@ -18,15 +19,15 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         {...props}
         ref={ref}
         type={show ? 'text' : 'password'}
-        leading={<Lock className="w-4 h-4" weight="regular" />}
+        leading={<LockKey className="w-[18px] h-[18px]" weight="regular" />}
         trailing={
           <button
             type="button"
             onClick={() => setShow(!show)}
-            className="text-white/40 hover:text-white/70 transition-colors"
+            className="text-white/30 hover:text-white/70 transition-colors"
             tabIndex={-1}
           >
-            {show ? <EyeSlash className="w-4 h-4" weight="regular" /> : <Eye className="w-4 h-4" weight="regular" />}
+            {show ? <EyeSlash className="w-[18px] h-[18px]" weight="regular" /> : <Eye className="w-[18px] h-[18px]" weight="regular" />}
           </button>
         }
       />

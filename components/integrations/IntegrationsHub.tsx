@@ -7,8 +7,8 @@ import Link from 'next/link'
 import { Github, Linkedin, Twitter, Youtube, Instagram, Figma, Rocket, Music, ShieldCheck, Info, RefreshCw, Check, ExternalLink } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import { RepoPicker } from './RepoPicker'
+import { DsrtSection, DsrtPanel, DsrtButton, DsrtChip } from '@/components/dsrt'
 
 interface IntegrationsHubProps {
   integrations: any[]
@@ -17,10 +17,7 @@ interface IntegrationsHubProps {
 
 const providers = [
   {
-    id: 'github',
-    name: 'GitHub',
-    icon: Github,
-    color: 'from-gray-700 to-gray-900',
+    id: 'github', name: 'GitHub', icon: Github,
     description: 'Sync your code contributions, commits, and repo activity',
     audience: 'Developers, Engineers, Technical Founders',
     tracked: ['Commit frequency', 'Repository stats', 'Contribution graph', 'Language breakdown'],
@@ -28,10 +25,7 @@ const providers = [
     available: true,
   },
   {
-    id: 'linkedin',
-    name: 'LinkedIn',
-    icon: Linkedin,
-    color: 'from-blue-600 to-blue-800',
+    id: 'linkedin', name: 'LinkedIn', icon: Linkedin,
     description: 'Import work history, skills, and professional network',
     audience: 'All professionals across every industry',
     tracked: ['Work history', 'Skills endorsements', 'Company connections', 'Certifications'],
@@ -39,10 +33,7 @@ const providers = [
     available: false,
   },
   {
-    id: 'twitter',
-    name: 'X (Twitter)',
-    icon: Twitter,
-    color: 'from-black to-gray-800',
+    id: 'twitter', name: 'X (Twitter)', icon: Twitter,
     description: 'Track your public voice and thought leadership metrics',
     audience: 'Thinkers, writers, communicators in any field',
     tracked: ['Post frequency', 'Engagement metrics', 'Topics tweeted'],
@@ -50,10 +41,7 @@ const providers = [
     available: false,
   },
   {
-    id: 'youtube',
-    name: 'YouTube',
-    icon: Youtube,
-    color: 'from-red-600 to-red-800',
+    id: 'youtube', name: 'YouTube', icon: Youtube,
     description: 'Track your content creation and audience growth',
     audience: 'Creators, educators, researchers publishing video',
     tracked: ['Videos published', 'View counts', 'Subscriber growth', 'Content categories'],
@@ -61,10 +49,7 @@ const providers = [
     available: false,
   },
   {
-    id: 'instagram',
-    name: 'Instagram',
-    icon: Instagram,
-    color: 'from-pink-500 to-purple-600',
+    id: 'instagram', name: 'Instagram', icon: Instagram,
     description: 'Track your visual portfolio and creative work',
     audience: 'Designers, artists, photographers, chefs, creators',
     tracked: ['Post frequency', 'Engagement rate', 'Content categories'],
@@ -72,10 +57,7 @@ const providers = [
     available: false,
   },
   {
-    id: 'behance',
-    name: 'Behance',
-    icon: Figma,
-    color: 'from-blue-500 to-indigo-700',
+    id: 'behance', name: 'Behance', icon: Figma,
     description: 'Showcase your design portfolio automatically',
     audience: 'Designers, illustrators, creative professionals',
     tracked: ['Projects published', 'Views, appreciations', 'Skills tagged'],
@@ -83,10 +65,7 @@ const providers = [
     available: false,
   },
   {
-    id: 'producthunt',
-    name: 'Product Hunt',
-    icon: Rocket,
-    color: 'from-orange-500 to-red-500',
+    id: 'producthunt', name: 'Product Hunt', icon: Rocket,
     description: 'Track your product launches and community impact',
     audience: 'Makers, founders, product creators',
     tracked: ['Launches', 'Upvotes received', 'Comments'],
@@ -94,10 +73,7 @@ const providers = [
     available: false,
   },
   {
-    id: 'spotify',
-    name: 'Spotify for Artists',
-    icon: Music,
-    color: 'from-green-500 to-emerald-700',
+    id: 'spotify', name: 'Spotify for Artists', icon: Music,
     description: 'Track your music, podcasts, and audio content',
     audience: 'Musicians, podcasters, audio creators',
     tracked: ['Releases', 'Play counts', 'Listener demographics (aggregate)'],
@@ -120,16 +96,11 @@ export function IntegrationsHub({ integrations, trackedRepos }: IntegrationsHubP
     const error = searchParams.get('error')
 
     if (success === 'github_connected') {
-      toast.success('GitHub connected successfully', {
-        description: 'Choose which repositories to track.',
-      })
+      toast.success('GitHub connected', { description: 'Choose which repositories to track.' })
       setTimeout(() => setShowRepoPicker(true), 500)
     }
-
     if (error) {
-      toast.error('Connection failed', {
-        description: error.replace(/_/g, ' '),
-      })
+      toast.error('Connection failed', { description: error.replace(/_/g, ' ') })
     }
   }, [searchParams])
 
@@ -143,11 +114,7 @@ export function IntegrationsHub({ integrations, trackedRepos }: IntegrationsHubP
 
   const handleDisconnect = async (providerId: string) => {
     if (!confirm(`Disconnect ${providerId}? All tracked data will be removed.`)) return
-
-    const res = await fetch(`/api/integrations/${providerId}/disconnect`, {
-      method: 'POST',
-    })
-
+    const res = await fetch(`/api/integrations/${providerId}/disconnect`, { method: 'POST' })
     if (res.ok) {
       toast.success(`${providerId} disconnected`)
       router.refresh()
@@ -159,20 +126,15 @@ export function IntegrationsHub({ integrations, trackedRepos }: IntegrationsHubP
   const handleSync = async () => {
     setSyncing(true)
     try {
-      const res = await fetch('/api/integrations/github/sync', {
-        method: 'POST',
-      })
+      const res = await fetch('/api/integrations/github/sync', { method: 'POST' })
       const data = await res.json()
-
       if (res.ok) {
-        toast.success(`Synced ${data.synced} commits`, {
-          description: 'Your build analytics are updated.',
-        })
+        toast.success(`Synced ${data.synced} commits`, { description: 'Your build analytics are updated.' })
         router.refresh()
       } else {
         toast.error('Sync failed', { description: data.error })
       }
-    } catch (err) {
+    } catch {
       toast.error('Sync failed')
     } finally {
       setSyncing(false)
@@ -181,33 +143,29 @@ export function IntegrationsHub({ integrations, trackedRepos }: IntegrationsHubP
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Connect your digital identity across platforms. DSRT becomes your central hub.
-        </p>
-      </div>
+      <DsrtSection
+        title="Integrations"
+        description="Connect your digital identity across platforms. DSRT becomes your central hub."
+        headerVariant="large"
+      />
 
       {/* Privacy Manifesto Card */}
-      <div className="bg-gradient-to-br from-blue-500/5 to-purple-500/5 border border-blue-500/20 rounded-xl p-5 space-y-3">
+      <DsrtPanel variant="accent" padding="md">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold">Privacy-First Integration</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              We analyze <strong className="text-foreground">behavior and metadata</strong>, never content.
+          <ShieldCheck className="w-5 h-5 text-white flex-shrink-0 mt-0.5" strokeWidth={1.75} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold text-white">Privacy-First Integration</p>
+            <p className="text-[12px] text-white/80 mt-1 leading-relaxed">
+              We analyze <strong className="text-white">behavior and metadata</strong>, never content.
               We look at HOW you build, not WHAT you build.
             </p>
-            <Link 
-              href="/settings/privacy" 
-              className="text-xs text-blue-500 hover:underline inline-flex items-center gap-1 mt-2"
-            >
+            <Link href="/settings/privacy" className="text-[12px] font-semibold text-white/90 hover:text-white underline underline-offset-2 inline-flex items-center gap-1 mt-2">
               Read full privacy policy
               <ExternalLink className="w-3 h-3" />
             </Link>
           </div>
         </div>
-      </div>
+      </DsrtPanel>
 
       {/* Integration Cards */}
       <div className="space-y-3">
@@ -217,148 +175,101 @@ export function IntegrationsHub({ integrations, trackedRepos }: IntegrationsHubP
           const isExpanded = expandedProvider === provider.id
 
           return (
-            <motion.div
-              key={provider.id}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card border rounded-xl overflow-hidden"
-            >
-              <div className="p-4">
-                <div className="flex items-center gap-4">
-                  <div className={cn(
-                    'w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center flex-shrink-0',
-                    provider.color
-                  )}>
-                    <Icon className="w-6 h-6 text-white" strokeWidth={2} />
-                  </div>
+            <motion.div key={provider.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+              <DsrtPanel padding="none" className="overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-wrap">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0f172a] to-[#1e3a5f] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-5 h-5 text-white/80" strokeWidth={1.75} />
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold">{provider.name}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-[14px] font-bold text-white">{provider.name}</p>
+                        {connected && (
+                          <DsrtChip size="sm" tone="success">
+                            <Check className="w-3 h-3" />
+                            Connected
+                          </DsrtChip>
+                        )}
+                        {!provider.available && !connected && (
+                          <DsrtChip size="sm" tone="neutral">Coming Soon</DsrtChip>
+                        )}
+                      </div>
+                      <p className="text-[12px] text-white/60 mt-1">{provider.description}</p>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-white/40 mt-1.5 italic">
+                        For: {provider.audience}
+                      </p>
                       {connected && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-medium rounded-md">
-                          <Check className="w-3 h-3" />
-                          Connected
-                        </span>
-                      )}
-                      {!provider.available && !connected && (
-                        <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                          Coming Soon
-                        </span>
+                        <p className="text-[10px] text-white/50 mt-1.5 font-mono">
+                          @{connected.provider_username}
+                          {connected.last_synced_at && ` · Last synced ${new Date(connected.last_synced_at).toLocaleString()}`}
+                        </p>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {provider.description}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-1 italic">
-                      For: {provider.audience}
-                    </p>
-                    {connected && (
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Connected as <strong>@{connected.provider_username}</strong>
-                        {connected.last_synced_at && (
-                          <> · Last synced {new Date(connected.last_synced_at).toLocaleString()}</>
-                        )}
-                      </p>
-                    )}
+
+                    <div className="flex gap-2 flex-wrap w-full sm:w-auto">
+                      <DsrtButton size="xs" variant="ghost" onClick={() => setExpandedProvider(isExpanded ? null : provider.id)}>
+                        <Info className="w-4 h-4" />
+                      </DsrtButton>
+                      {connected ? (
+                        <>
+                          {provider.id === 'github' && (
+                            <>
+                              <DsrtButton size="xs" variant="outline" onClick={() => setShowRepoPicker(true)}>
+                                Manage Repos ({trackedRepos.length})
+                              </DsrtButton>
+                              <DsrtButton size="xs" variant="outline" onClick={handleSync} loading={syncing}>
+                                <RefreshCw className={cn('w-3 h-3', syncing && 'animate-spin')} />
+                                Sync
+                              </DsrtButton>
+                            </>
+                          )}
+                          <DsrtButton size="xs" variant="ghost" onClick={() => handleDisconnect(provider.id)} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                            Disconnect
+                          </DsrtButton>
+                        </>
+                      ) : (
+                        <DsrtButton size="xs" variant="primary" onClick={() => handleConnect(provider.id)} disabled={!provider.available}>
+                          Connect
+                        </DsrtButton>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setExpandedProvider(isExpanded ? null : provider.id)}
-                    >
-                      <Info className="w-4 h-4" />
-                    </Button>
-                    {connected ? (
-                      <>
-                        {provider.id === 'github' && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setShowRepoPicker(true)}
-                            >
-                              Manage Repos ({trackedRepos.length})
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={handleSync}
-                              disabled={syncing}
-                            >
-                              <RefreshCw className={cn('w-3 h-3 mr-1', syncing && 'animate-spin')} />
-                              {syncing ? 'Syncing...' : 'Sync Now'}
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDisconnect(provider.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          Disconnect
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => handleConnect(provider.id)}
-                        disabled={!provider.available}
-                      >
-                        Connect
-                      </Button>
-                    )}
-                  </div>
+                  {isExpanded && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-4 pt-4 border-t border-white/[0.06] space-y-3">
+                      <div>
+                        <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-400 mb-2">What we track</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {provider.tracked.map(item => (
+                            <span key={item} className="text-[11px] px-2 py-1 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md font-medium">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-red-400 mb-2">What we NEVER access</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {provider.notTracked.map(item => (
+                            <span key={item} className="text-[11px] px-2 py-1 bg-red-500/10 text-red-300 border border-red-500/20 rounded-md font-medium">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
-
-                {isExpanded && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-4 pt-4 border-t space-y-3"
-                  >
-                    <div>
-                      <p className="text-xs font-semibold text-green-500 mb-1.5">
-                        ✓ What we track
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {provider.tracked.map(item => (
-                          <span key={item} className="text-[11px] px-2 py-0.5 bg-green-500/10 text-green-500 rounded-md">
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-red-500 mb-1.5">
-                        ✗ What we NEVER access
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {provider.notTracked.map(item => (
-                          <span key={item} className="text-[11px] px-2 py-0.5 bg-red-500/10 text-red-500 rounded-md">
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
+              </DsrtPanel>
             </motion.div>
           )
         })}
       </div>
 
       {showRepoPicker && connectedMap.has('github') && (
-        <RepoPicker
-          onClose={() => {
-            setShowRepoPicker(false)
-            router.refresh()
-          }}
-        />
+        <RepoPicker onClose={() => { setShowRepoPicker(false); router.refresh() }} />
       )}
     </div>
   )

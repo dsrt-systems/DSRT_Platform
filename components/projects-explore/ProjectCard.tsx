@@ -10,6 +10,7 @@ import {
 } from '@phosphor-icons/react'
 import { ExploreProjectCard } from '@/lib/project-explore/types'
 import { getProjectAffinityLearner } from '@/lib/project-explore/affinity-learner'
+import { DsrtPanel, DsrtAvatar, DsrtChip } from '@/components/dsrt'
 
 interface ProjectCardProps {
   project: ExploreProjectCard
@@ -40,7 +41,6 @@ export function ProjectCard({
     .filter(Boolean)
     .map(s => (s as string).toLowerCase())
 
-  // ─── Impression tracking + long-view detection ───
   useEffect(() => {
     if (!cardRef.current || impressionFiredRef.current) return
 
@@ -50,7 +50,6 @@ export function ProjectCard({
         if (entry.isIntersecting && !impressionFiredRef.current) {
           impressionFiredRef.current = true
 
-          // Fire impression event (analytics)
           fetch('/api/projects/explore/impression', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -63,14 +62,12 @@ export function ProjectCard({
             keepalive: true,
           }).catch(() => {})
 
-          // Fire "view" affinity signal
           getProjectAffinityLearner().track({
             project_id: project.id,
             action: 'view',
             domain_slugs: domainSlugs,
           })
 
-          // Start long-view timer (fires after 3s)
           longViewTimerRef.current = setTimeout(() => {
             getProjectAffinityLearner().track({
               project_id: project.id,
@@ -95,7 +92,6 @@ export function ProjectCard({
     }
   }, [project.id, position, moduleType])
 
-  // ─── Handlers ───
   const handleCardClick = () => {
     getProjectAffinityLearner().track({
       project_id: project.id,
@@ -139,7 +135,7 @@ export function ProjectCard({
         })
       }
     } catch {
-      setIsSaved(wasSaved) // revert
+      setIsSaved(wasSaved)
       toast.error('Could not update saved status')
     }
   }
@@ -161,22 +157,23 @@ export function ProjectCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project_id: project.id, reason: 'not_relevant' }),
       })
-      toast.info('Project hidden from your recommendations')
+      toast.info('Project hidden from recommendations')
     } catch {}
   }
 
-  // Meta tag composition
   const domainTags = (project.domains || []).slice(0, 2)
   const techTags = (project.technologies || project.tech_stack || []).slice(0, 3)
 
   return (
-    <div
-      ref={cardRef}
+    <DsrtPanel
+      ref={cardRef as any}
+      padding="none"
+      variant="default"
+      className="group cursor-pointer hover:border-white/[0.14] transition-all flex flex-col overflow-hidden"
       onClick={handleCardClick}
-      className="group bg-[#121215] border border-white/[0.06] hover:border-white/[0.14] rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 flex flex-col shadow-sm"
     >
-      {/* Thumbnail */}
-      <div className="relative w-full aspect-[16/9] bg-[#09090b] border-b border-white/[0.04] overflow-hidden">
+      {/* Cover / Thumbnail */}
+      <div className="relative w-full aspect-[16/9] bg-[#05070D] border-b border-white/[0.06] overflow-hidden">
         {project.cover_image_url ? (
           <img
             src={project.cover_image_url}
@@ -185,57 +182,52 @@ export function ProjectCard({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-900 to-zinc-950">
-            <span className="text-3xl font-bold text-zinc-700">
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0f172a] to-[#0a0a0f]">
+            <span className="text-3xl font-bold text-white/20">
               {project.name[0]?.toUpperCase()}
             </span>
           </div>
         )}
 
         {/* Logo overlay */}
-        <div className="absolute bottom-3 left-3 w-10 h-10 rounded-xl bg-[#09090b] border border-white/[0.12] p-0.5 shadow-lg overflow-hidden">
+        <div className="absolute bottom-3 left-3 w-10 h-10 rounded-xl bg-[#05070D] border border-white/[0.12] p-0.5 shadow-lg overflow-hidden">
           {project.logo_url ? (
             <img src={project.logo_url} alt="" className="w-full h-full object-cover rounded-lg" />
           ) : (
-            <div className="w-full h-full bg-zinc-800 rounded-lg flex items-center justify-center text-xs font-bold text-white">
+            <div className="w-full h-full bg-white/[0.04] rounded-lg flex items-center justify-center text-xs font-bold text-white">
               {project.name[0]?.toUpperCase()}
             </div>
           )}
         </div>
 
-        {/* Reason label (contextual) */}
         {project.reason_label && (
-          <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-mono text-zinc-300 uppercase tracking-wider shadow-sm">
+          <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded bg-black/70 backdrop-blur-md border border-white/10 text-[9px] font-mono text-white/70 uppercase tracking-wider">
             {project.reason_label}
           </div>
         )}
 
-        {/* Save button (top right, overlays cover) */}
         <button
           onClick={handleToggleSave}
           className={`absolute top-2.5 right-2.5 w-7 h-7 rounded-lg flex items-center justify-center transition-all backdrop-blur-md ${
-            isSaved
-              ? 'bg-black/60 text-white'
-              : 'bg-black/40 text-zinc-300 hover:bg-black/70 hover:text-white'
+            isSaved ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-black/40 text-white/70 hover:bg-black/70 hover:text-white'
           }`}
           aria-label={isSaved ? 'Unsave' : 'Save'}
         >
-          <BookmarkSimple size={13} weight={isSaved ? 'fill' : 'regular'} />
+          <BookmarkSimple size={14} weight={isSaved ? 'fill' : 'regular'} />
         </button>
       </div>
 
-      {/* Content */}
-      <div className="p-4 flex-1 flex flex-col space-y-3">
-        <div>
-          {/* Name row */}
+      {/* Body */}
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+        <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <h3 className="text-[15px] font-bold text-white truncate group-hover:text-zinc-200 transition-colors">
+                <h3 className="text-[15px] font-bold text-white truncate tracking-tight">
                   {project.name}
                 </h3>
                 {project.is_dsrt_verified && (
-                  <CheckCircle size={14} weight="fill" className="text-purple-400 shrink-0" />
+                  <CheckCircle size={14} weight="fill" className="text-[#93c5fd] shrink-0" />
                 )}
               </div>
             </div>
@@ -243,7 +235,7 @@ export function ProjectCard({
             <div className="relative shrink-0">
               <button
                 onClick={e => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
-                className="w-7 h-7 rounded-lg text-zinc-500 hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+                className="w-7 h-7 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.08] flex items-center justify-center transition-colors"
               >
                 <DotsThree size={18} weight="bold" />
               </button>
@@ -251,23 +243,23 @@ export function ProjectCard({
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={e => { e.stopPropagation(); setMenuOpen(false) }} />
-                  <div className="absolute right-0 top-full mt-1 z-40 w-44 bg-[#0d0d10] border border-white/[0.1] rounded-xl shadow-2xl p-1 space-y-0.5">
+                  <div className="absolute right-0 top-full mt-1 z-40 w-44 bg-[#0a0f1a] border border-white/[0.1] rounded-xl shadow-2xl p-1 space-y-0.5">
                     <button
                       onClick={e => { e.stopPropagation(); handleCardClick() }}
-                      className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors"
+                      className="w-full text-left px-3 py-1.5 text-[12px] font-medium text-white/80 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
                     >
                       Open project
                     </button>
                     <button
                       onClick={handleShare}
-                      className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.04] rounded-lg transition-colors flex items-center gap-1.5"
+                      className="w-full text-left px-3 py-1.5 text-[12px] font-medium text-white/80 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors flex items-center gap-1.5"
                     >
                       <ShareNetwork size={12} /> Share link
                     </button>
                     <div className="h-px bg-white/[0.06] my-1" />
                     <button
                       onClick={handleDismiss}
-                      className="w-full text-left px-3 py-1.5 text-[12px] font-semibold text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors flex items-center gap-1.5"
+                      className="w-full text-left px-3 py-1.5 text-[12px] font-medium text-amber-300 hover:bg-amber-500/10 rounded-lg transition-colors flex items-center gap-1.5"
                     >
                       <EyeSlash size={12} /> Not interested
                     </button>
@@ -277,43 +269,30 @@ export function ProjectCard({
             </div>
           </div>
 
-          {/* Tagline (2 lines) */}
           {(project.tagline || project.short_description) && (
-            <p className="text-[12.5px] text-zinc-400 line-clamp-2 mt-1 leading-snug">
+            <p className="text-[12.5px] text-white/60 line-clamp-2 leading-relaxed">
               {project.tagline || project.short_description}
             </p>
           )}
 
-          {/* Domain + stage + location chips */}
-          <div className="flex items-center gap-1.5 flex-wrap mt-3">
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
             {domainTags.map((d, i) => (
-              <span
-                key={`d-${i}`}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-white/[0.04] text-zinc-300 border border-white/[0.08]"
-              >
-                {d}
-              </span>
+              <DsrtChip key={`d-${i}`} size="sm" tone="accent">{d}</DsrtChip>
             ))}
             {project.stage && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-white/[0.06] text-white border border-white/[0.12] capitalize">
-                {project.stage}
-              </span>
+              <DsrtChip size="sm" tone="neutral">{project.stage}</DsrtChip>
             )}
             {project.location && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-white/[0.03] text-zinc-400 border border-white/[0.06]">
-                <MapPin size={9} /> {project.location.split(',')[0]}
+              <span className="text-[10px] text-white/40 flex items-center gap-1">
+                <MapPin size={10} /> {project.location.split(',')[0]}
               </span>
             )}
           </div>
 
-          {/* Tech chips (below meta) */}
           {techTags.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap mt-2">
+            <div className="flex items-center gap-1 flex-wrap pt-0.5">
               {techTags.map((t, i) => (
-                <span
-                  key={`t-${i}`}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/[0.02] border border-white/[0.05] text-zinc-500"
-                >
+                <span key={`t-${i}`} className="text-[10px] font-mono text-white/40 bg-white/[0.03] px-1.5 py-0.5 rounded border border-white/[0.04]">
                   {t}
                 </span>
               ))}
@@ -321,52 +300,38 @@ export function ProjectCard({
           )}
         </div>
 
-        {/* Footer: founder + hiring/open-source */}
-        <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between text-[11.5px] text-zinc-400 mt-auto">
+        {/* Footer */}
+        <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between text-[11px] text-white/40">
           {project.founder ? (
             <Link
               href={`/profile/${project.founder.username}`}
               onClick={e => e.stopPropagation()}
               className="flex items-center gap-1.5 hover:text-white transition-colors min-w-0"
             >
-              <div className="w-5 h-5 rounded-full bg-zinc-800 border border-white/10 overflow-hidden shrink-0">
-                {project.founder.avatar_url ? (
-                  <img src={project.founder.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="w-full h-full flex items-center justify-center text-[9px] font-bold text-white">
-                    {project.founder.full_name[0]}
-                  </span>
-                )}
-              </div>
+              <DsrtAvatar src={project.founder.avatar_url} name={project.founder.full_name} size="xs" />
               <span className="truncate">{project.founder.full_name}</span>
             </Link>
           ) : (
-            <span className="flex items-center gap-1">
-              <Users size={12} weight="duotone" /> {project.team_size || 1}
+            <span className="flex items-center gap-1 font-mono">
+              <Users size={12} /> {project.team_size || 1}
             </span>
           )}
 
           <div className="flex items-center gap-1.5">
             {project.is_open_source && (
-              <span className="px-1.5 py-0.5 rounded bg-white/[0.05] text-zinc-300 font-semibold text-[10px] border border-white/[0.1] flex items-center gap-1">
+              <span className="px-1.5 py-0.5 rounded bg-white/[0.04] text-white/70 font-mono text-[9px] border border-white/[0.08] flex items-center gap-1">
                 <GitBranch size={9} /> OSS
               </span>
             )}
-            {project.collaboration_status === 'looking_for_collaborators' && (
-              <span className="px-2 py-0.5 rounded bg-white/[0.06] text-white font-semibold text-[10.5px] border border-white/[0.12] flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Collab
-              </span>
-            )}
             {project.is_hiring && (
-              <span className="px-2 py-0.5 rounded bg-white/[0.06] text-white font-semibold text-[10.5px] border border-white/[0.12] flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-mono text-[9.5px] border border-emerald-500/20 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 Hiring
               </span>
             )}
           </div>
         </div>
       </div>
-    </div>
+    </DsrtPanel>
   )
 }

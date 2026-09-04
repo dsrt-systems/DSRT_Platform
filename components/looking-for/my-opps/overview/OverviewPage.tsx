@@ -10,7 +10,7 @@ export function OverviewPage() {
     <div className="space-y-6">
       <SummaryMetrics />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6 items-start">
         <AttentionRequired />
         <RecentActivity />
       </div>

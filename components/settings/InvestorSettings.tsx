@@ -3,11 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { SectorSelector } from '@/components/shared/SectorSelector'
 import { DollarSign } from 'lucide-react'
+import { SectorSelector } from '@/components/shared/SectorSelector'
+import { DsrtPanel, DsrtButton } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
 interface InvestorSettingsProps {
   profile: any
@@ -20,9 +19,7 @@ export function InvestorSettings({ profile }: InvestorSettingsProps) {
   const [isInvestor, setIsInvestor] = useState(profile.is_investor || false)
   const [investorType, setInvestorType] = useState(profile.investor_type || '')
   const [checkSize, setCheckSize] = useState(profile.check_size || '')
-  const [focusSectors, setFocusSectors] = useState<string[]>(
-    profile.focus_sectors || []
-  )
+  const [focusSectors, setFocusSectors] = useState<string[]>(profile.focus_sectors || [])
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
@@ -38,54 +35,53 @@ export function InvestorSettings({ profile }: InvestorSettingsProps) {
       .eq('id', profile.id)
     setSaving(false)
     router.refresh()
-    if (isInvestor) {
-      router.push('/investor')
-    }
+    if (isInvestor) router.push('/investor')
   }
 
   return (
-    <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-6 space-y-6">
+    <DsrtPanel padding="md" className="space-y-5">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <DollarSign className="w-5 h-5 text-primary" />
+        <div className="w-10 h-10 rounded-lg bg-[#1e3a5f]/40 border border-[#2c5282]/40 text-[#93c5fd] flex items-center justify-center shrink-0">
+          <DollarSign className="w-4 h-4" strokeWidth={1.75} />
         </div>
-        <div className="flex-1">
-          <h2 className="font-semibold">Investor Profile</h2>
-          <p className="text-xs text-muted-foreground">
-            Enable this if you invest in startups
+        <div className="flex-1 min-w-0">
+          <h2 className="text-[14px] font-bold text-white">Investor Profile</h2>
+          <p className="text-[11px] font-mono uppercase tracking-wider text-white/40 mt-0.5">
+            Enable if you invest in startups
           </p>
         </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isInvestor}
-            onChange={(e) => setIsInvestor(e.target.checked)}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-muted peer-checked:bg-primary rounded-full peer relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
+        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+          <input type="checkbox" checked={isInvestor} onChange={(e) => setIsInvestor(e.target.checked)} className="sr-only peer" />
+          <div className={cn(
+            "w-10 h-5 rounded-full peer transition-colors relative border",
+            isInvestor
+              ? "bg-gradient-to-b from-[#1e3a5f] to-[#2c5282] border-[#2c5282]/50"
+              : "bg-white/[0.06] border-white/[0.1]"
+          )}>
+            <div className={cn(
+              "absolute top-[2px] left-[2px] bg-white rounded-full h-4 w-4 transition-all shadow-md",
+              isInvestor && "translate-x-5"
+            )} />
+          </div>
         </label>
       </div>
 
       {isInvestor && (
-        <div className="space-y-4 pt-4 border-t border-border/40">
+        <div className="space-y-5 pt-4 border-t border-white/[0.06]">
           <div className="space-y-2">
-            <Label>Investor Type</Label>
+            <label className="text-[11px] font-mono uppercase tracking-wider text-white/50">Investor Type</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {[
-                'Angel',
-                'VC Firm',
-                'Accelerator',
-                'Family Office',
-              ].map((t) => (
+              {['Angel', 'VC Firm', 'Accelerator', 'Family Office'].map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setInvestorType(t)}
-                  className={`p-2 text-sm rounded-lg border-2 transition-all ${
+                  className={cn(
+                    'p-2.5 text-[12px] font-semibold rounded-lg border transition-all',
                     investorType === t
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border/40'
-                  }`}
+                      ? 'border-[#2c5282] bg-[#1e3a5f]/40 text-white'
+                      : 'border-white/[0.08] bg-white/[0.02] text-white/60 hover:text-white hover:border-white/[0.16]'
+                  )}
                 >
                   {t}
                 </button>
@@ -94,23 +90,19 @@ export function InvestorSettings({ profile }: InvestorSettingsProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Typical Check Size</Label>
+            <label className="text-[11px] font-mono uppercase tracking-wider text-white/50">Typical Check Size</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {[
-                '< $25k',
-                '$25k - $100k',
-                '$100k - $500k',
-                '$500k+',
-              ].map((s) => (
+              {['< $25k', '$25k - $100k', '$100k - $500k', '$500k+'].map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setCheckSize(s)}
-                  className={`p-2 text-sm rounded-lg border-2 transition-all ${
+                  className={cn(
+                    'p-2.5 text-[12px] font-semibold rounded-lg border transition-all',
                     checkSize === s
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border/40'
-                  }`}
+                      ? 'border-[#2c5282] bg-[#1e3a5f]/40 text-white'
+                      : 'border-white/[0.08] bg-white/[0.02] text-white/60 hover:text-white hover:border-white/[0.16]'
+                  )}
                 >
                   {s}
                 </button>
@@ -119,23 +111,15 @@ export function InvestorSettings({ profile }: InvestorSettingsProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Focus Sectors</Label>
-            <SectorSelector
-              selected={focusSectors}
-              onChange={setFocusSectors}
-              max={8}
-            />
+            <label className="text-[11px] font-mono uppercase tracking-wider text-white/50">Focus Sectors</label>
+            <SectorSelector selected={focusSectors} onChange={setFocusSectors} max={8} />
           </div>
         </div>
       )}
 
-      <Button
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full"
-      >
-        {saving ? 'Saving...' : 'Save Changes'}
-      </Button>
-    </div>
+      <DsrtButton onClick={handleSave} loading={saving} variant="primary" fullWidth>
+        Save Changes
+      </DsrtButton>
+    </DsrtPanel>
   )
 }

@@ -5,10 +5,9 @@ import { QrCode, CheckCircle2, Loader2, X, Camera, RefreshCcw } from 'lucide-rea
 import { toast } from '@/components/ui/sonner'
 import { useEventAttendance } from '@/hooks/useEvents'
 import { formatDistanceToNow } from 'date-fns'
+import { DsrtPanel, DsrtInput, DsrtButton, DsrtGrid, DsrtSection, DsrtEmpty } from '@/components/dsrt'
 
-interface Props {
-  eventId: string
-}
+interface Props { eventId: string }
 
 export function LiveCheckinPanel({ eventId }: Props) {
   const [tokenInput, setTokenInput] = useState('')
@@ -24,8 +23,7 @@ export function LiveCheckinPanel({ eventId }: Props) {
     if (!t) return
     startTransition(async () => {
       const res = await fetch('/api/v1/events/checkin/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: t, device_id: 'admin-desk' }),
       })
       const json = await res.json()
@@ -45,81 +43,72 @@ export function LiveCheckinPanel({ eventId }: Props) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-[1fr_360px]">
-      <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-white/[0.01] p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <QrCode className="w-4 h-4 text-white/70" strokeWidth={1.75} />
-          <p className="label-mono text-white/60">Live check-in</p>
-        </div>
-        <p className="text-[13px] text-white/70 mb-4">
-          Focus the input and scan attendee QR codes. Duplicate scans are shown but never double-count.
+    <DsrtGrid cols={{ base: 1, lg: 2 }} gap="lg">
+      <DsrtPanel>
+        <DsrtSection title="Manual Check-in" headerVariant="mono" className="mb-4" />
+        <p className="text-[13px] text-white/60 mb-5 leading-relaxed">
+          Focus the input and use a USB QR scanner, or manually paste a check-in token. Duplicate scans are ignored.
         </p>
         <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            value={tokenInput}
-            onChange={(e) => setTokenInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-            placeholder="Scan or paste check-in token…"
-            className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.02] focus:border-white/[0.18] outline-none px-3 py-2.5 text-[13px] text-white placeholder:text-white/30 font-mono"
-          />
-          <button
-            onClick={() => submit()}
-            disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-full bg-white text-black hover:bg-zinc-100 px-4 py-2 text-[12px] font-semibold transition-colors"
-          >
-            {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" strokeWidth={1.75} />}
-            Check in
-          </button>
+          <div className="flex-1">
+            <DsrtInput
+              ref={inputRef}
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+              placeholder="Scan or paste token..."
+              icon={<QrCode size={14} />}
+            />
+          </div>
+          <DsrtButton variant="primary" loading={pending} onClick={() => submit()}>
+            <Camera size={14} className="mr-1.5" /> Scan
+          </DsrtButton>
         </div>
 
         {lastResult && !lastResult.error && (
-          <div className="mt-4 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.05] p-3 flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-300" strokeWidth={1.75} />
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-white">
+          <div className="mt-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <div>
+              <p className="text-[13px] font-bold text-emerald-100">
                 {lastResult.already_checked_in ? 'Already checked in' : 'Checked in'} · #{lastResult.registration_number}
               </p>
-              <p className="text-[11px] text-white/55 font-mono">
+              <p className="text-[10px] font-mono text-emerald-400/60 mt-0.5">
                 {new Date(lastResult.checked_in_at).toLocaleTimeString()}
               </p>
             </div>
           </div>
         )}
         {lastResult?.error && (
-          <div className="mt-4 rounded-lg border border-red-500/25 bg-red-500/[0.05] p-3 flex items-center gap-3">
-            <X className="w-5 h-5 text-red-300" strokeWidth={1.75} />
-            <p className="text-[13px] text-white/80">{lastResult.message || 'Scan failed'}</p>
+          <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
+            <X className="w-5 h-5 text-red-400" />
+            <p className="text-[13px] font-bold text-red-200">{lastResult.message || 'Scan failed'}</p>
           </div>
         )}
-      </div>
+      </DsrtPanel>
 
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
-        <div className="flex items-center justify-between mb-3">
-          <p className="label-mono text-white/60">Recent check-ins ({items.length})</p>
-          <button onClick={reload} className="text-white/50 hover:text-white transition-colors">
-            <RefreshCcw className="w-3.5 h-3.5" strokeWidth={1.75} />
-          </button>
+      <DsrtPanel padding="none" className="overflow-hidden h-full flex flex-col max-h-[500px]">
+        <div className="flex items-center justify-between p-4 border-b border-white/[0.06]">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-white/50">Recent Scans ({items.length})</span>
+          <DsrtButton size="xs" variant="ghost" onClick={reload}><RefreshCcw size={12} /></DsrtButton>
         </div>
-        <ul className="space-y-2 max-h-[420px] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-2">
           {items.length === 0 ? (
-            <li className="text-[12px] text-white/40 text-center py-8">No check-ins yet.</li>
+            <DsrtEmpty icon={QrCode} title="No scans yet" />
           ) : (
-            items.slice(0, 40).map((a: any) => (
-              <li key={a.id} className="flex items-center gap-2 rounded-lg border border-white/[0.04] bg-white/[0.02] p-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300 flex-shrink-0" strokeWidth={1.75} />
+            items.slice(0, 50).map((a: any) => (
+              <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.04]">
+                <CheckCircle2 className="w-4 h-4 text-[#93c5fd]" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12.5px] text-white truncate">{a.user?.full_name || 'Anonymous'}</p>
-                  <p className="text-[10.5px] font-mono text-white/40">
+                  <p className="text-[13px] font-bold text-white truncate">{a.user?.full_name || 'Anonymous'}</p>
+                  <p className="text-[10px] font-mono text-white/40 mt-0.5">
                     {formatDistanceToNow(new Date(a.checked_in_at), { addSuffix: true })}
-                    {a.checkin_count > 1 && ` · ${a.checkin_count} scans`}
                   </p>
                 </div>
-              </li>
+              </div>
             ))
           )}
-        </ul>
-      </div>
-    </div>
+        </div>
+      </DsrtPanel>
+    </DsrtGrid>
   )
 }

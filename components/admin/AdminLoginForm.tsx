@@ -3,10 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Loader2 } from 'lucide-react'
+import { DsrtButton, DsrtInput } from '@/components/dsrt'
 
 export function AdminLoginForm() {
   const router = useRouter()
@@ -64,56 +61,52 @@ export function AdminLoginForm() {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-[13px] font-medium text-red-400">
           {error}
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="admin-email" className="text-white/80">
+      <div className="space-y-1.5">
+        <label htmlFor="admin-email" className="text-[11px] font-mono font-bold uppercase tracking-wider text-white/60">
           Admin Email
-        </Label>
-        <Input
+        </label>
+        <DsrtInput
           id="admin-email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="admin@dsrtai.com"
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="admin-password" className="text-white/80">
+      <div className="space-y-1.5">
+        <label htmlFor="admin-password" className="text-[11px] font-mono font-bold uppercase tracking-wider text-white/60">
           Password
-        </Label>
-        <Input
+        </label>
+        <DsrtInput
           id="admin-password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleLogin()
           }}
         />
       </div>
 
-      <Button
-        onClick={handleLogin}
-        disabled={loading || !email || !password}
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Verifying...
-          </>
-        ) : (
-          'Access Admin Panel'
-        )}
-      </Button>
+      <div className="pt-2">
+        <DsrtButton
+          onClick={handleLogin}
+          disabled={loading || !email || !password}
+          loading={loading}
+          variant="primary"
+          fullWidth
+          size="lg"
+        >
+          Access Admin Panel
+        </DsrtButton>
+      </div>
     </div>
   )
 }

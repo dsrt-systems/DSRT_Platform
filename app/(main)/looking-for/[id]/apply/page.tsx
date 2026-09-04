@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Warning } from '@phosphor-icons/react'
 import Link from 'next/link'
+import { Warning } from '@phosphor-icons/react'
+import { DsrtEmpty, DsrtButton } from '@/components/dsrt'
 
 export default function ApplyInitPage() {
   const router = useRouter()
@@ -24,7 +25,6 @@ export default function ApplyInitPage() {
         })
         const d = await res.json().catch(() => ({}))
 
-        // Already applied (not draft/withdrawn) → block
         if (res.status === 409 && d?.status && d.status !== 'draft') {
           setError('You have already applied to this opportunity.')
           return
@@ -46,21 +46,31 @@ export default function ApplyInitPage() {
   }, [oppId, router])
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 flex items-center justify-center">
+    <div className="min-h-screen bg-[#05070D] text-white flex items-center justify-center px-4">
       {error ? (
-        <div className="text-center max-w-sm px-4">
-          <Warning size={24} className="mx-auto mb-3 text-red-400" />
-          <div className="text-[15px] font-bold text-white mb-2">{error}</div>
-          <Link
-            href={oppId ? `/looking-for/${oppId}` : '/looking-for'}
-            className="h-9 px-4 rounded-xl border border-zinc-800 text-[13px] text-zinc-300 hover:text-white inline-flex items-center"
-          >
-            Back to Opportunity
-          </Link>
-        </div>
+        <DsrtEmpty
+          icon={Warning}
+          title={error}
+          description="You can return to the opportunity page or review your existing applications."
+          action={
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <DsrtButton asChild variant="outline" size="sm">
+                <Link href={oppId ? `/looking-for/${oppId}` : '/looking-for'}>
+                  Back to Opportunity
+                </Link>
+              </DsrtButton>
+              <DsrtButton asChild variant="primary" size="sm">
+                <Link href="/looking-for/my-applications">My Applications</Link>
+              </DsrtButton>
+            </div>
+          }
+        />
       ) : (
-        <div className="text-[13px] text-zinc-500 font-medium">
-          Preparing application studio…
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-[12px] font-mono uppercase tracking-wider text-white/40">
+            Preparing application studio…
+          </p>
         </div>
       )}
     </div>

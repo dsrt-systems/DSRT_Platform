@@ -10,6 +10,15 @@ import { OpportunitySidebar } from './OpportunitySidebar'
 import { PosterCard } from './PosterCard'
 import { ShareModal } from './ShareModal'
 import { ReportModal } from './ReportModal'
+import {
+  DsrtPage,
+  DsrtLayoutWithRail,
+  DsrtEmpty,
+  DsrtButton,
+  DsrtSkeleton,
+  DsrtPanel,
+  DsrtAvatar,
+} from '@/components/dsrt'
 
 interface Props {
   id: string
@@ -23,7 +32,6 @@ export function OpportunityDetailPage({ id }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('opportunity')
-
   const [showShare, setShowShare] = useState(false)
   const [showReport, setShowReport] = useState(false)
 
@@ -49,17 +57,18 @@ export function OpportunityDetailPage({ id }: Props) {
     load()
   }, [load])
 
-  // Track view with dwell time
   useEffect(() => {
     if (!data?.id) return
     const enter = Date.now()
-    const sessionId = typeof window !== 'undefined'
-      ? (sessionStorage.getItem('dsrt_sid') || (() => {
-          const s = 'sid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
-          sessionStorage.setItem('dsrt_sid', s)
-          return s
-        })())
-      : undefined
+    const sessionId =
+      typeof window !== 'undefined'
+        ? sessionStorage.getItem('dsrt_sid') ||
+          (() => {
+            const s = 'sid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10)
+            sessionStorage.setItem('dsrt_sid', s)
+            return s
+          })()
+        : undefined
 
     fetch(`/api/opportunities/${data.id}/view`, {
       method: 'POST',
@@ -68,7 +77,8 @@ export function OpportunityDetailPage({ id }: Props) {
         session_id: sessionId,
         source: 'direct',
         referrer_url: typeof document !== 'undefined' ? document.referrer : null,
-        device_type: typeof window !== 'undefined' && window.innerWidth < 768 ? 'mobile' : 'desktop',
+        device_type:
+          typeof window !== 'undefined' && window.innerWidth < 768 ? 'mobile' : 'desktop',
       }),
     }).catch(() => {})
 
@@ -78,7 +88,9 @@ export function OpportunityDetailPage({ id }: Props) {
         try {
           navigator.sendBeacon(
             `/api/opportunities/${data.id}/view`,
-            new Blob([JSON.stringify({ session_id: sessionId, dwell_ms: dwell })], { type: 'application/json' })
+            new Blob([JSON.stringify({ session_id: sessionId, dwell_ms: dwell })], {
+              type: 'application/json',
+            })
           )
         } catch {}
       }
@@ -88,7 +100,7 @@ export function OpportunityDetailPage({ id }: Props) {
   const handleSave = async () => {
     if (!data) return
     const newSaved = !data.is_saved
-    setData((d: any) => d ? { ...d, is_saved: newSaved } : d)
+    setData((d: any) => (d ? { ...d, is_saved: newSaved } : d))
     try {
       if (newSaved) {
         await fetch(`/api/opportunities/${data.id}/save`, {
@@ -100,53 +112,51 @@ export function OpportunityDetailPage({ id }: Props) {
         await fetch(`/api/opportunities/${data.id}/save`, { method: 'DELETE' })
       }
     } catch {
-      setData((d: any) => d ? { ...d, is_saved: !newSaved } : d)
+      setData((d: any) => (d ? { ...d, is_saved: !newSaved } : d))
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-zinc-100">
-        <div className="max-w-[1200px] mx-auto px-6 py-8">
-          <div className="h-6 w-32 bg-zinc-900 rounded mb-6 animate-pulse" />
-          <div className="h-8 w-3/4 bg-zinc-900 rounded mb-4 animate-pulse" />
-          <div className="h-4 w-1/2 bg-zinc-900 rounded mb-8 animate-pulse" />
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-8">
-            <div className="space-y-3">
-              {[0, 1, 2, 3].map(i => (
-                <div key={i} className="h-32 bg-zinc-900 rounded-xl animate-pulse" />
-              ))}
-            </div>
-            <div className="space-y-3">
-              <div className="h-64 bg-zinc-900 rounded-xl animate-pulse" />
-              <div className="h-48 bg-zinc-900 rounded-xl animate-pulse" />
-            </div>
+      <DsrtPage width="wide">
+        <DsrtSkeleton className="h-10 w-40 mb-6" />
+        <DsrtSkeleton className="h-8 w-3/4 mb-4" />
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6">
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((i) => (
+              <DsrtSkeleton key={i} className="h-32 w-full rounded-xl" />
+            ))}
+          </div>
+          <div className="space-y-3">
+            <DsrtSkeleton className="h-64 w-full rounded-xl" />
+            <DsrtSkeleton className="h-48 w-full rounded-xl" />
           </div>
         </div>
-      </div>
+      </DsrtPage>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="w-14 h-14 mx-auto mb-4 rounded-xl border border-zinc-800 bg-zinc-950 flex items-center justify-center text-zinc-500">
-            <Warning size={20} />
-          </div>
-          <h1 className="text-[18px] font-bold text-white mb-1.5">
-            {error === 'Not found' || error?.includes('not found') ? 'Opportunity not found' : 'Something went wrong'}
-          </h1>
-          <p className="text-[13px] text-zinc-500 mb-5">{error}</p>
-          <Link
-            href="/looking-for"
-            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md border border-zinc-800 hover:border-zinc-700 text-[13px] text-zinc-300 hover:text-white transition-colors"
-          >
-            <ArrowLeft size={13} weight="bold" />
-            Back to Looking For
-          </Link>
-        </div>
-      </div>
+      <DsrtPage width="narrow">
+        <DsrtEmpty
+          icon={Warning}
+          title={
+            error === 'Not found' || error?.includes('not found')
+              ? 'Opportunity not found'
+              : 'Something went wrong'
+          }
+          description={error || undefined}
+          action={
+            <DsrtButton asChild variant="outline">
+              <Link href="/looking-for">
+                <ArrowLeft size={13} weight="bold" />
+                Back to Looking For
+              </Link>
+            </DsrtButton>
+          }
+        />
+      </DsrtPage>
     )
   }
 
@@ -155,8 +165,7 @@ export function OpportunityDetailPage({ id }: Props) {
   const hasApplied = data.has_applied
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 flex flex-col">
-      {/* Sticky action header */}
+    <div className="min-h-screen bg-[#05070D] text-white flex flex-col">
       <OpportunityHeader
         opportunity={data}
         tab={tab}
@@ -171,19 +180,13 @@ export function OpportunityDetailPage({ id }: Props) {
         onBack={() => router.back()}
       />
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-[1200px] mx-auto px-6 py-8">
+      <main className="flex-1">
+        <DsrtPage width="wide" className="py-6">
           {tab === 'opportunity' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-8">
-              {/* Left: Body */}
-              <div className="min-w-0">
-                <OpportunityBody opportunity={data} />
-              </div>
-
-              {/* Right: Sidebar */}
-              <aside className="min-w-0">
-                <div className="space-y-4 lg:sticky lg:top-[100px]">
+            <DsrtLayoutWithRail
+              railBreakpoint="lg"
+              rail={
+                <div className="space-y-4">
                   <OpportunitySidebar
                     opportunity={data}
                     isOwner={isOwner}
@@ -193,27 +196,18 @@ export function OpportunityDetailPage({ id }: Props) {
                   />
                   <PosterCard opportunity={data} />
                 </div>
-              </aside>
-            </div>
+              }
+            >
+              <OpportunityBody opportunity={data} />
+            </DsrtLayoutWithRail>
           ) : (
             <PosterAboutView opportunity={data} />
           )}
-        </div>
+        </DsrtPage>
       </main>
 
-      {/* Modals */}
-      {showShare && (
-        <ShareModal
-          opportunity={data}
-          onClose={() => setShowShare(false)}
-        />
-      )}
-      {showReport && (
-        <ReportModal
-          opportunity={data}
-          onClose={() => setShowReport(false)}
-        />
-      )}
+      {showShare && <ShareModal opportunity={data} onClose={() => setShowShare(false)} />}
+      {showReport && <ReportModal opportunity={data} onClose={() => setShowReport(false)} />}
     </div>
   )
 }
@@ -222,43 +216,35 @@ function PosterAboutView({ opportunity }: { opportunity: any }) {
   const poster = opportunity.poster
   if (!poster) {
     return (
-      <div className="text-center py-16 text-[13px] text-zinc-500">
-        No poster information available.
-      </div>
+      <DsrtEmpty title="No poster information" description="Poster details are not available." />
     )
   }
 
   return (
     <div className="max-w-3xl mx-auto">
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-8 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
-        <div className="flex items-start gap-5 mb-6">
-          <div className="w-20 h-20 rounded-xl bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center justify-center shrink-0">
-            {poster.avatar_url ? (
-              <img src={poster.avatar_url} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-2xl font-bold text-zinc-500">
-                {(poster.full_name || poster.username || '?').charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
+      <DsrtPanel variant="raised" padding="lg">
+        <div className="flex items-start gap-4 sm:gap-5 mb-6">
+          <DsrtAvatar
+            src={poster.avatar_url}
+            name={poster.full_name || poster.username}
+            size="xl"
+          />
           <div className="flex-1 min-w-0">
-            <h2 className="text-[22px] font-bold text-white leading-tight">
+            <h2 className="text-[20px] sm:text-[22px] font-bold text-white leading-tight tracking-tight">
               {poster.full_name || poster.username}
             </h2>
             {poster.tagline && (
-              <p className="text-[13.5px] text-zinc-400 mt-1">{poster.tagline}</p>
+              <p className="text-[13px] text-white/60 mt-1">{poster.tagline}</p>
             )}
             {poster.location && (
-              <p className="text-[12.5px] text-zinc-500 mt-2">{poster.location}</p>
+              <p className="text-[12px] text-white/40 mt-2 font-mono">{poster.location}</p>
             )}
-            <div className="flex items-center gap-3 mt-3 text-[11.5px] text-zinc-500">
-              {poster.follower_count > 0 && (
-                <span>{poster.follower_count} followers</span>
-              )}
+            <div className="flex items-center gap-3 mt-3 text-[11px] font-mono text-white/40">
+              {poster.follower_count > 0 && <span>{poster.follower_count} followers</span>}
               {poster.is_verified && (
                 <>
-                  <span className="w-1 h-1 rounded-full bg-zinc-700" />
-                  <span className="text-emerald-400">Verified builder</span>
+                  <span className="text-white/20">·</span>
+                  <span className="text-emerald-300">Verified builder</span>
                 </>
               )}
             </div>
@@ -266,23 +252,22 @@ function PosterAboutView({ opportunity }: { opportunity: any }) {
         </div>
 
         {poster.bio && (
-          <div className="mt-6 pt-6 border-t border-zinc-800">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-3">About</h3>
-            <p className="text-[14px] text-zinc-300 leading-relaxed whitespace-pre-wrap">
+          <div className="mt-6 pt-6 border-t border-white/[0.06]">
+            <h3 className="text-[11px] font-mono font-bold uppercase tracking-wider text-white/40 mb-3">
+              About
+            </h3>
+            <p className="text-[14px] text-white/75 leading-relaxed whitespace-pre-wrap">
               {poster.bio}
             </p>
           </div>
         )}
 
-        <div className="mt-6 pt-6 border-t border-zinc-800 flex gap-2">
-          <Link
-            href={`/profile/${poster.username}`}
-            className="inline-flex items-center h-9 px-4 rounded-md bg-white text-black hover:bg-zinc-200 text-[13px] font-semibold transition-colors"
-          >
-            View full profile
-          </Link>
+        <div className="mt-6 pt-6 border-t border-white/[0.06]">
+          <DsrtButton asChild variant="white" size="sm">
+            <Link href={`/profile/${poster.username}`}>View full profile</Link>
+          </DsrtButton>
         </div>
-      </div>
+      </DsrtPanel>
     </div>
   )
 }

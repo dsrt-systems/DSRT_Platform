@@ -1,7 +1,10 @@
+// filepath: components/looking-for/v2/FiltersPanel.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CaretDown, CaretUp, X } from '@phosphor-icons/react'
+import { CaretDown, CaretUp } from '@phosphor-icons/react'
+import { DsrtPanel, DsrtInput } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
 export interface FilterState {
   category: string | null
@@ -107,61 +110,72 @@ export function FiltersPanel({ filters, onChange }: Props) {
 
   useEffect(() => {
     fetch('/api/opportunities/categories')
-      .then(r => r.json())
-      .then(d => setCategories(d.categories || []))
+      .then((r) => r.json())
+      .then((d) => setCategories(d.categories || []))
       .catch(() => {})
   }, [])
 
-  const activeCount = [
-    filters.category, filters.type, filters.experience, filters.compensation,
-    filters.work_mode, filters.location, filters.time_commitment,
-    filters.project_length, filters.post_age,
-  ].filter(Boolean).length + (filters.skills.length > 0 ? 1 : 0)
+  const activeCount =
+    [
+      filters.category,
+      filters.type,
+      filters.experience,
+      filters.compensation,
+      filters.work_mode,
+      filters.location,
+      filters.time_commitment,
+      filters.project_length,
+      filters.post_age,
+    ].filter(Boolean).length + (filters.skills.length > 0 ? 1 : 0)
 
-  const clearAll = () => onChange({
-    category: null, subcategory: null, type: null, experience: null,
-    compensation: null, work_mode: null, location: null,
-    time_commitment: null, project_length: null, post_age: null,
-    skills: [], min_budget: null, max_budget: null,
-  })
+  const clearAll = () =>
+    onChange({
+      category: null,
+      subcategory: null,
+      type: null,
+      experience: null,
+      compensation: null,
+      work_mode: null,
+      location: null,
+      time_commitment: null,
+      project_length: null,
+      post_age: null,
+      skills: [],
+      min_budget: null,
+      max_budget: null,
+    })
 
   const update = (key: keyof FilterState, value: any) => {
     onChange({ ...filters, [key]: value })
   }
 
   return (
-    <div className={
-      'rounded-xl border border-zinc-800/60 ' +
-      'bg-gradient-to-b from-zinc-900/40 to-zinc-950/60 ' +
-      'shadow-[0_1px_0_rgba(255,255,255,0.03)_inset,0_2px_12px_rgba(0,0,0,0.25)]'
-    }>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <h3 className="text-[13px] font-bold text-white">
+    <DsrtPanel padding="none" variant="default" className="overflow-hidden bg-[#0A0D14] border-white/[0.08]">
+      <div className="flex items-center justify-between px-3.5 py-3 border-b border-white/[0.06] bg-white/[0.01]">
+        <h3 className="text-[13px] font-bold text-white tracking-tight">
           Filters
           {activeCount > 0 && (
-            <span className="ml-1.5 text-zinc-500 font-medium">({activeCount})</span>
+            <span className="ml-1.5 text-[#FBBF24] font-mono text-[11px]">({activeCount})</span>
           )}
         </h3>
         {activeCount > 0 && (
           <button
             onClick={clearAll}
-            className="text-[11.5px] text-zinc-400 hover:text-zinc-200 font-medium"
+            className="text-[11px] font-mono text-white/50 hover:text-[#FBBF24] transition-colors"
           >
             Clear all
           </button>
         )}
       </div>
 
-      <div className="divide-y divide-zinc-800">
+      <div className="divide-y divide-white/[0.04]">
         <FilterSection title="Category" defaultOpen>
           <SelectField
             value={filters.category || ''}
             onChange={(v) => update('category', v || null)}
-            placeholder="Select category"
             options={[
               { value: '', label: 'All categories' },
-              ...categories.map(c => ({ value: c.slug, label: c.name })),
+              ...categories.map((c) => ({ value: c.slug, label: c.name })),
             ]}
           />
         </FilterSection>
@@ -202,11 +216,7 @@ export function FiltersPanel({ filters, onChange }: Props) {
           <SelectField
             value={filters.time_commitment || ''}
             onChange={(v) => update('time_commitment', v || null)}
-            placeholder="Any"
-            options={[
-              { value: '', label: 'Any' },
-              ...TIME_COMMITMENTS,
-            ]}
+            options={[{ value: '', label: 'Any' }, ...TIME_COMMITMENTS]}
           />
         </FilterSection>
 
@@ -214,21 +224,17 @@ export function FiltersPanel({ filters, onChange }: Props) {
           <SelectField
             value={filters.project_length || ''}
             onChange={(v) => update('project_length', v || null)}
-            placeholder="Any"
-            options={[
-              { value: '', label: 'Any' },
-              ...PROJECT_LENGTHS,
-            ]}
+            options={[{ value: '', label: 'Any' }, ...PROJECT_LENGTHS]}
           />
         </FilterSection>
 
         <FilterSection title="Location">
-          <input
+          <DsrtInput
             type="text"
             value={filters.location || ''}
             onChange={(e) => update('location', e.target.value || null)}
-            placeholder="City, country, or remote"
-            className="w-full h-9 px-3 rounded-md bg-zinc-950 border border-zinc-800 text-[12.5px] text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-700"
+            placeholder="City or remote"
+            sizeVariant="sm"
           />
         </FilterSection>
 
@@ -240,14 +246,14 @@ export function FiltersPanel({ filters, onChange }: Props) {
           />
         </FilterSection>
       </div>
-    </div>
+    </DsrtPanel>
   )
 }
 
-// ─── Sub-components ───
-
 function FilterSection({
-  title, defaultOpen = false, children,
+  title,
+  defaultOpen = false,
+  children,
 }: {
   title: string
   defaultOpen?: boolean
@@ -256,29 +262,32 @@ function FilterSection({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="px-4 py-3">
+    <div className="px-3.5 py-2.5">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between text-left mb-2"
+        className="w-full flex items-center justify-between text-left mb-2 group"
       >
-        <span className="text-[12px] font-semibold text-zinc-300 uppercase tracking-wider">
+        <span className="text-[10px] font-mono font-bold text-white/45 uppercase tracking-wider group-hover:text-white/70 transition-colors">
           {title}
         </span>
-        {open
-          ? <CaretUp size={11} className="text-zinc-500" weight="bold" />
-          : <CaretDown size={11} className="text-zinc-500" weight="bold" />}
+        {open ? (
+          <CaretUp size={11} className="text-white/40" weight="bold" />
+        ) : (
+          <CaretDown size={11} className="text-white/40" weight="bold" />
+        )}
       </button>
-      {open && <div>{children}</div>}
+      {open && <div className="pt-0.5">{children}</div>}
     </div>
   )
 }
 
 function SelectField({
-  value, onChange, placeholder, options,
+  value,
+  onChange,
+  options,
 }: {
   value: string
   onChange: (v: string) => void
-  placeholder: string
   options: { value: string; label: string }[]
 }) {
   return (
@@ -286,10 +295,10 @@ function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 pl-3 pr-9 rounded-md bg-zinc-950 border border-zinc-800 text-[12.5px] text-zinc-200 focus:outline-none focus:border-zinc-700 appearance-none cursor-pointer"
+        className="w-full h-8 pl-3 pr-8 rounded-lg bg-white/[0.03] border border-white/[0.08] text-[12px] text-white focus:outline-none focus:border-[#FBBF24]/50 appearance-none cursor-pointer"
       >
-        {options.map(o => (
-          <option key={o.value} value={o.value} className="bg-zinc-950">
+        {options.map((o) => (
+          <option key={o.value} value={o.value} className="bg-[#0a0a0f]">
             {o.label}
           </option>
         ))}
@@ -297,46 +306,54 @@ function SelectField({
       <CaretDown
         size={10}
         weight="bold"
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none"
       />
     </div>
   )
 }
 
 function CheckboxList({
-  value, options, onChange,
+  value,
+  options,
+  onChange,
 }: {
   value: string | null
   options: { value: string; label: string }[]
   onChange: (v: string | null) => void
 }) {
+  const [showAll, setShowAll] = useState(false)
+  const visibleOptions = showAll ? options : options.slice(0, 5)
+
   return (
     <div className="space-y-1.5">
-      {options.slice(0, 6).map(o => {
+      {visibleOptions.map((o) => {
         const isActive = value === o.value
         return (
-          <label
-            key={o.value}
-            className="flex items-center gap-2 cursor-pointer group"
-          >
+          <label key={o.value} className="flex items-center gap-2 cursor-pointer group select-none">
             <input
               type="checkbox"
               checked={isActive}
               onChange={() => onChange(isActive ? null : o.value)}
-              className="w-3.5 h-3.5 rounded border border-zinc-700 bg-zinc-950 checked:bg-white checked:border-white cursor-pointer accent-white"
+              className="w-3.5 h-3.5 rounded border border-white/[0.15] bg-white/[0.03] checked:bg-[#FBBF24] checked:border-[#FBBF24] cursor-pointer accent-[#FBBF24]"
             />
-            <span className={
-              'text-[12.5px] ' +
-              (isActive ? 'text-white font-medium' : 'text-zinc-400 group-hover:text-zinc-200')
-            }>
+            <span
+              className={cn(
+                'text-[12px] transition-colors truncate',
+                isActive ? 'text-white font-semibold' : 'text-white/55 group-hover:text-white/80'
+              )}
+            >
               {o.label}
             </span>
           </label>
         )
       })}
-      {options.length > 6 && (
-        <button className="text-[11.5px] text-zinc-500 hover:text-zinc-300 font-medium mt-1">
-          Show more
+      {options.length > 5 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(!showAll)}
+          className="text-[10.5px] font-mono text-[#FBBF24] hover:text-[#FCD34D] transition-colors mt-1"
+        >
+          {showAll ? 'Show less' : `+${options.length - 5} more`}
         </button>
       )}
     </div>

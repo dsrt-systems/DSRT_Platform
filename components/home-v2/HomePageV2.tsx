@@ -7,6 +7,8 @@ import { HomeTabs, type HomeTab } from './HomeTabs'
 import { HomeComposerBar } from './HomeComposerBar'
 import { HomeFeed } from './HomeFeed'
 import { DsrtCocoBanner } from './DsrtCocoBanner'
+import { HomeRightSidebar } from './HomeRightSidebar'
+import { DsrtLayoutWithRail } from '@/components/dsrt'
 
 interface Props {
   currentUser: any
@@ -26,27 +28,27 @@ export function HomePageV2({ currentUser }: Props) {
   }, [router, searchParams])
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 w-full">
-      <div className="w-full px-4 md:px-5 lg:px-6 xl:px-8">
-        <HomeHeader currentUser={currentUser} />
+    <div className="w-full px-4 md:px-6 pb-12">
+      <HomeHeader currentUser={currentUser} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_300px] gap-4 lg:gap-5 xl:gap-6 mt-4 lg:mt-5 items-start">
-          
-          <main className="min-w-0 w-full space-y-4">
+      <DsrtLayoutWithRail
+        railBreakpoint="lg"
+        className="mt-4"
+        rail={
+          <div className="space-y-4">
+            <DsrtCocoBanner />
+            <HomeRightSidebar />
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <HomeComposerBar currentUser={currentUser} />
+          <div className="sticky top-[116px] z-20 bg-[#05070D]/95 backdrop-blur-md pt-2 pb-3 -mx-4 px-4 sm:mx-0 sm:px-0">
             <HomeTabs active={activeTab} onChange={handleTabChange} />
-            <HomeComposerBar currentUser={currentUser} />
-            <HomeFeed tab={activeTab} currentUser={currentUser} />
-          </main>
-
-          <aside className="hidden lg:block w-[280px] xl:w-[300px] shrink-0 justify-self-end">
-            {/* Increased top offset so it doesn't slide under the new taller header */}
-            <div className="sticky top-[100px] w-full">
-              <DsrtCocoBanner />
-            </div>
-          </aside>
-          
+          </div>
+          <HomeFeed tab={activeTab} currentUser={currentUser} />
         </div>
-      </div>
+      </DsrtLayoutWithRail>
     </div>
   )
 }

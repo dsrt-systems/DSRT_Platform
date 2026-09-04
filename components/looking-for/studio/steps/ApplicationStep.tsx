@@ -1,3 +1,4 @@
+// filepath: components/looking-for/studio/steps/ApplicationStep.tsx
 'use client'
 
 import { useCallback, useState } from 'react'
@@ -7,6 +8,7 @@ import { AddQuestionMenu } from './parts/AddQuestionMenu'
 import { QuestionCard } from './parts/QuestionCard'
 import { DefaultAttachmentsCard } from './parts/DefaultAttachmentsCard'
 import { AntiSpamCard } from './parts/AntiSpamCard'
+import { TipBox } from './parts/TipBox'
 import { DEFAULT_LABELS, QUESTION_TYPE_META, type QuestionType } from './parts/questionTypes'
 
 export function ApplicationStep() {
@@ -104,20 +106,20 @@ export function ApplicationStep() {
 
   return (
     <>
-      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-8">
-        <div className="space-y-6">
+      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6 lg:gap-8">
+        <div className="space-y-5 min-w-0">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-[20px] font-bold text-white mb-1">Application</h2>
-              <p className="text-[12.5px] text-zinc-500">Design what applicants need to submit.</p>
+              <h2 className="text-[22px] font-bold text-white mb-1 tracking-tight">Application</h2>
+              <p className="text-[13px] text-white/50">Design what applicants need to submit.</p>
             </div>
             <AddQuestionMenu onSelect={addQuestion} disabled={adding} />
           </div>
 
           {questions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-zinc-800 p-10 text-center bg-gradient-to-b from-zinc-900/20 to-transparent">
+            <div className="rounded-2xl border border-dashed border-white/[0.1] p-10 text-center bg-gradient-to-b from-white/[0.02] to-transparent">
               <div className="text-[14px] font-bold text-white mb-1">No custom questions yet</div>
-              <div className="text-[12.5px] text-zinc-500 mb-4 max-w-md mx-auto">Applicants will still use default requirements you enable below.</div>
+              <div className="text-[12.5px] text-white/45 mb-4 max-w-md mx-auto">Applicants will still use default requirements you enable below.</div>
               <AddQuestionMenu onSelect={addQuestion} disabled={adding} />
             </div>
           ) : (
@@ -133,17 +135,22 @@ export function ApplicationStep() {
         </div>
 
         <div className="hidden lg:block">
-          <div className="sticky top-[100px] space-y-4">
-            <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-5">
-              <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 mb-4">Application summary</h3>
+          <div className="sticky top-[130px] space-y-4">
+            <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-[#141821] via-[#101319] to-[#0B0D13] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_4px_20px_rgba(0,0,0,0.3)]">
+              <h3 className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#FBBF24] mb-4">Application summary</h3>
               <Row label="Custom questions" value={questions.length} />
               <Row label="Required" value={requiredCount} />
-              <div className="my-3 border-t border-zinc-800/70" />
+              <div className="my-3 border-t border-white/[0.06]" />
               <Row label="Cover letter" value={draft.opportunity.require_cover_letter ? 'On' : 'Off'} />
               <Row label="Resume" value={draft.opportunity.require_resume ? 'On' : 'Off'} />
               <Row label="Portfolio" value={draft.opportunity.require_portfolio ? 'On' : 'Off'} />
               <Row label="Max applications" value={draft.opportunity.max_applications || 'Unlimited'} />
             </div>
+
+            <TipBox variant="tips" title="Application Tips" items={[
+              { title: 'Keep questions short', desc: '2–4 custom questions gets the highest completion rate.' },
+              { title: 'Ask for portfolios', desc: 'Requiring a portfolio filters out unqualified applicants automatically.' },
+            ]} />
           </div>
         </div>
       </div>
@@ -155,8 +162,8 @@ export function ApplicationStep() {
 function Row({ label, value }: { label: string; value: any }) {
   return (
     <div className="flex justify-between items-center py-1.5 text-[12px]">
-      <span className="text-zinc-500">{label}</span>
-      <span className="text-zinc-200 font-semibold">{String(value)}</span>
+      <span className="text-white/45">{label}</span>
+      <span className="text-white/85 font-semibold">{String(value)}</span>
     </div>
   )
 }

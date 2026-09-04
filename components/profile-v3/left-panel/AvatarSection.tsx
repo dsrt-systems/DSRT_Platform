@@ -80,15 +80,16 @@ export function AvatarSection({
   return (
     <>
       <div className="relative inline-block group">
-        {/* Avatar circle */}
+        {/* Avatar Ring - formal, professional treatment */}
         <div
           className={cn(
-            'w-36 h-36 rounded-full overflow-hidden bg-zinc-900',
-            'border-4 border-[#0a0a0b] shadow-xl ring-1 ring-zinc-800/60',
+            'w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full overflow-hidden',
+            'bg-gradient-to-br from-[#1e3a5f] to-[#0a0a0f]',
+            'border-4 border-[#05070D]',
+            'shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.08)]',
             'relative',
           )}
         >
-          {/* Image — always fully visible */}
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -97,40 +98,36 @@ export function AvatarSection({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-700 to-zinc-900">
+            <div className="w-full h-full flex items-center justify-center">
               {fullName ? (
-                <span className="text-4xl font-bold text-zinc-300">{initials}</span>
+                <span className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white/80 tracking-tight">{initials}</span>
               ) : (
-                <User className="w-16 h-16 text-zinc-600" weight="duotone" />
+                <User className="w-12 h-12 text-white/40" weight="duotone" />
               )}
             </div>
           )}
 
-          {/* Hover overlay — pure CSS, NO framer-motion opacity conflict.
-              Default: opacity-0 (invisible).
-              On group-hover: opacity-100 (visible).
-              Only for owner, and only when not uploading. */}
+          {/* Owner hover overlay */}
           {isOwner && !uploading && (
             <button
               type="button"
               onClick={handleEditClick}
               className={cn(
                 'absolute inset-0 flex flex-col items-center justify-center gap-1',
-                'bg-black/55 backdrop-blur-[2px]',
+                'bg-black/60 backdrop-blur-[2px]',
                 'opacity-0 group-hover:opacity-100',
                 'transition-opacity duration-200',
                 'cursor-pointer',
               )}
               aria-label="Edit photo"
             >
-              <Camera className="w-6 h-6 text-white" weight="bold" />
-              <span className="text-[10px] font-bold text-white uppercase tracking-wider">
-                Edit Photo
+              <Camera className="w-5 h-5 text-white" weight="bold" />
+              <span className="text-[9px] font-mono uppercase tracking-wider text-white">
+                Edit
               </span>
             </button>
           )}
 
-          {/* Uploading overlay — only while uploading */}
           {isOwner && uploading && (
             <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
               <Spinner className="w-6 h-6 text-white animate-spin" weight="bold" />
@@ -138,21 +135,21 @@ export function AvatarSection({
           )}
         </div>
 
-        {/* Camera badge — always visible for owner */}
+        {/* Camera badge - subtle formal treatment */}
         {isOwner && !uploading && (
           <button
             type="button"
             onClick={handleEditClick}
-            className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-white text-black flex items-center justify-center border-2 border-[#0a0a0b] shadow-lg hover:bg-zinc-100 hover:scale-110 transition-all z-10"
+            className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-gradient-to-b from-[#1e3a5f] to-[#2c5282] text-white flex items-center justify-center border-2 border-[#05070D] shadow-lg hover:scale-110 transition-all z-10"
             title="Edit avatar"
           >
-            <Camera className="w-4 h-4" weight="bold" />
+            <Camera className="w-3.5 h-3.5" weight="bold" />
           </button>
         )}
 
         {/* Verified badge for visitors */}
         {isVerified && !isOwner && (
-          <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center border-2 border-[#0a0a0b] shadow-lg">
+          <div className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-gradient-to-b from-blue-500 to-blue-700 text-white flex items-center justify-center border-2 border-[#05070D] shadow-lg">
             <CheckCircle className="w-4 h-4" weight="fill" />
           </div>
         )}

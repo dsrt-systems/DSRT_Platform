@@ -1,55 +1,50 @@
 'use client'
 
-import Link from 'next/link'
 import { Megaphone, Pin, AlertTriangle } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { DsrtPanel, DsrtAvatar } from '@/components/dsrt'
 
 export function AnnouncementBanner({ announcement }: { announcement: any }) {
-  const priorityTone: Record<string, { border: string; bg: string; icon: any }> = {
-    NORMAL: { border: 'border-white/[0.08]', bg: 'from-white/[0.03]', icon: Megaphone },
-    IMPORTANT: { border: 'border-white/[0.14]', bg: 'from-white/[0.05]', icon: Megaphone },
-    URGENT: { border: 'border-amber-500/25', bg: 'from-amber-500/[0.06]', icon: AlertTriangle },
+  // Translate priority to DSRT panel variant (no neon/vibe styles)
+  const variantMap: Record<string, 'default' | 'accent' | 'inset'> = {
+    NORMAL: 'default',
+    IMPORTANT: 'accent', // Deep Slate Blue
+    URGENT: 'inset',     // Dark pressed surface with warning text internally
   }
-  const tone = priorityTone[announcement.priority] || priorityTone.NORMAL
-  const Icon = tone.icon
+  
+  const variant = variantMap[announcement.priority] || 'default'
+  const isUrgent = announcement.priority === 'URGENT'
+  const Icon = isUrgent ? AlertTriangle : Megaphone
 
   return (
-    <article className={cn(
-      'rounded-2xl border overflow-hidden bg-gradient-to-b to-white/[0.01]',
-      tone.border,
-      tone.bg
-    )}>
-      <div className="flex items-center gap-2 border-b border-white/[0.04] px-4 py-1.5 bg-white/[0.02]">
-        <Icon className="w-3 h-3 text-white/60" strokeWidth={1.75} />
-        <span className="text-[10.5px] font-mono uppercase tracking-wider text-white/60">
-          {announcement.priority === 'URGENT' ? 'Urgent announcement' : announcement.priority === 'IMPORTANT' ? 'Important' : 'Announcement'}
+    <DsrtPanel padding="none" variant={variant} className={isUrgent ? 'border-amber-500/30' : ''}>
+      <div className={`flex items-center gap-2 border-b px-4 py-2 ${isUrgent ? 'border-amber-500/20 bg-amber-500/10' : 'border-white/[0.06] bg-white/[0.03]'}`}>
+        <Icon className={`w-3.5 h-3.5 ${isUrgent ? 'text-amber-400' : 'text-white/60'}`} strokeWidth={2} />
+        <span className={`text-[10px] font-mono font-bold uppercase tracking-widest ${isUrgent ? 'text-amber-400' : 'text-white/60'}`}>
+          {isUrgent ? 'Urgent announcement' : announcement.priority === 'IMPORTANT' ? 'Important' : 'Announcement'}
         </span>
         {announcement.pinned && (
-          <span className="inline-flex items-center gap-1 ml-1 text-[10.5px] font-mono uppercase tracking-wider text-white/50">
-            <Pin className="w-3 h-3" strokeWidth={1.75} /> Pinned
+          <span className="inline-flex items-center gap-1 ml-auto text-[10px] font-mono uppercase tracking-widest text-white/40">
+            <Pin className="w-3 h-3" strokeWidth={2} /> Pinned
           </span>
         )}
       </div>
-      <div className="p-4 md:p-5 space-y-3">
+      
+      <div className="p-4 md:p-5 space-y-4">
         <div className="flex items-center gap-3">
-          <Avatar className="w-8 h-8 border border-white/[0.06]">
-            <AvatarImage src={announcement.author?.avatar_url ?? undefined} />
-            <AvatarFallback className="text-[10px] bg-white/[0.06] text-white/80">
-              {(announcement.author?.full_name || '?').charAt(0)}
-            </AvatarFallback>
-          </Avatar>
+          <DsrtAvatar src={announcement.author?.avatar_url} name={announcement.author?.full_name} size="sm" />
           <div className="min-w-0">
-            <p className="text-[12px] text-white/70">
-              <span className="font-semibold text-white">{announcement.author?.full_name || 'Admin'}</span>
-              <span className="text-white/40"> · {formatDistanceToNow(new Date(announcement.published_at), { addSuffix: true })}</span>
+            <p className="text-[13px] font-medium text-white/70">
+              <span className="font-bold text-white">{announcement.author?.full_name || 'Admin'}</span>
+              <span className="text-white/40 font-mono"> · {formatDistanceToNow(new Date(announcement.published_at), { addSuffix: true })}</span>
             </p>
           </div>
         </div>
-        <h3 className="text-[16px] font-semibold text-white leading-snug">{announcement.title}</h3>
-        <p className="text-[13.5px] text-white/80 whitespace-pre-wrap leading-relaxed">{announcement.body}</p>
+        <div>
+          <h3 className="text-[17px] font-bold text-white leading-snug mb-1.5">{announcement.title}</h3>
+          <p className="text-[14px] text-white/80 whitespace-pre-wrap leading-relaxed">{announcement.body}</p>
+        </div>
       </div>
-    </article>
+    </DsrtPanel>
   )
 }

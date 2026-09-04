@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Shield, LogOut, Trophy, Users, Settings } from 'lucide-react'
+import { ShieldAlert, LogOut, Trophy, Users, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { DsrtButton } from '@/components/dsrt'
 
 interface AdminNavProps {
   profile: any
@@ -27,28 +27,29 @@ export function AdminNav({ profile }: AdminNavProps) {
     { name: 'Hackathons', href: '/admin/hackathons', icon: Trophy },
     ...(isSuper
       ? [
-          { name: 'Community Admins', href: '/admin/community-admins', icon: Users },
+          { name: 'Admins', href: '/admin/community-admins', icon: Users },
           { name: 'Settings', href: '/admin/settings', icon: Settings },
         ]
       : []),
   ]
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-white/10 bg-black/60 backdrop-blur-xl">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/admin/hackathons" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-white" />
+    <nav className="sticky top-0 z-40 border-b border-white/[0.08] bg-[#05070D]/95 backdrop-blur-xl">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-[64px] flex items-center justify-between gap-4">
+        
+        <Link href="/admin/hackathons" className="flex items-center gap-3 shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] border border-[#2c5282]/50 flex items-center justify-center shadow-inner">
+            <ShieldAlert size={18} className="text-[#93c5fd]" />
           </div>
-          <div>
-            <p className="text-sm font-bold text-white">DSRT Admin</p>
-            <p className="text-[10px] text-white/40 uppercase tracking-wider">
+          <div className="hidden sm:block">
+            <p className="text-[14px] font-bold text-white leading-tight">DSRT Admin</p>
+            <p className="text-[9px] font-mono text-white/40 uppercase tracking-widest mt-0.5">
               {profile?.admin_role?.replace(/_/g, ' ')}
             </p>
           </div>
         </Link>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname.startsWith(item.href)
@@ -57,26 +58,29 @@ export function AdminNav({ profile }: AdminNavProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-colors whitespace-nowrap',
                   isActive
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                    ? 'bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                    : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
                 )}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="w-3.5 h-3.5 shrink-0" />
                 {item.name}
               </Link>
             )
           })}
 
-          <Button
+          <div className="w-px h-5 bg-white/10 mx-2 shrink-0" />
+
+          <DsrtButton
             variant="ghost"
             size="sm"
             onClick={handleLogout}
-            className="text-white/60 hover:text-white ml-2"
+            className="text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0 px-2"
+            title="Log out"
           >
-            <LogOut className="w-3.5 h-3.5" />
-          </Button>
+            <LogOut className="w-4 h-4" />
+          </DsrtButton>
         </div>
       </div>
     </nav>

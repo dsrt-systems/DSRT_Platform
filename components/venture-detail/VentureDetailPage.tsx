@@ -3,20 +3,8 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Info,
-  Question,
-  Newspaper,
-  BookOpen,
-  Gear,
-  ShareNetwork,
-  BookmarkSimple,
-  DotsThreeOutline,
-  ChartBar,
-  Bell,
-  Package,
-  ChartLineUp
+  Info, Question, Newspaper, BookOpen, Gear, ChartBar, Bell, Package, ChartLineUp
 } from '@phosphor-icons/react'
 
 import { VentureHeader } from './VentureHeader'
@@ -32,22 +20,11 @@ import { VentureNotificationsTab } from './notifications/VentureNotificationsTab
 import { VentureSettings } from './VentureSettings'
 import { ConnectComposer } from '@/components/inbox/ConnectComposer'
 import { PostPublishWelcomeModal } from '@/components/venture-assessment/PostPublishWelcomeModal'
+import { DsrtPage, DsrtTabs, DsrtSkeleton, DsrtLayoutWithRail } from '@/components/dsrt'
 
-interface Props {
-  slug: string
-}
+interface Props { slug: string }
 
-const DEPRECATED_TABS = [
-  'funding',
-  'timeline',
-  'partners',
-  'assumptions',
-  'milestones',
-  'applicants',
-  'media',
-  'roles',
-  'team' // Added team to redirect away if someone has an old link
-]
+const DEPRECATED_TABS = ['funding', 'timeline', 'partners', 'assumptions', 'milestones', 'applicants', 'media', 'roles', 'team']
 
 export function VentureDetailPage({ slug }: Props) {
   const router = useRouter()
@@ -60,7 +37,6 @@ export function VentureDetailPage({ slug }: Props) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [connectOpen, setConnectOpen] = useState(false)
 
-  // Handle clean URL routing and redirection for deprecated tabs
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     if (tabParam) {
@@ -79,10 +55,7 @@ export function VentureDetailPage({ slug }: Props) {
     try {
       const res = await fetch('/api/ventures/' + slug)
       if (!res.ok) {
-        if (res.status === 404) {
-          router.push('/ventures')
-          return
-        }
+        if (res.status === 404) { router.push('/ventures'); return }
         throw new Error('Failed to load')
       }
       const json = await res.json()
@@ -150,9 +123,7 @@ export function VentureDetailPage({ slug }: Props) {
           follower_count: (prev.venture.follower_count || 0) + (json.following ? 1 : -1)
         }
       }))
-    } catch (e) {
-      console.error('Toggle follow error:', e)
-    }
+    } catch (e) { console.error('Toggle follow error:', e) }
   }
 
   const handleTabChange = (tabId: string) => {
@@ -162,29 +133,18 @@ export function VentureDetailPage({ slug }: Props) {
 
   if (loading) {
     return (
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-        <Skeleton className="h-4 w-24 mb-3 bg-white/5" />
-        <Skeleton className="h-[280px] w-full mb-5 bg-white/5 rounded-2xl" />
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5">
-          <div className="space-y-3">
-            <Skeleton className="h-10 w-full bg-white/5 rounded-lg" />
-            <Skeleton className="h-[300px] w-full bg-white/5 rounded-xl" />
-          </div>
-          <div className="space-y-3">
-            <Skeleton className="h-[300px] bg-white/5 rounded-xl" />
-            <Skeleton className="h-[220px] bg-white/5 rounded-xl" />
-          </div>
+      <DsrtPage width="wide">
+        <DsrtSkeleton className="h-72 w-full mb-6 rounded-2xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <DsrtSkeleton className="h-96 w-full rounded-2xl" />
+          <DsrtSkeleton className="h-96 w-full rounded-2xl" />
         </div>
-      </div>
+      </DsrtPage>
     )
   }
 
   if (!data?.venture) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#09090b]">
-        <p className="text-[14px] text-white/50">Venture not found.</p>
-      </div>
-    )
+    return <DsrtPage><p className="text-[14px] text-white/50 text-center py-20">Venture not found.</p></DsrtPage>
   }
 
   const { venture, products, updates, metrics, founder, isFollowing, isOwner } = data
@@ -197,120 +157,71 @@ export function VentureDetailPage({ slug }: Props) {
     openRoles: 0,
   }
 
-  const tabs: { id: string; label: string; icon: any; badge?: number }[] = [
-    { id: 'overview', label: 'Overview', icon: Info },
-    { id: 'questions', label: 'Questions', icon: Question },
-    { id: 'products', label: 'Products', icon: Package, badge: products?.length || 0 },
-    { id: 'growth', label: 'Growth', icon: ChartLineUp },
-    { id: 'updates', label: 'Updates', icon: Newspaper, badge: updates?.length || 0 },
-    { id: 'documents', label: 'Documents', icon: BookOpen },
+  const tabs: { value: string; label: string; badge?: number }[] = [
+    { value: 'overview', label: 'Overview' },
+    { value: 'questions', label: 'Questions' },
+    { value: 'products', label: 'Products', badge: products?.length || 0 },
+    { value: 'growth', label: 'Growth' },
+    { value: 'updates', label: 'Updates', badge: updates?.length || 0 },
+    { value: 'documents', label: 'Documents' },
   ]
 
   if (isOwner) {
-    tabs.push({ id: 'analytics', label: 'Analytics', icon: ChartBar })
-    tabs.push({ id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifs })
-    tabs.push({ id: 'settings', label: 'Settings', icon: Gear })
+    tabs.push({ value: 'analytics', label: 'Analytics' })
+    tabs.push({ value: 'notifications', label: 'Notifications', badge: unreadNotifs })
+    tabs.push({ value: 'settings', label: 'Settings' })
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] pb-20 xl:pb-8 text-white">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-        <VentureHeader
-          venture={venture}
-          founder={founder}
-          isOwner={isOwner}
-          isFollowing={isFollowing}
-          onFollowToggle={toggleFollow}
-          onUpdate={patchVenture}
-          onMessage={() => setConnectOpen(true)}
-          onConnect={() => setConnectOpen(true)}
-          stats={headerStats}
-        />
+    <DsrtPage width="wide" className="space-y-6">
+      <VentureHeader
+        venture={venture}
+        founder={founder}
+        isOwner={isOwner}
+        isFollowing={isFollowing}
+        onFollowToggle={toggleFollow}
+        onUpdate={patchVenture}
+        onMessage={() => setConnectOpen(true)}
+        onConnect={() => setConnectOpen(true)}
+        stats={headerStats}
+      />
 
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 mt-6">
-          <div className="min-w-0">
-            <div className="flex items-center justify-between border-b border-white/[0.08] mb-6">
-              <div className="flex gap-0.5 -mb-px overflow-x-auto scrollbar-hide">
-                {tabs.map(t => {
-                  const Icon = t.icon
-                  const active = activeTab === t.id
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => handleTabChange(t.id)}
-                      className={
-                        'px-4 py-3 text-[13.5px] font-medium whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ' +
-                        (active
-                          ? 'text-white border-white'
-                          : 'text-zinc-500 border-transparent hover:text-white/80')
-                      }
-                    >
-                      <Icon size={14} weight={active ? 'fill' : 'regular'} />
-                      {t.label}
-                      {t.badge !== undefined && t.badge > 0 && (
-                        <span className="ml-0.5 text-[10px] font-bold bg-white/10 text-white/80 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                          {t.badge}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="flex items-center gap-0.5 pb-2">
-                <button className="w-8 h-8 rounded-md hover:bg-white/[0.05] text-white/50 hover:text-white flex items-center justify-center transition-colors" title="Share">
-                  <ShareNetwork size={15} />
-                </button>
-                <button className="w-8 h-8 rounded-md hover:bg-white/[0.05] text-white/50 hover:text-white flex items-center justify-center transition-colors" title="Save">
-                  <BookmarkSimple size={15} />
-                </button>
-                <button className="w-8 h-8 rounded-md hover:bg-white/[0.05] text-white/50 hover:text-white flex items-center justify-center transition-colors" title="More">
-                  <DotsThreeOutline size={15} />
-                </button>
-              </div>
-            </div>
-
-            {activeTab === 'overview' && (
-              <VentureOverview venture={venture} isOwner={isOwner} onUpdate={patchVenture} />
-            )}
-            {activeTab === 'questions' && (
-              <VentureQuestionsTab slug={slug} isOwner={isOwner} />
-            )}
-            {activeTab === 'products' && (
-              <VentureProducts venture={venture} products={products || []} slug={slug} isOwner={isOwner} />
-            )}
-            {activeTab === 'growth' && (
-              <VentureGrowth venture={venture} metrics={metrics || []} slug={slug} isOwner={isOwner} />
-            )}
-            {activeTab === 'updates' && (
-              <VentureUpdates venture={venture} updates={updates || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />
-            )}
-            {activeTab === 'documents' && (
-              <VentureDocumentsTab slug={slug} isOwner={isOwner} />
-            )}
-            {activeTab === 'analytics' && isOwner && (
-              <VentureAnalytics slug={slug} />
-            )}
-            {activeTab === 'notifications' && isOwner && (
-              <VentureNotificationsTab slug={slug} />
-            )}
-            {activeTab === 'settings' && isOwner && (
-              <VentureSettings venture={venture} slug={slug} onUpdate={patchVenture} />
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <VentureSidebar
-              venture={venture}
-              founder={founder}
-              team={[]}
-              products={products || []}
-              roles={[]}
-              isOwner={isOwner}
-              onUpdate={patchVenture}
+      <DsrtLayoutWithRail
+        railBreakpoint="lg"
+        rail={
+          <VentureSidebar
+            venture={venture}
+            founder={founder}
+            team={[]}
+            products={products || []}
+            roles={[]}
+            isOwner={isOwner}
+            onUpdate={patchVenture}
+          />
+        }
+      >
+        <div className="space-y-6">
+          {/* UPDATED: sticky top-[116px] md:top-[64px] */}
+          <div className="sticky top-[116px] md:top-[64px] z-20 bg-[#05070D]/95 backdrop-blur-md pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <DsrtTabs
+              variant="underline"
+              tabs={tabs}
+              activeValue={activeTab}
+              onValueChange={handleTabChange}
             />
           </div>
+
+          {activeTab === 'overview' && <VentureOverview venture={venture} isOwner={isOwner} onUpdate={patchVenture} />}
+          {activeTab === 'questions' && <VentureQuestionsTab slug={slug} isOwner={isOwner} />}
+          {activeTab === 'products' && <VentureProducts venture={venture} products={products || []} slug={slug} isOwner={isOwner} />}
+          {activeTab === 'growth' && <VentureGrowth venture={venture} metrics={metrics || []} slug={slug} isOwner={isOwner} />}
+          {activeTab === 'updates' && <VentureUpdates venture={venture} updates={updates || []} slug={slug} isOwner={isOwner} currentUserId={currentUserId} />}
+          {activeTab === 'documents' && <VentureDocumentsTab slug={slug} isOwner={isOwner} />}
+          {activeTab === 'analytics' && isOwner && <VentureAnalytics slug={slug} />}
+          {activeTab === 'notifications' && isOwner && <VentureNotificationsTab slug={slug} />}
+          {activeTab === 'settings' && isOwner && <VentureSettings venture={venture} slug={slug} onUpdate={patchVenture} />}
         </div>
-      </div>
+      </DsrtLayoutWithRail>
 
       {connectOpen && (
         <ConnectComposer
@@ -319,20 +230,15 @@ export function VentureDetailPage({ slug }: Props) {
           referenceName={venture.name}
           referenceSlug={venture.slug}
           onClose={() => setConnectOpen(false)}
-          onSent={() => {
-            fetchDetail()
-          }}
+          onSent={() => { fetchDetail() }}
         />
       )}
 
       {isOwner && (
         <Suspense fallback={null}>
-          <PostPublishWelcomeModal
-            slug={slug}
-            ventureName={venture.name}
-          />
+          <PostPublishWelcomeModal slug={slug} ventureName={venture.name} />
         </Suspense>
       )}
-    </div>
+    </DsrtPage>
   )
 }

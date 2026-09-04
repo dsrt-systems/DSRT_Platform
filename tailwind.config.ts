@@ -76,6 +76,14 @@ const config: Config = {
           2: '#14141a',   // elevated surface
           3: '#1a1a22',   // interactive surface (hover)
         },
+        // DSRT Specific Tokens
+        dsrt: {
+          base: '#05070D',
+          midnight: '#0f172a',
+          steel: '#334155',
+          slate: '#1e3a5f',
+          blue: '#2c5282',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

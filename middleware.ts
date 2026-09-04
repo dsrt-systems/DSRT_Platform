@@ -1,3 +1,4 @@
+// filepath: middleware.ts
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -83,9 +84,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/onboarding', request.url))
   }
 
-  // Completed users → block auth & onboarding, but ALLOW /welcome
+  // Completed users → block auth & onboarding AND block root `/`
   if (hasRealUsername && isOnboarded) {
-    if (isPublicAuth || pathname.startsWith('/onboarding')) {
+    if (isPublicAuth || isPublicRoot || pathname.startsWith('/onboarding')) {
       return NextResponse.redirect(new URL('/home', request.url))
     }
   }

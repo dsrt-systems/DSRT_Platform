@@ -1,34 +1,32 @@
-import { PublicNav } from '@/components/public/PublicNav'
-import { PublicFooter } from '@/components/public/PublicFooter'
-
+import { LandingHeader } from '@/components/landing/LandingHeader'
+import { LandingFooter } from '@/components/landing/LandingFooter'
+import { DsrtPage, DsrtPanel, DsrtGrid } from '@/components/dsrt'
+import { ArrowUpRight } from '@phosphor-icons/react/dist/ssr'
 
 export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'Social — DSRT',
 }
 
 export default function SocialPage() {
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-x-hidden">
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(240,80,150,0.15)_0%,transparent_50%)]" />
-      </div>
+    <div className="min-h-screen bg-[#05070D] text-white relative flex flex-col">
+      <LandingHeader />
 
-      <PublicNav />
-
-      <main className="relative pt-32 pb-32 px-4">
-        <div className="max-w-4xl mx-auto space-y-16">
+      <main className="flex-1 w-full pt-20 pb-32">
+        <DsrtPage width="narrow" className="space-y-16">
           <div className="text-center space-y-4">
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight">
+            <h1 className="text-[40px] md:text-[56px] font-bold tracking-tight leading-tight">
               Follow the
               <br />
-              <span className="text-white/50">journey.</span>
+              <span className="text-white/40">journey.</span>
             </h1>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <DsrtGrid cols={{ base: 2, sm: 2 }} gap="md">
             {[
-              { name: 'Twitter', href: 'https://twitter.com/dsrtai' },
+              { name: 'Twitter / X', href: 'https://twitter.com/dsrtai' },
               { name: 'LinkedIn', href: 'https://linkedin.com/company/dsrtai' },
               { name: 'GitHub', href: 'https://github.com/dsrtai' },
               { name: 'Discord', href: '#' },
@@ -38,19 +36,24 @@ export default function SocialPage() {
                 href={s.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-sm p-6 text-center hover:bg-white/[0.04] transition-all group"
+                className="group outline-none"
               >
-                <p className="font-semibold text-white group-hover:text-emerald-400 transition-colors">
-                  {s.name}
-                </p>
-                <p className="text-xs text-white/40 mt-1">→</p>
+                <DsrtPanel 
+                  padding="md" 
+                  className="text-center hover:border-white/[0.2] hover:bg-white/[0.04] transition-all flex flex-col items-center justify-center h-full group-focus-visible:ring-2 ring-white/50"
+                >
+                  <p className="font-semibold text-white group-hover:text-[#93c5fd] transition-colors mb-2">
+                    {s.name}
+                  </p>
+                  <ArrowUpRight size={16} className="text-white/30 group-hover:text-[#93c5fd] transition-colors" />
+                </DsrtPanel>
               </a>
             ))}
-          </div>
-        </div>
+          </DsrtGrid>
+        </DsrtPage>
       </main>
 
-      <PublicFooter />
+      <LandingFooter />
     </div>
   )
 }

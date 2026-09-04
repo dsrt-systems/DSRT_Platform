@@ -8,7 +8,7 @@ interface PageProps {
 
 export default async function InvitationPage({ params }: PageProps) {
   const { token } = await params
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: invitation } = await supabase
     .from('project_invitations')

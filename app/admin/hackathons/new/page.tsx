@@ -1,14 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { AdminNav } from '@/components/admin/AdminNav'
 import { HackathonForm } from '@/components/admin/HackathonForm'
+import { DsrtPage, DsrtSection } from '@/components/dsrt'
 
 export const dynamic = 'force-dynamic'
 
 export default async function NewHackathonPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: profile } = await supabase
     .from('users')
@@ -22,21 +21,23 @@ export default async function NewHackathonPage() {
     .order('name')
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#05070D] text-white flex flex-col">
       <AdminNav profile={profile} />
 
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Create Hackathon</h1>
-          <p className="text-sm text-white/60 mt-1">
-            AI will help generate content, but you decide the details.
-          </p>
-        </div>
+      <main className="flex-1">
+        <DsrtPage width="narrow" className="py-8">
+          <DsrtSection
+            title="Create Hackathon"
+            description="Establish the foundation. AI will help structure your criteria and guidelines."
+            headerVariant="large"
+            className="mb-8"
+          />
 
-        <HackathonForm
-          communities={communities || []}
-          adminRole={profile.admin_role}
-        />
+          <HackathonForm
+            communities={communities || []}
+            adminRole={profile.admin_role}
+          />
+        </DsrtPage>
       </main>
     </div>
   )

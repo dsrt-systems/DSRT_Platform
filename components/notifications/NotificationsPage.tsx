@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Bell, Heart, MessageCircle, UserPlus, FolderPlus, Check, Trash2 } from 'lucide-react'
+import { Bell, Heart, MessageCircle, UserPlus, FolderPlus, Check } from 'lucide-react'
 import { useNotifications } from '@/hooks/useNotifications'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { DsrtSection, DsrtButton, DsrtTabs, DsrtPanel, DsrtEmpty } from '@/components/dsrt'
 
 const iconMap: Record<string, any> = {
   heart: Heart,
@@ -16,19 +16,19 @@ const iconMap: Record<string, any> = {
 }
 
 const colorMap: Record<string, string> = {
-  like: 'text-pink-500 bg-pink-500/10',
-  comment: 'text-blue-500 bg-blue-500/10',
-  follow: 'text-purple-500 bg-purple-500/10',
-  project_invitation: 'text-orange-500 bg-orange-500/10',
+  like: 'text-pink-400 bg-pink-500/10 border border-pink-500/20',
+  comment: 'text-blue-400 bg-blue-500/10 border border-blue-500/20',
+  follow: 'text-purple-400 bg-purple-500/10 border border-purple-500/20',
+  project_invitation: 'text-orange-400 bg-orange-500/10 border border-orange-500/20',
 }
 
 const filters = [
-  { id: 'all', label: 'All' },
-  { id: 'unread', label: 'Unread' },
-  { id: 'like', label: 'Likes' },
-  { id: 'comment', label: 'Comments' },
-  { id: 'follow', label: 'Follows' },
-  { id: 'project_invitation', label: 'Invitations' },
+  { value: 'all', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'like', label: 'Likes' },
+  { value: 'comment', label: 'Comments' },
+  { value: 'follow', label: 'Follows' },
+  { value: 'project_invitation', label: 'Invitations' },
 ]
 
 export function NotificationsPage() {
@@ -41,100 +41,89 @@ export function NotificationsPage() {
     return n.type === filter
   })
 
-  return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Notifications</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {unreadCount} unread
-          </p>
-        </div>
-        {unreadCount > 0 && (
-          <Button variant="outline" onClick={markAllAsRead}>
-            <Check className="w-4 h-4 mr-2" />
-            Mark all as read
-          </Button>
-        )}
-      </div>
+  // Add badge count to unread tab dynamically
+  const tabsWithBadges = filters.map(f => ({
+    ...f,
+    badge: f.value === 'unread' && unreadCount > 0 ? unreadCount : undefined
+  }))
 
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {filters.map(f => (
-          <button
-            key={f.id}
-            onClick={() => setFilter(f.id)}
-            className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors',
-              filter === f.id
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted hover:bg-muted/70'
-            )}
-          >
-            {f.label}
-            {f.id === 'unread' && unreadCount > 0 && (
-              <span className="ml-1.5 text-[10px]">({unreadCount})</span>
-            )}
-          </button>
-        ))}
-      </div>
+  return (
+    <div className="space-y-6">
+      <DsrtSection
+        title="Notifications"
+        description={`You have ${unreadCount} unread alert${unreadCount === 1 ? '' : 's'}.`}
+        actions={
+          unreadCount > 0 && (
+            <DsrtButton variant="outline" size="sm" onClick={markAllAsRead}>
+              <Check className="w-4 h-4" />
+              <span className="hidden sm:inline">Mark all read</span>
+            </DsrtButton>
+          )
+        }
+      />
+
+      <DsrtTabs
+        variant="segmented"
+        tabs={tabsWithBadges}
+        activeValue={filter}
+        onValueChange={setFilter}
+        className="w-full sm:w-auto"
+      />
 
       {filtered.length === 0 ? (
-        <div className="bg-card border rounded-2xl p-16 text-center">
-          <Bell className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
-          <h2 className="font-semibold">No notifications</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {filter === 'all' 
-              ? 'Activity from your projects and people you follow will appear here'
-              : 'No notifications match this filter'
-            }
-          </p>
-        </div>
+        <DsrtEmpty
+          icon={Bell}
+          title="All caught up"
+          description={filter === 'all' 
+            ? 'Activity from your network will appear here' 
+            : 'No notifications match this filter'
+          }
+        />
       ) : (
-        <div className="bg-card border rounded-2xl overflow-hidden divide-y">
+        <DsrtPanel padding="none" className="overflow-hidden divide-y divide-white/[0.04]">
           {filtered.map(n => {
             const Icon = iconMap[n.icon || 'alert'] || Bell
-            const colors = colorMap[n.type] || 'text-muted-foreground bg-muted'
+            const colors = colorMap[n.type] || 'text-white/50 bg-white/[0.04] border-white/[0.08]'
             
             const content = (
               <div
                 className={cn(
-                  'p-4 flex gap-3 hover:bg-muted/40 transition-colors cursor-pointer',
-                  !n.read && 'bg-blue-500/5'
+                  'p-4 sm:p-5 flex gap-4 hover:bg-white/[0.02] transition-colors cursor-pointer',
+                  !n.read && 'bg-[#1e3a5f]/10'
                 )}
                 onClick={() => !n.read && markAsRead(n.id)}
               >
-                <div className={cn(
-                  'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0',
-                  colors
-                )}>
+                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0', colors)}>
                   <Icon className="w-5 h-5" strokeWidth={2} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium leading-snug">{n.title}</p>
+                  <p className={cn("text-[14px] leading-snug", !n.read ? "text-white font-medium" : "text-white/80")}>
+                    {n.title}
+                  </p>
                   {n.message && (
-                    <p className="text-sm text-muted-foreground mt-0.5">
+                    <p className="text-[13px] text-white/50 mt-1 line-clamp-2">
                       {n.message}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-[11px] font-mono uppercase tracking-wider text-white/30 mt-2">
                     {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                   </p>
                 </div>
                 {!n.read && (
-                  <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-3" />
+                  <span className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0 mt-2 shadow-[0_0_8px_rgba(96,165,250,0.6)]" />
                 )}
               </div>
             )
 
             return n.action_url ? (
-              <Link key={n.id} href={n.action_url}>
+              <Link key={n.id} href={n.action_url} className="block">
                 {content}
               </Link>
             ) : (
               <div key={n.id}>{content}</div>
             )
           })}
-        </div>
+        </DsrtPanel>
       )}
     </div>
   )

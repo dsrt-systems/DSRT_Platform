@@ -1,15 +1,16 @@
+// filepath: components/auth/SignupForm.tsx
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { EnvelopeSimple, CircleNotch, ArrowRight, User } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
 import { AuthInput } from './AuthInput'
 import { PasswordInput } from './PasswordInput'
 import { OAuthButton } from './OAuthButton'
 import { AuthDivider } from './AuthDivider'
-import { GoogleIcon, GithubIcon } from './ProviderIcons'
+import { GoogleIcon, LinkedInIcon, XIcon } from './ProviderIcons'
 import { cn } from '@/lib/utils'
 import type { AuthView } from './AuthShell'
 
@@ -24,11 +25,10 @@ export function SignUpForm({ onSwitchView }: Props) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState<'google' | 'github' | null>(null)
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null)
 
-  const handleOAuth = async (provider: 'google' | 'github') => {
+  const handleOAuth = async (provider: 'google' | 'linkedin_oidc' | 'twitter') => {
     setOauthLoading(provider)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -45,15 +45,8 @@ export function SignUpForm({ onSwitchView }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!fullName || !email || !password || !confirmPassword) {
-      return toast.error('Please fill in all required fields')
-    }
-    if (password.length < 8) {
-      return toast.error('Password must be at least 8 characters')
-    }
-    if (password !== confirmPassword) {
-      return toast.error('Passwords do not match')
-    }
+    if (!fullName || !email || !password) return toast.error('Please fill in all required fields')
+    if (password.length < 8) return toast.error('Password must be at least 8 characters')
 
     setLoading(true)
     try {
@@ -78,30 +71,35 @@ export function SignUpForm({ onSwitchView }: Props) {
   }
 
   return (
-    <div>
-      <div className="text-center mb-6">
-        <h1 className="text-[22px] font-bold text-white tracking-tight">Create your DSRT account</h1>
+    <div className="w-full">
+      <div className="lg:hidden text-center mb-8">
+        <h1 className="text-[28px] font-bold text-white tracking-tight">Join DSRT</h1>
+        <p className="text-[14px] text-white/50 mt-1">Build what matters. Together.</p>
+      </div>
+
+      <div className="hidden lg:block text-center mb-8">
+        <h2 className="text-[22px] font-bold text-white tracking-tight">Create your account</h2>
         <p className="text-[13px] text-white/50 mt-1">Build. Connect. Ship.</p>
       </div>
 
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         <OAuthButton provider="google" onClick={() => handleOAuth('google')} loading={oauthLoading === 'google'} disabled={!!oauthLoading} icon={<GoogleIcon />}>
-          Continue with Google
+          Sign up with Google
         </OAuthButton>
-        <OAuthButton provider="github" onClick={() => handleOAuth('github')} loading={oauthLoading === 'github'} disabled={!!oauthLoading} icon={<GithubIcon />}>
-          Continue with GitHub
+        <OAuthButton provider="linkedin" onClick={() => handleOAuth('linkedin_oidc')} loading={oauthLoading === 'linkedin_oidc'} disabled={!!oauthLoading} icon={<LinkedInIcon />}>
+          Sign up with LinkedIn
         </OAuthButton>
       </div>
 
-      <AuthDivider label="or with email" />
+      <AuthDivider label="or" />
 
-      <form onSubmit={handleSubmit} className="space-y-3.5">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <AuthInput
           label="Full Name"
           name="fullName"
           autoComplete="name"
-          autoFocus
           placeholder="Alex Doe"
+          leading={<User className="w-[18px] h-[18px]" weight="regular" />}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
         />
@@ -111,7 +109,8 @@ export function SignUpForm({ onSwitchView }: Props) {
           type="email"
           name="email"
           autoComplete="email"
-          placeholder="alex@example.com"
+          placeholder="name@example.com"
+          leading={<EnvelopeSimple className="w-[18px] h-[18px]" weight="regular" />}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -125,35 +124,33 @@ export function SignUpForm({ onSwitchView }: Props) {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <PasswordInput
-          label="Confirm Password"
-          name="confirmPassword"
-          autoComplete="new-password"
-          placeholder="Re-enter your password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
-
         <button
           type="submit"
           disabled={loading}
           className={cn(
-            "w-full h-9 rounded-md mt-2 flex items-center justify-center transition-colors",
-            "bg-white text-black text-[14px] font-semibold hover:bg-white/90",
-            "disabled:opacity-50 disabled:cursor-not-allowed"
+            "w-full h-[46px] rounded-xl mt-4 flex items-center justify-center gap-2 transition-all",
+            "bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14.5px] font-semibold",
+            "shadow-[0_0_20px_rgba(79,124,255,0.3)]",
+            "disabled:opacity-70 disabled:cursor-not-allowed"
           )}
         >
           {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin text-black" />
+            <CircleNotch className="w-5 h-5 animate-spin" weight="bold" />
           ) : (
-            'Create account'
+            <>
+              Create account
+              <ArrowRight className="w-4 h-4" weight="bold" />
+            </>
           )}
         </button>
       </form>
 
-      <p className="text-center text-[13px] text-white/50 font-medium mt-6">
+      <p className="lg:hidden text-center text-[13.5px] text-white/50 font-medium mt-8">
         Already have an account?{' '}
-        <button onClick={() => onSwitchView('signin')} className="text-white hover:underline transition-colors font-medium">
+        <button 
+          onClick={() => onSwitchView('signin')} 
+          className="text-[#4F7CFF] hover:text-[#7B9AFF] font-semibold transition-colors"
+        >
           Sign in
         </button>
       </p>

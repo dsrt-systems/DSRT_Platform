@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { Image as ImageIcon, Link as LinkIcon, BarChart2, Send, X, Loader2, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/sonner'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useSignedUpload } from '@/hooks/useSignedUpload'
+import { DsrtPanel, DsrtButton, DsrtTextarea, DsrtInput } from '@/components/dsrt'
 
 interface Props {
   communityId: string
@@ -104,90 +104,88 @@ export function PostComposer({ communityId, slug, currentUser, onPosted }: Props
     }
   }
 
+  const updateOption = (index: number, val: string) => {
+    setPollOptions((prev) => {
+      const next = [...prev]
+      next[index] = val
+      return next
+    })
+  }
+
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-white/[0.01] p-4">
-      <div className="flex items-start gap-3">
-        <Avatar className="w-9 h-9 border border-white/[0.06] flex-shrink-0">
+    <DsrtPanel padding="md" className="mb-6">
+      <div className="flex items-start gap-4">
+        <Avatar className="w-10 h-10 border border-white/[0.06] flex-shrink-0 mt-1">
           <AvatarImage src={currentUser?.avatar_url ?? undefined} />
-          <AvatarFallback className="text-[11px] bg-white/[0.06] text-white/80">
+          <AvatarFallback className="text-[12px] bg-white/[0.06] text-white/80">
             {(currentUser?.full_name || '?').charAt(0)}
           </AvatarFallback>
         </Avatar>
-        <div className="flex-1 min-w-0 space-y-3">
+        <div className="flex-1 min-w-0 space-y-4">
           {!expanded ? (
             <button
               onClick={() => setExpanded(true)}
-              className="w-full text-left rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] px-3 py-2.5 text-[13px] text-white/45 transition-colors"
+              className="w-full text-left rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] px-4 py-3 text-[14px] font-medium text-white/50 transition-colors"
             >
               Share an update, ask a question, or start a poll…
             </button>
           ) : (
-            <>
-              <div className="flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.02] p-1 w-fit">
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center gap-2 flex-wrap">
                 <ModeButton k="text" active={mode} setActive={setMode} icon={ImageIcon} label="Post" />
                 <ModeButton k="link" active={mode} setActive={setMode} icon={LinkIcon} label="Link" />
                 <ModeButton k="poll" active={mode} setActive={setMode} icon={BarChart2} label="Poll" />
               </div>
 
-              <textarea
+              <DsrtTextarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                rows={4}
                 placeholder={mode === 'poll' ? 'Optional context…' : 'What do you want to share?'}
-                className="w-full rounded-lg border border-white/[0.06] bg-white/[0.02] focus:border-white/[0.14] outline-none px-3 py-2.5 text-[13.5px] text-white placeholder:text-white/30 resize-none leading-relaxed"
+                className="text-[14px] min-h-[100px]"
               />
 
               {mode === 'link' && (
-                <input
+                <DsrtInput
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
                   placeholder="https://…"
-                  className="w-full rounded-lg border border-white/[0.06] bg-white/[0.02] focus:border-white/[0.14] outline-none px-3 py-2 text-[13px] text-white placeholder:text-white/30 font-mono"
+                  sizeVariant="md"
                 />
               )}
 
               {mode === 'poll' && (
-                <div className="space-y-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-                  <input
+                <div className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <DsrtInput
                     value={pollQuestion}
                     onChange={(e) => setPollQuestion(e.target.value)}
                     placeholder="Poll question"
-                    className="w-full rounded-md border border-white/[0.06] bg-white/[0.02] focus:border-white/[0.14] outline-none px-3 py-2 text-[13px] text-white placeholder:text-white/30"
                   />
                   {pollOptions.map((o, i) => (
                     <div key={i} className="flex items-center gap-2">
-                      <input
+                      <DsrtInput
                         value={o}
-                        onChange={(e) => setPollOptions((prev) => prev.map((v, idx) => idx === i ? e.target.value : v))}
+                        onChange={(e) => updateOption(i, e.target.value)}
                         placeholder={`Option ${i + 1}`}
-                        className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.02] focus:border-white/[0.14] outline-none px-3 py-2 text-[12.5px] text-white placeholder:text-white/30"
                       />
                       {pollOptions.length > 2 && (
-                        <button
-                          onClick={() => setPollOptions((prev) => prev.filter((_, idx) => idx !== i))}
-                          className="w-7 h-7 rounded-full border border-white/[0.06] bg-white/[0.02] text-white/50 hover:text-white flex items-center justify-center"
-                        >
-                          <X className="w-3.5 h-3.5" strokeWidth={1.75} />
-                        </button>
+                        <DsrtButton size="icon" variant="ghost" onClick={() => setPollOptions((prev) => prev.filter((_, idx) => idx !== i))}>
+                          <X className="w-4 h-4" />
+                        </DsrtButton>
                       )}
                     </div>
                   ))}
                   {pollOptions.length < 8 && (
-                    <button
-                      onClick={() => setPollOptions((prev) => [...prev, ''])}
-                      className="inline-flex items-center gap-1 text-[11.5px] text-white/60 hover:text-white transition-colors"
-                    >
-                      <Plus className="w-3 h-3" strokeWidth={2} />
-                      Add option
-                    </button>
+                    <DsrtButton size="sm" variant="ghost" onClick={() => setPollOptions((prev) => [...prev, ''])} className="w-full border border-dashed border-white/[0.1] text-white/50">
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Add option
+                    </DsrtButton>
                   )}
-                  <div className="flex items-center gap-3 pt-2 border-t border-white/[0.04]">
-                    <label className="inline-flex items-center gap-1.5 text-[11.5px] text-white/70 cursor-pointer">
-                      <input type="checkbox" checked={pollMultiple} onChange={(e) => setPollMultiple(e.target.checked)} className="accent-white" />
+                  <div className="flex items-center gap-4 pt-2 border-t border-white/[0.04]">
+                    <label className="inline-flex items-center gap-2 text-[12px] text-white/70 cursor-pointer">
+                      <input type="checkbox" checked={pollMultiple} onChange={(e) => setPollMultiple(e.target.checked)} className="rounded border-white/[0.2] bg-white/[0.05]" />
                       Multiple choice
                     </label>
-                    <label className="inline-flex items-center gap-1.5 text-[11.5px] text-white/70 cursor-pointer">
-                      <input type="checkbox" checked={pollAnonymous} onChange={(e) => setPollAnonymous(e.target.checked)} className="accent-white" />
+                    <label className="inline-flex items-center gap-2 text-[12px] text-white/70 cursor-pointer">
+                      <input type="checkbox" checked={pollAnonymous} onChange={(e) => setPollAnonymous(e.target.checked)} className="rounded border-white/[0.2] bg-white/[0.05]" />
                       Anonymous
                     </label>
                   </div>
@@ -195,26 +193,28 @@ export function PostComposer({ communityId, slug, currentUser, onPosted }: Props
               )}
 
               {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   {attachments.map((a, i) => (
-                    <div key={a.file_id} className="relative w-24 h-24 rounded-lg border border-white/[0.06] overflow-hidden">
+                    <div key={a.file_id} className="relative w-24 h-24 rounded-lg border border-white/[0.08] overflow-hidden">
                       <img src={a.url} alt="" className="w-full h-full object-cover" />
                       <button
                         onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 border border-white/20 text-white flex items-center justify-center"
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/80 border border-white/20 text-white flex items-center justify-center hover:bg-red-500 transition-colors"
                       >
-                        <X className="w-2.5 h-2.5" strokeWidth={2} />
+                        <X className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
-                  <label className="cursor-pointer inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] text-white/70 hover:text-white px-2.5 py-1 text-[11.5px] font-medium transition-colors">
-                    {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" strokeWidth={1.75} />}
-                    Image
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                <div className="flex items-center gap-2">
+                  <label className="cursor-pointer">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] px-3 py-1.5 text-[11px] font-medium text-white/70 hover:text-white transition-colors">
+                      {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5 mr-1" />}
+                      {uploading ? 'Uploading...' : 'Add Image'}
+                    </div>
                     <input
                       type="file"
                       accept="image/*"
@@ -226,31 +226,18 @@ export function PostComposer({ communityId, slug, currentUser, onPosted }: Props
                     />
                   </label>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={reset}
-                    className="text-[12px] text-white/50 hover:text-white px-3 py-1.5 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={submit}
-                    disabled={pending}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full bg-white text-black hover:bg-zinc-100 px-4 py-1.5 text-[12px] font-semibold transition-colors',
-                      pending && 'opacity-70'
-                    )}
-                  >
-                    {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" strokeWidth={2} />}
-                    Post
-                  </button>
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <DsrtButton size="sm" variant="ghost" onClick={reset}>Cancel</DsrtButton>
+                  <DsrtButton size="sm" variant="primary" onClick={submit} loading={pending}>
+                    <Send className="w-3.5 h-3.5 mr-1.5" /> Post
+                  </DsrtButton>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
-    </div>
+    </DsrtPanel>
   )
 }
 
@@ -259,12 +246,11 @@ function ModeButton({ k, active, setActive, icon: Icon, label }: any) {
   return (
     <button
       onClick={() => setActive(k)}
-      className={cn(
-        'inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11.5px] font-medium transition-colors',
-        isActive ? 'bg-white text-black' : 'text-white/60 hover:text-white'
-      )}
+      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+        isActive ? 'bg-white/[0.1] text-white border border-white/[0.2]' : 'bg-transparent text-white/50 hover:bg-white/[0.05] hover:text-white border border-transparent'
+      }`}
     >
-      <Icon className="w-3 h-3" strokeWidth={1.75} />
+      <Icon className="w-3.5 h-3.5" />
       {label}
     </button>
   )

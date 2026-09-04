@@ -2,8 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { FileText, ChatCircle, Handshake, WarningCircle, CheckCircle } from '@phosphor-icons/react'
+import {
+  FileText,
+  ChatCircle,
+  Handshake,
+  WarningCircle,
+  CheckCircle,
+} from '@phosphor-icons/react'
 import { ApplicationList } from './ApplicationList'
+import { DsrtPanel, DsrtGrid, DsrtSkeleton, DsrtEmpty } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
 const ATTENTION_STAGES = new Set(['offered', 'interviewing', 'offer', 'interview'])
 
@@ -68,17 +76,14 @@ export function ApplicantOverview() {
         }
       }
     },
-    // Intentionally omit `data` from deps to keep load stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filter, search, sort]
   )
 
-  // Reload whenever filters change
   useEffect(() => {
     load()
   }, [load])
 
-  // Refetch on tab focus / visibility so stage changes appear without manual refresh
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === 'visible') load()
@@ -92,7 +97,6 @@ export function ApplicantOverview() {
     }
   }, [load])
 
-  // Poll every 30s so applicants see stage moves live
   useEffect(() => {
     const t = setInterval(() => {
       if (document.visibilityState === 'visible') load()
@@ -103,21 +107,28 @@ export function ApplicantOverview() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <DsrtGrid cols={{ base: 2, md: 4 }} gap="md">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-24 rounded-2xl bg-zinc-900/40 animate-pulse border border-zinc-800/80" />
+            <DsrtSkeleton key={i} className="h-24 rounded-2xl" />
           ))}
-        </div>
+        </DsrtGrid>
         <div className="space-y-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-20 rounded-2xl bg-zinc-900/40 animate-pulse border border-zinc-800/80" />
+            <DsrtSkeleton key={i} className="h-20 rounded-2xl" />
           ))}
         </div>
       </div>
     )
   }
 
-  if (!data) return <div className="text-red-400">Failed to load dashboard.</div>
+  if (!data) {
+    return (
+      <DsrtEmpty
+        title="Failed to load dashboard"
+        description="Please refresh and try again."
+      />
+    )
+  }
 
   const stats = data.stats || {}
   const apps = data.applications || []
@@ -126,47 +137,47 @@ export function ApplicantOverview() {
   )
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {filter === 'all' && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <DsrtGrid cols={{ base: 2, md: 4 }} gap="md">
           <StatCard label="Active" value={stats.active} icon={FileText} />
-          <StatCard label="Shortlisted" value={stats.shortlisted} icon={CheckCircle} accent="cyan" />
-          <StatCard label="Interviews" value={stats.interviews} icon={ChatCircle} accent="purple" />
-          <StatCard label="Offers" value={stats.offers} icon={Handshake} accent="amber" />
-        </div>
+          <StatCard label="Shortlisted" value={stats.shortlisted} icon={CheckCircle} tone="accent" />
+          <StatCard label="Interviews" value={stats.interviews} icon={ChatCircle} tone="info" />
+          <StatCard label="Offers" value={stats.offers} icon={Handshake} tone="warning" />
+        </DsrtGrid>
       )}
 
       {filter === 'all' && attentionItems.length > 0 && (
-        <div className="rounded-2xl border border-blue-500/25 bg-gradient-to-b from-blue-500/10 to-[#0f0f11] overflow-hidden">
-          <div className="px-5 py-3 border-b border-blue-500/20 bg-blue-500/5">
-            <h3 className="text-[12.5px] font-bold text-blue-300 flex items-center gap-2">
-              <WarningCircle size={16} weight="fill" /> Action Required
+        <DsrtPanel padding="none" variant="default" className="overflow-hidden border-[#2c5282]/40">
+          <div className="px-4 sm:px-5 py-3 border-b border-[#2c5282]/25 bg-[#1e3a5f]/20">
+            <h3 className="text-[12px] font-semibold text-[#93c5fd] flex items-center gap-2">
+              <WarningCircle size={15} weight="fill" /> Action Required
             </h3>
           </div>
-          <div className="divide-y divide-zinc-800/60 p-2">
+          <div className="divide-y divide-white/[0.04] p-2">
             {attentionItems.map((a: any) => (
               <a
                 key={a.id}
                 href={`/looking-for/my-applications/${a.id}`}
-                className="flex items-center justify-between p-3 hover:bg-zinc-900/40 rounded-xl transition-colors group"
+                className="flex items-center justify-between gap-3 p-3 hover:bg-white/[0.03] rounded-xl transition-colors group"
               >
-                <div>
-                  <div className="text-[13px] font-semibold text-white group-hover:text-blue-300">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-white group-hover:text-[#93c5fd] truncate">
                     {a.opportunity?.title}
                   </div>
-                  <div className="text-[11.5px] text-zinc-400 mt-0.5">
+                  <div className="text-[11.5px] text-white/45 mt-0.5">
                     {a.unread_messages > 0
                       ? `${a.unread_messages} unread message(s)`
                       : `Stage: ${a.pipeline_stage}`}
                   </div>
                 </div>
-                <div className="text-[11.5px] font-bold text-zinc-500 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 group-hover:bg-zinc-800">
+                <div className="text-[11px] font-semibold text-white/50 bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.08] group-hover:bg-white/[0.08] group-hover:text-white shrink-0">
                   View →
                 </div>
               </a>
             ))}
           </div>
-        </div>
+        </DsrtPanel>
       )}
 
       <ApplicationList
@@ -180,22 +191,37 @@ export function ApplicantOverview() {
   )
 }
 
-function StatCard({ label, value, icon: Icon, accent }: any) {
-  const c =
-    accent === 'cyan'
-      ? 'text-cyan-400'
-      : accent === 'purple'
-      ? 'text-purple-400'
-      : accent === 'amber'
-      ? 'text-amber-400'
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  tone,
+}: {
+  label: string
+  value: number
+  icon: any
+  tone?: 'accent' | 'info' | 'warning'
+}) {
+  const valueClass =
+    tone === 'accent'
+      ? 'text-[#93c5fd]'
+      : tone === 'info'
+      ? 'text-sky-300'
+      : tone === 'warning'
+      ? 'text-amber-300'
       : 'text-white'
+
   return (
-    <div className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-[#18181b] via-[#121215] to-[#0f0f11] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <DsrtPanel variant="default" padding="md">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">{label}</span>
-        <Icon size={14} className="text-zinc-600" />
+        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.14em] text-white/40">
+          {label}
+        </span>
+        <Icon size={14} className="text-white/30" />
       </div>
-      <div className={`text-[26px] font-bold tracking-tight ${c}`}>{value || 0}</div>
-    </div>
+      <div className={cn('text-[24px] sm:text-[26px] font-bold tracking-tight', valueClass)}>
+        {value || 0}
+      </div>
+    </DsrtPanel>
   )
 }

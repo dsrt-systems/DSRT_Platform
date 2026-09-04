@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { BookmarkSimple, Clock, MapPin, Users } from '@phosphor-icons/react'
+import { DsrtPanel, DsrtChip, DsrtButton } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
 interface Opportunity {
   id: string
@@ -29,8 +31,19 @@ interface Opportunity {
     avatar_url: string | null
     is_verified?: boolean
   } | null
-  project?: { id: string; slug: string; name: string; icon?: string | null; cover_image_url?: string | null } | null
-  venture?: { id: string; slug: string; name: string; logo_url: string | null } | null
+  project?: {
+    id: string
+    slug: string
+    name: string
+    icon?: string | null
+    cover_image_url?: string | null
+  } | null
+  venture?: {
+    id: string
+    slug: string
+    name: string
+    logo_url: string | null
+  } | null
   is_saved?: boolean
   has_applied?: boolean
 }
@@ -41,15 +54,15 @@ interface Props {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  'hire': 'Hire',
-  'freelance': 'Freelance',
+  hire: 'Hire',
+  freelance: 'Freelance',
   'part-time': 'Part-time',
   'full-time': 'Full-time',
-  'contract': 'Contract',
+  contract: 'Contract',
   'project-collaboration': 'Project Collab',
   'team-up': 'Team Up',
-  'cofounder': 'Co-founder',
-  'mentorship': 'Mentorship',
+  cofounder: 'Co-founder',
+  mentorship: 'Mentorship',
 }
 
 function timeAgo(iso: string | null | undefined): string {
@@ -71,6 +84,9 @@ export function OpportunityCard({ opportunity, onSave }: Props) {
   const posterName = opportunity.poster?.full_name || opportunity.poster?.username || 'Anonymous'
   const posterContext = opportunity.project?.name || opportunity.venture?.name || null
   const appCount = opportunity.application_count || 0
+  const isNew =
+    !!opportunity.published_at &&
+    Date.now() - new Date(opportunity.published_at).getTime() < 24 * 60 * 60 * 1000
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -79,120 +95,104 @@ export function OpportunityCard({ opportunity, onSave }: Props) {
   }
 
   return (
-    <Link
-      href={`/looking-for/${opportunity.slug}?source=feed`}
-      className={
-        'group block rounded-2xl border border-zinc-800/80 transition-all duration-300 ' +
-        'bg-gradient-to-b from-[#18181b] via-[#121215] to-[#0f0f11] ' +
-        'hover:from-[#1f1f23] hover:to-[#141417] hover:border-zinc-600/80 hover:-translate-y-0.5 ' +
-        'shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_4px_20px_rgba(0,0,0,0.4)] ' +
-        'hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_32px_rgba(0,0,0,0.6)] ' +
-        'relative overflow-hidden'
-      }
-    >
-      <div className="p-5 md:p-6 flex flex-col md:flex-row gap-5">
-        {/* Left: Avatar/Context Icon */}
-        <div className="shrink-0 hidden sm:block">
-          <ContextIcon opportunity={opportunity} />
-        </div>
+    <Link href={`/looking-for/${opportunity.slug}?source=feed`} className="block group">
+      <DsrtPanel
+        variant="default"
+        padding="none"
+        className="transition-all duration-200 hover:border-white/[0.14] group-hover:-translate-y-0.5"
+      >
+        <div className="p-4 sm:p-5 flex flex-col md:flex-row gap-4 sm:gap-5">
+          <div className="shrink-0 hidden sm:block">
+            <ContextIcon opportunity={opportunity} />
+          </div>
 
-        {/* Center: Main Details */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            {opportunity.published_at &&
-              (Date.now() - new Date(opportunity.published_at).getTime() < 24 * 60 * 60 * 1000) && (
-              <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md">
-                New
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {isNew && (
+                <DsrtChip size="sm" tone="success">
+                  New
+                </DsrtChip>
+              )}
+              <span className="text-[11px] font-mono uppercase tracking-wider text-white/40">
+                {type} · {timeAgo(opportunity.published_at)}
               </span>
-            )}
-            <span className="text-[11.5px] font-medium text-zinc-500 uppercase tracking-wider">
-              {type} • {timeAgo(opportunity.published_at)}
-            </span>
-          </div>
+            </div>
 
-          <h3 className="text-[17px] md:text-[19px] font-bold text-white group-hover:text-blue-400 leading-tight line-clamp-2 mb-1.5 transition-colors tracking-tight">
-            {opportunity.title}
-          </h3>
+            <h3 className="text-[16px] sm:text-[18px] font-bold text-white leading-tight line-clamp-2 mb-1.5 tracking-tight group-hover:text-[#93c5fd] transition-colors">
+              {opportunity.title}
+            </h3>
 
-          <div className="text-[13px] text-zinc-400 mb-3 truncate flex items-center gap-1.5">
-            <span className="text-zinc-300 font-medium">{posterName}</span>
-            {posterContext && (
-              <>
-                <span className="text-zinc-700">•</span>
-                <span>{posterContext}</span>
-              </>
-            )}
-          </div>
-
-          {(opportunity.subtitle || opportunity.description) && (
-            <p className="text-[13.5px] text-zinc-400 leading-relaxed line-clamp-2 mb-4">
-              {opportunity.subtitle || opportunity.description}
-            </p>
-          )}
-
-          {opportunity.required_skills && opportunity.required_skills.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {opportunity.required_skills.slice(0, 5).map((s: string) => (
-                <span
-                  key={s}
-                  className="inline-flex items-center h-6 px-2.5 rounded-md text-[11px] font-medium bg-zinc-900 border border-zinc-700/60 text-zinc-300 shadow-sm"
-                >
-                  {s}
-                </span>
-              ))}
-              {opportunity.required_skills.length > 5 && (
-                <span className="inline-flex items-center h-6 px-2 rounded-md text-[11px] font-medium text-zinc-500 bg-zinc-950 border border-zinc-800">
-                  +{opportunity.required_skills.length - 5}
-                </span>
+            <div className="text-[13px] text-white/50 mb-3 truncate flex items-center gap-1.5">
+              <span className="text-white/80 font-medium">{posterName}</span>
+              {posterContext && (
+                <>
+                  <span className="text-white/20">·</span>
+                  <span>{posterContext}</span>
+                </>
               )}
             </div>
-          )}
 
-          <div className="flex flex-wrap items-center gap-3 md:gap-5 text-[12px] text-zinc-400 font-medium">
-            {opportunity.work_mode && (
-              <span className="flex items-center gap-1.5">
-                <MapPin size={14} className="text-zinc-500" />
-                <span className="capitalize">{opportunity.work_mode}</span>
-              </span>
+            {(opportunity.subtitle || opportunity.description) && (
+              <p className="text-[13px] text-white/60 leading-relaxed line-clamp-2 mb-4">
+                {opportunity.subtitle || opportunity.description}
+              </p>
             )}
-            {opportunity.time_commitment && (
-              <span className="flex items-center gap-1.5">
-                <Clock size={14} className="text-zinc-500" />
-                {opportunity.time_commitment.replace(/-/g, ' ')}
-              </span>
+
+            {opportunity.required_skills && opportunity.required_skills.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {opportunity.required_skills.slice(0, 5).map((s: string) => (
+                  <DsrtChip key={s} size="sm" tone="neutral">
+                    {s}
+                  </DsrtChip>
+                ))}
+                {opportunity.required_skills.length > 5 && (
+                  <DsrtChip size="sm" tone="neutral">
+                    +{opportunity.required_skills.length - 5}
+                  </DsrtChip>
+                )}
+              </div>
             )}
-            <span className="flex items-center gap-1.5">
-              <Users size={14} className="text-zinc-500" />
-              {appCount} {appCount === 1 ? 'applicant' : 'applicants'}
-            </span>
+
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[12px] text-white/45 font-medium">
+              {opportunity.work_mode && (
+                <span className="flex items-center gap-1.5 capitalize">
+                  <MapPin size={13} className="text-white/30" />
+                  {opportunity.work_mode}
+                </span>
+              )}
+              {opportunity.time_commitment && (
+                <span className="flex items-center gap-1.5">
+                  <Clock size={13} className="text-white/30" />
+                  {opportunity.time_commitment.replace(/-/g, ' ')}
+                </span>
+              )}
+              <span className="flex items-center gap-1.5">
+                <Users size={13} className="text-white/30" />
+                {appCount} {appCount === 1 ? 'applicant' : 'applicants'}
+              </span>
+            </div>
+          </div>
+
+          <div className="shrink-0 flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-3 border-t md:border-t-0 md:border-l border-white/[0.06] pt-3 md:pt-0 md:pl-5 min-w-0 md:min-w-[140px]">
+            <button
+              onClick={handleSave}
+              aria-label={opportunity.is_saved ? 'Unsave' : 'Save'}
+              className={cn(
+                'w-9 h-9 rounded-xl border flex items-center justify-center transition-all',
+                opportunity.is_saved
+                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                  : 'border-white/[0.1] bg-white/[0.03] text-white/50 hover:text-white hover:border-white/[0.2]'
+              )}
+            >
+              <BookmarkSimple size={16} weight={opportunity.is_saved ? 'fill' : 'bold'} />
+            </button>
+
+            <div className="h-9 px-4 rounded-xl border border-white/[0.1] bg-gradient-to-b from-[#1e3a5f] to-[#2c5282] text-white text-[12px] font-semibold flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+              View details
+            </div>
           </div>
         </div>
-
-        {/* Right Actions & CTA */}
-        <div className="shrink-0 flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-4 border-t md:border-t-0 md:border-l border-zinc-800/60 pt-4 md:pt-0 md:pl-5 min-w-[140px]">
-          <button
-            onClick={handleSave}
-            aria-label={opportunity.is_saved ? 'Unsave' : 'Save'}
-            className={
-              'w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-sm ' +
-              (opportunity.is_saved
-                ? 'border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-[inset_0_1px_0_rgba(251,191,36,0.2)]'
-                : 'border-zinc-700 bg-zinc-900/50 hover:border-zinc-500 text-zinc-400 hover:text-white hover:bg-zinc-800')
-            }
-          >
-            <BookmarkSimple size={16} weight={opportunity.is_saved ? 'fill' : 'bold'} />
-          </button>
-
-          <div className={
-            'h-10 px-4 rounded-xl border text-[13px] font-bold transition-all flex items-center justify-center ' +
-            'border-zinc-700 bg-gradient-to-b from-zinc-800 to-zinc-900 text-white ' +
-            'group-hover:border-zinc-500 group-hover:from-zinc-700 group-hover:to-zinc-800 ' +
-            'shadow-[0_2px_8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]'
-          }>
-            View Details
-          </div>
-        </div>
-      </div>
+      </DsrtPanel>
     </Link>
   )
 }
@@ -201,8 +201,8 @@ function ContextIcon({ opportunity }: { opportunity: Opportunity }) {
   const projectLogo = opportunity.project?.cover_image_url
   const projectIcon = opportunity.project?.icon
   const ventureLogo = opportunity.venture?.logo_url
-
-  const wrapClasses = "w-14 h-14 rounded-2xl overflow-hidden border border-zinc-700/80 relative bg-gradient-to-b from-zinc-800 to-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_4px_12px_rgba(0,0,0,0.5)] flex items-center justify-center"
+  const wrapClasses =
+    'w-14 h-14 rounded-2xl overflow-hidden border border-white/[0.1] relative bg-gradient-to-b from-[#0f172a] to-[#0a0a0f] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] flex items-center justify-center'
 
   if (projectLogo) {
     return (
@@ -219,17 +219,11 @@ function ContextIcon({ opportunity }: { opportunity: Opportunity }) {
     )
   }
   if (projectIcon) {
-    return (
-      <div className={wrapClasses + " text-2xl"}>
-        {projectIcon}
-      </div>
-    )
+    return <div className={wrapClasses + ' text-2xl'}>{projectIcon}</div>
   }
 
   const initial = (opportunity.poster?.full_name || opportunity.title || '?').charAt(0).toUpperCase()
   return (
-    <div className={wrapClasses + " text-[20px] font-bold text-zinc-300"}>
-      {initial}
-    </div>
+    <div className={wrapClasses + ' text-[18px] font-bold text-white/70'}>{initial}</div>
   )
 }

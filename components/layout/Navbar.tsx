@@ -1,164 +1,123 @@
+// filepath: components/layout/Navbar.tsx
 'use client'
 
 import Link from 'next/link'
-import { Plus, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
-import { NotificationsDropdown } from '@/components/notifications/NotificationsDropdown'
-import { GlobalSearch } from '@/components/search/GlobalSearch'
+import { usePathname } from 'next/navigation'
+import { Plus, List, CaretDown, SignOut } from '@phosphor-icons/react'
 import { DsrtConnectLogo } from '@/components/ui/DsrtConnectLogo'
+import { GlobalSearch } from '@/components/search/GlobalSearch'
+import { NotificationsDropdown } from '@/components/notifications/NotificationsDropdown'
+import { MailIconButton } from './MailIconButton'
+import { DsrtButton, DsrtAvatar } from '@/components/dsrt'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface NavbarProps {
   user: any
+  onMenuClick: () => void
+  handleLogout: () => void
 }
 
-export function Navbar({ user }: NavbarProps) {
-  const router = useRouter()
-  const supabase = createClient()
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.refresh()
-    router.push('/login')
-  }
+export function Navbar({ user, onMenuClick, handleLogout }: NavbarProps) {
+  const pathname = usePathname()
+  const isMailRoute = pathname?.startsWith('/inbox')
 
   return (
-    <header
-      className={
-        'sticky top-0 z-40 w-full ' +
-        'border-b border-zinc-800/70 ' +
-        'bg-gradient-to-b from-[#121214] via-[#0c0c0e] to-[#0a0a0b] ' +
-        'backdrop-blur-xl ' +
-        'shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]'
-      }
-    >
-      {/* Taller bar with increased vertical padding (76px) */}
-      <div className="flex h-[76px] items-center px-4 md:px-6 gap-5">
-        
-        {/* LEFT: Logo & Brand (No subtitle) */}
-        <Link
-          href="/home"
-          className="flex items-center gap-3 shrink-0 group"
-        >
-          <DsrtConnectLogo
-            size={40}
-            className="transition-transform duration-200 group-hover:scale-[1.03]"
-          />
-          <span className="font-bold text-[18px] tracking-tight text-white whitespace-nowrap">
-            DSRT Connect
-          </span>
-        </Link>
+    <header className="fixed top-0 inset-x-0 z-[60] bg-[#05070D]/95 backdrop-blur-md border-b border-white/[0.06] flex flex-col shadow-sm">
+      <div className="h-[64px] flex items-center justify-between px-3 lg:px-6">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <button
+            onClick={onMenuClick}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors"
+            aria-label="Toggle sidebar"
+          >
+            <List size={20} weight="bold" />
+          </button>
 
-        {/* CENTER-LEFT: Search Bar (Pushed left, closer to logo) */}
-        <div className="flex-1 max-w-2xl mr-auto ml-2">
-          <GlobalSearch />
+          <Link href="/home" className="flex items-center gap-2 group">
+            <DsrtConnectLogo size={24} className="transition-transform duration-200 group-hover:scale-105" />
+            <span className="font-bold text-[16px] tracking-tight text-white leading-tight">
+              DSRT Connect
+            </span>
+          </Link>
         </div>
 
-        {/* RIGHT: Actions (Pushed entirely to the right) */}
-        <div className="flex items-center gap-4 shrink-0 ml-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                className={
-                  'h-10 gap-1.5 px-4 rounded-xl font-semibold ' +
-                  'bg-gradient-to-b from-white to-zinc-200 text-black ' +
-                  'hover:from-white hover:to-white ' +
-                  'border border-white/20 ' +
-                  'shadow-[0_1px_2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.7)]'
-                }
-              >
-                <Plus className="w-4 h-4" />
-                New
-                <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-52 bg-[#0f0f11] border-zinc-800 text-white rounded-xl shadow-2xl"
-            >
-              <DropdownMenuItem asChild className="cursor-pointer focus:bg-zinc-900">
-                <Link href="/projects/new">New Project</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer focus:bg-zinc-900">
-                <Link href="/ventures/new">New Venture</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer focus:bg-zinc-900">
-                <Link href="/home">New Post</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer focus:bg-zinc-900">
-                <Link href="/looking-for/create">New Opportunity</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {/* Global search — hidden entirely inside DSRT Mail */}
+        {!isMailRoute && (
+          <div className="hidden md:flex flex-1 max-w-xl mx-auto px-4">
+            <GlobalSearch />
+          </div>
+        )}
 
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="hidden sm:block">
+            <NewDropdown />
+          </div>
+
+          <MailIconButton userId={user?.id} />
           <NotificationsDropdown />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                className={
-                  'flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-xl ' +
-                  'border border-transparent hover:border-zinc-800 ' +
-                  'bg-transparent hover:bg-zinc-900/60 transition-all'
-                }
-              >
-                <Avatar className="w-10 h-10 border border-zinc-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <AvatarImage src={user?.avatar_url} />
-                  <AvatarFallback className="text-xs bg-zinc-900 text-zinc-400">
-                    {user?.full_name?.[0]?.toUpperCase() || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden sm:block text-left min-w-0">
-                  <p className="text-[14px] font-semibold leading-tight text-white truncate max-w-[130px]">
-                    {user?.full_name}
-                  </p>
-                  <p className="text-[11px] text-zinc-500 leading-tight capitalize mt-0.5 truncate max-w-[130px]">
-                    {user?.brings?.[0] || 'Builder'}
-                  </p>
-                </div>
+              <button className="flex items-center gap-1.5 pl-1 pr-1.5 py-1 rounded-full hover:bg-white/[0.06] transition-colors outline-none ml-1">
+                <DsrtAvatar src={user?.avatar_url} name={user?.full_name} size="sm" />
+                <CaretDown size={12} weight="bold" className="text-white/40 hidden sm:block" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-56 bg-[#0f0f11] border-zinc-800 text-white rounded-xl shadow-2xl"
-            >
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span className="font-medium text-white">{user?.full_name}</span>
-                  <span className="text-xs text-zinc-500 font-normal">
-                    @{user?.username}
-                  </span>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-zinc-800" />
-              <DropdownMenuItem asChild className="cursor-pointer focus:bg-zinc-900">
+            <DropdownMenuContent align="end" className="w-56 bg-[#0a0f1a] border-white/[0.08] text-white rounded-xl shadow-2xl mt-1 py-1">
+              <div className="px-4 py-3 border-b border-white/[0.06] mb-1">
+                <p className="text-[13px] font-bold text-white truncate">{user?.full_name}</p>
+                <p className="text-[11px] font-mono text-white/40 truncate mt-0.5">@{user?.username}</p>
+              </div>
+              <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/[0.06] text-[13px] py-2 px-4 mx-1 rounded-lg">
                 <Link href={`/profile/${user?.username}`}>View Profile</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer focus:bg-zinc-900">
+              <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/[0.06] text-[13px] py-2 px-4 mx-1 rounded-lg">
                 <Link href="/settings">Settings</Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-zinc-800" />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="text-red-400 focus:text-red-400 focus:bg-zinc-900 cursor-pointer"
-              >
-                Log out
+              <DropdownMenuSeparator className="bg-white/[0.06] my-1" />
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer focus:bg-red-500/10 text-red-400 focus:text-red-300 text-[13px] py-2 px-4 mx-1 rounded-lg flex items-center gap-2">
+                <SignOut size={14} weight="bold" /> Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Mobile global search row — also hidden on Mail */}
+      {!isMailRoute && (
+        <div className="md:hidden px-3 pb-3 w-full">
+          <GlobalSearch />
+        </div>
+      )}
     </header>
+  )
+}
+
+function NewDropdown() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <DsrtButton size="xs" variant="white" className="h-8 px-3 gap-1.5">
+          <Plus size={12} weight="bold" />
+          <span>New</span>
+        </DsrtButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48 bg-[#0a0f1a] border-white/[0.08] text-white rounded-xl shadow-2xl mt-1 py-1">
+        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/[0.06] text-[13px] py-2 px-3 mx-1 rounded-lg">
+          <Link href="/projects/new">New Project</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/[0.06] text-[13px] py-2 px-3 mx-1 rounded-lg">
+          <Link href="/ventures/new">New Venture</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/[0.06] text-[13px] py-2 px-3 mx-1 rounded-lg">
+          <Link href="/home">New Post</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer focus:bg-white/[0.06] text-[13px] py-2 px-3 mx-1 rounded-lg">
+          <Link href="/looking-for/create">New Opportunity</Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

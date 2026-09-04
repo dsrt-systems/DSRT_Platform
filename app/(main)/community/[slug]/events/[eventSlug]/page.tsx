@@ -10,6 +10,5 @@ export default async function Page({ params }: { params: Promise<{ slug: string;
   const { data: community } = await supabase.from('communities').select('id').eq('slug', slug).maybeSingle()
   if (!community) notFound()
 
-  // We pass the eventSlug as identifier — the detail hook resolves it against community_events_v2.slug
   return <EventPublicPage slug={eventSlug} />
 }

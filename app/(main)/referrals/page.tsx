@@ -1,13 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { ReferralView } from '@/components/referrals/ReferralView'
+import { DsrtPage } from '@/components/dsrt'
 
 export default async function ReferralsPage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Get or create referral code
   let { data: code } = await supabase
     .from('referral_codes')
     .select('*')
@@ -30,5 +28,9 @@ export default async function ReferralsPage() {
     .eq('referrer_id', user!.id)
     .order('created_at', { ascending: false })
 
-  return <ReferralView code={code} referrals={referrals || []} />
+  return (
+    <DsrtPage width="default" className="py-8">
+      <ReferralView code={code} referrals={referrals || []} />
+    </DsrtPage>
+  )
 }

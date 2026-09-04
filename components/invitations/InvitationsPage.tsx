@@ -2,20 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import {
   Envelope, Buildings, Users, Kanban as FolderKanban, UserPlus, Check, X, Clock,
 } from '@phosphor-icons/react'
 import { formatDistanceToNow } from 'date-fns'
+import { DsrtPage, DsrtSection, DsrtPanel, DsrtButton, DsrtTabs, DsrtEmpty, DsrtAvatar, DsrtChip } from '@/components/dsrt'
 
 export function InvitationsPage({ currentUser }: any) {
-  const supabase = createClient()
-
   const [activeTab, setActiveTab] = useState<'all' | 'organizations' | 'communities' | 'projects' | 'connections'>('all')
   const [data, setData] = useState<{ organizations: any[]; communities: any[]; projects: any[]; connections: any[] }>({
     organizations: [], communities: [], projects: [], connections: [],
@@ -27,115 +23,103 @@ export function InvitationsPage({ currentUser }: any) {
 
   const load = async () => {
     setLoading(true)
-    const res = await fetch('/api/invitations')
-    const d = await res.json()
-    setData({
-      organizations: d.organizations || [],
-      communities: d.communities || [],
-      projects: d.projects || [],
-      connections: d.connections || [],
-    })
-    setLoading(false)
+    try {
+      const res = await fetch('/api/invitations')
+      const d = await res.json()
+      setData({
+        organizations: d.organizations || [],
+        communities: d.communities || [],
+        projects: d.projects || [],
+        connections: d.connections || [],
+      })
+    } catch {
+      toast.error('Failed to load invitations')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handle = async (type: string, id: string, action: 'accept' | 'decline') => {
     setProcessingIds(prev => new Set(prev).add(id))
-    const res = await fetch('/api/invitations/respond', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invitation_type: type, invitation_id: id, action }),
-    })
-    if (res.ok) {
-      toast.success(action === 'accept' ? 'Invitation accepted' : 'Invitation declined')
-      // Remove from list
-      setData(prev => ({
-        ...prev,
-        [type + 's']: prev[(type + 's') as keyof typeof prev].filter((i: any) => i.id !== id),
-      }))
-    } else {
-      toast.error('Failed to respond')
+    try {
+      const res = await fetch('/api/invitations/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invitation_type: type, invitation_id: id, action }),
+      })
+      if (res.ok) {
+        toast.success(action === 'accept' ? 'Invitation accepted' : 'Invitation declined')
+        setData(prev => ({
+          ...prev,
+          [type + 's']: prev[(type + 's') as keyof typeof prev].filter((i: any) => i.id !== id),
+        }))
+      } else {
+        toast.error('Failed to respond')
+      }
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setProcessingIds(prev => { const n = new Set(prev); n.delete(id); return n })
     }
-    setProcessingIds(prev => { const n = new Set(prev); n.delete(id); return n })
   }
 
   const total = data.organizations.length + data.communities.length + data.projects.length + data.connections.length
 
   const tabs = [
-    { id: 'all', label: 'All', count: total },
-    { id: 'organizations', label: 'Organizations', count: data.organizations.length, icon: Buildings },
-    { id: 'communities', label: 'Communities', count: data.communities.length, icon: Users },
-    { id: 'projects', label: 'Projects', count: data.projects.length, icon: FolderKanban },
-    { id: 'connections', label: 'Connections', count: data.connections.length, icon: UserPlus },
+    { value: 'all', label: 'All', badge: total || undefined },
+    { value: 'organizations', label: 'Orgs', badge: data.organizations.length || undefined },
+    { value: 'communities', label: 'Communities', badge: data.communities.length || undefined },
+    { value: 'projects', label: 'Projects', badge: data.projects.length || undefined },
+    { value: 'connections', label: 'Connections', badge: data.connections.length || undefined },
   ]
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4">
-      {/* Header */}
-      <div className="bg-card border rounded-2xl p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-            <Envelope className="w-5 h-5 text-blue-500" weight="fill" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Invitations</h1>
-            <p className="text-sm text-muted-foreground">
-              {total === 0 ? 'You have no pending invitations' : `${total} pending invitation${total > 1 ? 's' : ''}`}
-            </p>
-          </div>
-        </div>
-      </div>
+    <DsrtPage width="default" className="space-y-6 py-6">
+      <DsrtSection
+        title="Invitations"
+        description={total === 0 
+          ? 'You have no pending invitations' 
+          : `${total} pending invitation${total > 1 ? 's' : ''} awaiting your response.`}
+        headerVariant="large"
+      />
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b overflow-x-auto scrollbar-hide">
-        {tabs.map(t => {
-          const Icon = t.icon
-          const isActive = activeTab === t.id
-          return (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id as any)}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap',
-                isActive
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {Icon && <Icon className="w-4 h-4" weight={isActive ? 'fill' : 'regular'} />}
-              {t.label}
-              {t.count > 0 && (
-                <span className={cn(
-                  'text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center',
-                  isActive ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
-                )}>
-                  {t.count}
-                </span>
-              )}
-            </button>
-          )
-        })}
+      {/* Tabs - UPDATED: sticky top-[116px] md:top-[64px] */}
+      <div className="sticky top-[116px] md:top-[64px] z-20 bg-[#05070D]/95 backdrop-blur-md -mx-4 px-4 sm:mx-0 sm:px-0 py-2">
+        <DsrtTabs
+          variant="underline"
+          tabs={tabs}
+          activeValue={activeTab}
+          onValueChange={(v) => setActiveTab(v as any)}
+        />
       </div>
 
       {/* Content */}
       {loading ? (
         <div className="space-y-3">
-          {[1,2,3].map(i => <div key={i} className="h-24 bg-muted/30 rounded-2xl animate-pulse" />)}
+          {[1, 2, 3].map(i => (
+            <DsrtPanel key={i} className="h-32 animate-pulse" />
+          ))}
         </div>
       ) : total === 0 ? (
-        <div className="bg-card border rounded-2xl p-12 text-center">
-          <Envelope className="w-14 h-14 mx-auto text-muted-foreground/30 mb-3" weight="duotone" />
-          <h3 className="font-bold">All caught up</h3>
-          <p className="text-sm text-muted-foreground mt-1">No pending invitations right now</p>
-        </div>
+        <DsrtPanel>
+          <DsrtEmpty
+            icon={Envelope}
+            title="All caught up"
+            description="No pending invitations right now. Explore DSRT to build your network."
+            action={
+              <DsrtButton asChild variant="outline" size="sm">
+                <Link href="/community">Explore Communities</Link>
+              </DsrtButton>
+            }
+          />
+        </DsrtPanel>
       ) : (
         <div className="space-y-3">
-          {/* Organizations */}
           {(activeTab === 'all' || activeTab === 'organizations') && data.organizations.map((inv, i) => (
             <InvitationCard
               key={inv.id}
               type="organization"
               icon={Buildings}
-              color="purple"
               title={inv.organizations?.name}
               subtitle="Organization invitation"
               logo={inv.organizations?.logo_url}
@@ -152,13 +136,11 @@ export function InvitationsPage({ currentUser }: any) {
               detailLink={inv.organizations?.slug ? `/organizations/${inv.organizations.slug}` : undefined}
             />
           ))}
-          {/* Communities */}
           {(activeTab === 'all' || activeTab === 'communities') && data.communities.map((inv, i) => (
             <InvitationCard
               key={inv.id}
               type="community"
               icon={Users}
-              color="blue"
               title={inv.communities?.name}
               subtitle={`${inv.communities?.member_count || 0} members`}
               logo={inv.communities?.cover_url}
@@ -175,13 +157,11 @@ export function InvitationsPage({ currentUser }: any) {
               detailLink={inv.communities?.slug ? `/community/${inv.communities.slug}` : undefined}
             />
           ))}
-          {/* Projects */}
           {(activeTab === 'all' || activeTab === 'projects') && data.projects.map((inv, i) => (
             <InvitationCard
               key={inv.id}
               type="project"
               icon={FolderKanban}
-              color="green"
               title={inv.projects?.name}
               subtitle={`Role: ${inv.role || 'Member'}`}
               logoName={inv.projects?.name}
@@ -196,13 +176,11 @@ export function InvitationsPage({ currentUser }: any) {
               detailLink={inv.projects?.slug ? `/projects/${inv.projects.slug}` : undefined}
             />
           ))}
-          {/* Connections */}
           {(activeTab === 'all' || activeTab === 'connections') && data.connections.map((inv, i) => (
             <InvitationCard
               key={inv.id}
               type="connection"
               icon={UserPlus}
-              color="pink"
               title={inv.requester?.full_name}
               subtitle={inv.requester?.tagline || 'Wants to connect'}
               logo={inv.requester?.avatar_url}
@@ -218,90 +196,86 @@ export function InvitationsPage({ currentUser }: any) {
           ))}
         </div>
       )}
-    </div>
+    </DsrtPage>
   )
 }
 
 function InvitationCard({
-  type, icon: Icon, color, title, subtitle, logo, logoName, description,
+  type, icon: Icon, title, subtitle, logo, logoName, description,
   inviter, message, role, createdAt, index, onAccept, onDecline, processing, detailLink,
 }: any) {
-  const COLOR_MAP: Record<string, { bg: string; text: string }> = {
-    blue: { bg: 'bg-blue-500/10', text: 'text-blue-500' },
-    purple: { bg: 'bg-purple-500/10', text: 'text-purple-500' },
-    green: { bg: 'bg-green-500/10', text: 'text-green-500' },
-    pink: { bg: 'bg-pink-500/10', text: 'text-pink-500' },
-  }
-  const colors = COLOR_MAP[color]
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="bg-card border rounded-2xl p-4 hover:border-primary/30 transition-colors"
+      transition={{ delay: index * 0.03 }}
     >
-      <div className="flex items-start gap-3">
-        {/* Logo */}
-        {logo ? (
-          <Avatar className="w-12 h-12">
-            <AvatarImage src={logo} />
-            <AvatarFallback className="text-sm">{logoName?.[0]?.toUpperCase()}</AvatarFallback>
-          </Avatar>
-        ) : (
-          <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', colors.bg)}>
-            <Icon className={cn('w-6 h-6', colors.text)} weight="fill" />
-          </div>
-        )}
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 flex-wrap">
-            <div className="min-w-0">
-              {detailLink ? (
-                <Link href={detailLink} className="text-sm font-bold hover:underline truncate block">{title}</Link>
-              ) : (
-                <p className="text-sm font-bold truncate">{title}</p>
-              )}
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
-            </div>
-            <span className={cn('text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider', colors.bg, colors.text)}>
-              {type}
-            </span>
-          </div>
-
-          {description && (
-            <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed">{description}</p>
-          )}
-
-          {(inviter || message) && (
-            <div className="mt-3 pt-3 border-t border-dashed">
-              {inviter && (
-                <p className="text-[11px] text-muted-foreground mb-1">
-                  Invited by <span className="font-semibold text-foreground">{inviter.full_name}</span>
-                </p>
-              )}
-              {message && (
-                <p className="text-xs italic text-muted-foreground">&quot;{message}&quot;</p>
-              )}
+      <DsrtPanel padding="md" className="hover:border-white/[0.14] transition-colors">
+        <div className="flex items-start gap-3 sm:gap-4">
+          {/* Logo */}
+          {logo ? (
+            <DsrtAvatar src={logo} name={logoName} size="lg" />
+          ) : (
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#0f172a] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+              <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white/70" weight="fill" />
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-3">
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatDistanceToNow(new Date(createdAt), { addSuffix: false })} ago
-            </p>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={onDecline} disabled={processing} className="h-7 text-xs">
-                <X className="w-3 h-3 mr-1" weight="bold" /> Decline
-              </Button>
-              <Button size="sm" onClick={onAccept} disabled={processing} className="h-7 text-xs">
-                <Check className="w-3 h-3 mr-1" weight="bold" /> {processing ? 'Processing...' : 'Accept'}
-              </Button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 flex-wrap mb-1">
+              <div className="min-w-0 flex-1">
+                {detailLink ? (
+                  <Link href={detailLink} className="text-[14px] sm:text-[15px] font-bold text-white hover:text-[#93c5fd] transition-colors truncate block">
+                    {title}
+                  </Link>
+                ) : (
+                  <p className="text-[14px] sm:text-[15px] font-bold text-white truncate">{title}</p>
+                )}
+                <p className="text-[12px] text-white/50 truncate mt-0.5">{subtitle}</p>
+              </div>
+              <DsrtChip size="sm" tone="accent">
+                {type}
+              </DsrtChip>
+            </div>
+
+            {description && (
+              <p className="text-[12.5px] text-white/60 line-clamp-2 leading-relaxed mt-2">
+                {description}
+              </p>
+            )}
+
+            {(inviter || message) && (
+              <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                {inviter && (
+                  <p className="text-[11px] text-white/50 mb-1">
+                    Invited by <span className="font-semibold text-white/80">{inviter.full_name}</span>
+                  </p>
+                )}
+                {message && (
+                  <p className="text-[12px] italic text-white/60 leading-relaxed">
+                    &ldquo;{message}&rdquo;
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 pt-3 border-t border-white/[0.04]">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-white/40 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {formatDistanceToNow(new Date(createdAt), { addSuffix: false })} ago
+              </p>
+              <div className="flex gap-2">
+                <DsrtButton size="xs" variant="outline" onClick={onDecline} disabled={processing}>
+                  <X className="w-3 h-3" weight="bold" /> Decline
+                </DsrtButton>
+                <DsrtButton size="xs" variant="primary" onClick={onAccept} loading={processing}>
+                  <Check className="w-3 h-3" weight="bold" /> {processing ? 'Processing...' : 'Accept'}
+                </DsrtButton>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </DsrtPanel>
     </motion.div>
   )
 }

@@ -1,51 +1,50 @@
 import Link from 'next/link'
+import { DsrtPage, DsrtSection, DsrtPanel, DsrtGrid } from '@/components/dsrt'
 
 export default function GamesPage() {
   const games = [
     {
       id: 'pingpong',
       name: 'Emoji PingPong',
-      emoji: '🏓',
-      description: 'Classic ping pong with emoji paddles. Take a quick break.',
-      gradient: 'from-purple-500/20 to-pink-500/20',
+      icon: '🏓',
+      description: 'Classic ping pong. Take a quick break.',
       href: '/games/pingpong',
     },
     {
       id: 'blockcube',
       name: 'Block Cube',
-      emoji: '🎲',
+      icon: '🧊',
       description: 'Stack the blocks, beat the clock.',
-      gradient: 'from-blue-500/20 to-cyan-500/20',
       href: '/games/blockcube',
     },
   ]
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-      <div className="rounded-2xl border border-border/40 bg-card/40 backdrop-blur-sm p-6">
-        <h1 className="text-2xl font-bold">Mini Games</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Take a quick break between builds. More games coming.
-        </p>
-      </div>
+    <DsrtPage width="narrow" className="py-8">
+      <DsrtSection
+        title="DSRT Arcade"
+        description="Take a quick break between builds. More games coming soon."
+        headerVariant="large"
+        className="mb-8"
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <DsrtGrid cols={{ base: 1, md: 2 }} gap="md">
         {games.map((game) => (
-          <Link
-            key={game.id}
-            href={game.href}
-            className={`rounded-2xl border border-border/40 bg-gradient-to-br ${game.gradient} backdrop-blur-sm p-6 hover:border-border transition-all group`}
-          >
-            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">
-              {game.emoji}
-            </div>
-            <h3 className="font-bold text-lg">{game.name}</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              {game.description}
-            </p>
+          <Link key={game.id} href={game.href} className="group h-full">
+            <DsrtPanel padding="lg" className="h-full hover:border-white/[0.14] group-hover:-translate-y-0.5 transition-all text-center flex flex-col items-center justify-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-3xl shadow-inner">
+                {game.icon}
+              </div>
+              <div>
+                <h3 className="font-bold text-[16px] text-white">{game.name}</h3>
+                <p className="text-[13px] text-white/50 mt-1 max-w-[200px] mx-auto">
+                  {game.description}
+                </p>
+              </div>
+            </DsrtPanel>
           </Link>
         ))}
-      </div>
-    </div>
+      </DsrtGrid>
+    </DsrtPage>
   )
 }

@@ -1,4 +1,3 @@
-// app/(main)/looking-for/my-opportunities/[id]/page.tsx
 import { WorkspaceShell } from '@/components/looking-for/my-opps/workspace/WorkspaceShell'
 
 export const dynamic = 'force-dynamic'

@@ -2,8 +2,8 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { Check, Clock, Loader2, Lock, X, Ticket } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/sonner'
+import { DsrtButton, DsrtChip } from '@/components/dsrt'
 
 interface Props {
   event: any
@@ -22,7 +22,10 @@ export function EventRegistrationButton({ event, config, myRegistration, onChang
   }, [myRegistration])
 
   const isCancelled = event.status === 'CANCELLED'
-  const isFull = config?.capacity && config.confirmed_count >= config.capacity
+  
+  const capacityFull = config?.capacity && (config.confirmed_count || 0) >= config.capacity
+  const waitlistPossible = capacityFull && config?.waitlist_enabled
+  
   const closesAt = config?.registration_closes_at ? new Date(config.registration_closes_at) : null
   const closed = closesAt && closesAt < new Date()
 
@@ -47,10 +50,10 @@ export function EventRegistrationButton({ event, config, myRegistration, onChang
     if (!local?.id) return
     if (!confirm('Cancel your registration?')) return
     startTransition(async () => {
-      const res = await fetch(`/api/v1/events/registrations/${local.id}`, {
-        method: 'DELETE',
+      const res = await fetch(`/api/v1/events/registrations/${local.id}/cancel`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ reason: 'user_cancelled' }),
       })
       if (!res.ok) { toast.error('Cancel failed'); return }
       setLocal(null); setCheckinToken(null)
@@ -61,29 +64,32 @@ export function EventRegistrationButton({ event, config, myRegistration, onChang
 
   if (isCancelled) {
     return (
-      <button disabled className="inline-flex items-center gap-1.5 rounded-full border border-red-500/25 bg-red-500/10 text-red-300 px-4 py-2 text-[12.5px] font-medium">
-        <X className="w-3.5 h-3.5" strokeWidth={1.75} /> Event cancelled
-      </button>
+      <DsrtButton variant="danger" disabled>
+        <X className="w-3.5 h-3.5 mr-1" /> Event cancelled
+      </DsrtButton>
     )
   }
 
   if (local?.status === 'CONFIRMED' || local?.status === 'ATTENDED') {
     return (
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-300 px-4 py-2 text-[12.5px] font-medium">
-          <Check className="w-3.5 h-3.5" strokeWidth={2} /> {local.status === 'ATTENDED' ? 'Checked in' : 'Registered'}
-          {local.registration_number && <span className="ml-1 font-mono text-[11px]">#{local.registration_number}</span>}
-        </span>
+      <div className="flex items-center gap-3 flex-wrap">
+        <DsrtChip tone="success" size="md">
+          <Check className="w-3 h-3" strokeWidth={2} />
+          {local.status === 'ATTENDED' ? 'Checked in' : 'Registered'}
+          {local.registration_number && <span className="ml-1 opacity-70">#{local.registration_number}</span>}
+        </DsrtChip>
+        
         {checkinToken && (
           <a
             href={`/checkin/${checkinToken}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] text-white/80 hover:text-white px-3 py-2 text-[12px] font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-[12px] font-semibold text-white transition-colors"
           >
-            <Ticket className="w-3.5 h-3.5" strokeWidth={1.75} /> View ticket
+            <Ticket className="w-3.5 h-3.5" /> View ticket
           </a>
         )}
+        
         {config?.allow_cancellation !== false && local.status !== 'ATTENDED' && (
-          <button onClick={cancel} className="text-[12px] text-white/50 hover:text-white transition-colors">
+          <button onClick={cancel} className="text-[12px] font-medium text-white/50 hover:text-white transition-colors">
             Cancel
           </button>
         )}
@@ -93,48 +99,33 @@ export function EventRegistrationButton({ event, config, myRegistration, onChang
 
   if (local?.status === 'WAITLISTED') {
     return (
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/10 text-amber-300 px-4 py-2 text-[12.5px] font-medium">
-          <Clock className="w-3.5 h-3.5" strokeWidth={1.75} /> Waitlisted
-          {local.waitlist_position && <span className="ml-1 font-mono text-[11px]">#{local.waitlist_position}</span>}
-        </span>
-        <button onClick={cancel} className="text-[12px] text-white/50 hover:text-white transition-colors">
+      <div className="flex items-center gap-3 flex-wrap">
+        <DsrtChip tone="warning" size="md">
+          <Clock className="w-3 h-3" /> Waitlisted
+          {local.waitlist_position && <span className="ml-1 opacity-70">#{local.waitlist_position}</span>}
+        </DsrtChip>
+        <button onClick={cancel} className="text-[12px] font-medium text-white/50 hover:text-white transition-colors">
           Leave waitlist
         </button>
       </div>
     )
   }
 
-  if (closed) {
+  if (closed || config?.registration_mode === 'CLOSED') {
     return (
-      <button disabled className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] text-white/40 px-4 py-2 text-[12.5px] font-medium">
-        <Lock className="w-3.5 h-3.5" strokeWidth={1.75} /> Registration closed
-      </button>
+      <DsrtButton variant="ghost" disabled className="bg-white/[0.02]">
+        <Lock className="w-3.5 h-3.5 mr-1" /> Closed
+      </DsrtButton>
     )
   }
 
-  if (config?.registration_mode === 'CLOSED') {
-    return (
-      <button disabled className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.02] text-white/40 px-4 py-2 text-[12.5px] font-medium">
-        <Lock className="w-3.5 h-3.5" strokeWidth={1.75} /> Closed
-      </button>
-    )
-  }
-
-  const willWaitlist = isFull && config?.allow_waitlist !== false
-  const label = willWaitlist ? 'Join waitlist' : 'Register'
+  // FIXED: isFull variable reference error
+  const willWaitlist = capacityFull && config?.allow_waitlist !== false
 
   return (
-    <button
-      onClick={register}
-      disabled={pending}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full bg-white text-black hover:bg-zinc-100 px-4 py-2 text-[12.5px] font-semibold transition-colors',
-        pending && 'opacity-70'
-      )}
-    >
-      {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ticket className="w-3.5 h-3.5" strokeWidth={1.75} />}
-      {label}
-    </button>
+    <DsrtButton variant="primary" onClick={register} loading={pending}>
+      <Ticket className="w-3.5 h-3.5 mr-1" />
+      {capacityFull ? (willWaitlist ? 'Join waitlist' : 'Event full') : 'Register'}
+    </DsrtButton>
   )
 }

@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Info, Newspaper, UsersThree, BookOpen, Gear, ShareNetwork,
-  BookmarkSimple, DotsThreeOutline, Briefcase, ChatCircleText
+  Info, Newspaper, UsersThree, BookOpen, Gear,
+  Briefcase, ChatCircleText
 } from '@phosphor-icons/react'
 
 import { ProjectHeader } from './ProjectHeader'
@@ -25,9 +24,9 @@ import { ConnectComposer } from '@/components/inbox/ConnectComposer'
 import { PermissionsPanel } from './applicants/PermissionsPanel'
 import { OpportunitiesSection } from '@/components/looking-for/embed/OpportunitiesSection'
 
-// NEW WIDGETS
 import { ProjectAnalyticsPanel } from './widgets/ProjectAnalyticsPanel'
 import { ProjectTipsPanel } from './widgets/ProjectTipsPanel'
+import { DsrtPage, DsrtTabs, DsrtSkeleton, DsrtLayoutWithRail } from '@/components/dsrt'
 
 interface Props { slug: string }
 
@@ -203,25 +202,18 @@ export function ProjectDetailPage({ slug }: Props) {
 
   if (loading) {
     return (
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-        <Skeleton className="h-4 w-24 mb-3 bg-white/5" />
-        <Skeleton className="h-[280px] w-full mb-5 bg-white/5 rounded-2xl" />
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5">
-          <div className="space-y-3">
-            <Skeleton className="h-10 w-full bg-white/5 rounded-lg" />
-            <Skeleton className="h-[300px] w-full bg-white/5 rounded-xl" />
-          </div>
-          <div className="space-y-3">
-            <Skeleton className="h-[300px] bg-white/5 rounded-xl" />
-            <Skeleton className="h-[220px] bg-white/5 rounded-xl" />
-          </div>
+      <DsrtPage width="wide">
+        <DsrtSkeleton className="h-64 w-full mb-6 rounded-2xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <DsrtSkeleton className="h-96 w-full rounded-2xl" />
+          <DsrtSkeleton className="h-96 w-full rounded-2xl" />
         </div>
-      </div>
+      </DsrtPage>
     )
   }
 
   if (!data?.project) {
-    return <div className="min-h-screen flex items-center justify-center"><p className="text-[14px] text-white/50">Project not found.</p></div>
+    return <DsrtPage width="default"><p className="text-[14px] text-white/50 text-center py-20">Project not found.</p></DsrtPage>
   }
 
   const project = data.project
@@ -239,124 +231,90 @@ export function ProjectDetailPage({ slug }: Props) {
   if (links.length === 0) completionSuggestions.push('Links')
   if (team.length === 0) completionSuggestions.push('Team')
 
-  const tabs: { id: string; label: string; icon: any; badge?: number }[] = [
-    { id: 'overview', label: 'Overview', icon: Info },
-    { id: 'updates', label: 'Updates', icon: Newspaper },
-    { id: 'team', label: 'Team', icon: UsersThree },
-    { id: 'reviews', label: 'Reviews', icon: ChatCircleText },
-    { id: 'documentation', label: 'Documentation', icon: BookOpen },
+  const tabs: { value: string; label: string; badge?: number }[] = [
+    { value: 'overview', label: 'Overview' },
+    { value: 'updates', label: 'Updates' },
+    { value: 'team', label: 'Team' },
+    { value: 'reviews', label: 'Reviews' },
+    { value: 'documentation', label: 'Documentation' },
   ]
   if (canViewApplicants || isOwner) {
-    tabs.push({ id: 'applicants', label: 'Applicants', icon: Briefcase, badge: pendingAppCount })
+    tabs.push({ value: 'applicants', label: 'Applicants', badge: pendingAppCount })
   }
-  if (isOwner) tabs.push({ id: 'settings', label: 'Settings', icon: Gear })
+  if (isOwner) tabs.push({ value: 'settings', label: 'Settings' })
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] pb-20 xl:pb-8">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6">
-
-        {isOwner && showCompletion && (project.completion_percent || 0) < 100 && (
-          <ProjectCompletion
-            percent={project.completion_percent || 0}
-            onDismiss={dismissCompletion}
-            suggestions={completionSuggestions}
-          />
-        )}
-
-        <ProjectHeader
-          project={project}
-          isOwner={isOwner}
-          isFollowing={isFollowing}
-          onFollowToggle={toggleFollow}
-          onCollaborate={() => setConnectOpen(true)}
-          onUpdate={patchProject}
-          onUploadMedia={(file, kind) => uploadMedia(file, kind)}
+    <DsrtPage width="wide" className="space-y-6">
+      {isOwner && showCompletion && (project.completion_percent || 0) < 100 && (
+        <ProjectCompletion
+          percent={project.completion_percent || 0}
+          onDismiss={dismissCompletion}
+          suggestions={completionSuggestions}
         />
+      )}
 
-        <div className="mt-6">
-          <OpportunitiesSection
-            scope="project"
-            slug={slug}
-            title="Open Positions"
-            emptyMessage={isOwner
-              ? "You haven't posted any open positions yet. Create one from Looking For."
-              : "No open positions on this project right now."}
-            limit={4}
+      <ProjectHeader
+        project={project}
+        isOwner={isOwner}
+        isFollowing={isFollowing}
+        onFollowToggle={toggleFollow}
+        onCollaborate={() => setConnectOpen(true)}
+        onUpdate={patchProject}
+        onUploadMedia={(file, kind) => uploadMedia(file, kind)}
+      />
+
+      <OpportunitiesSection
+        scope="project"
+        slug={slug}
+        title="Open Positions"
+        emptyMessage={isOwner
+          ? "You haven't posted any open positions yet. Create one from Looking For."
+          : "No open positions on this project right now."}
+        limit={4}
+      />
+
+      <DsrtLayoutWithRail
+        railBreakpoint="lg"
+        rail={
+          <ProjectSidebar
+            project={project}
+            team={team}
+            links={links}
+            isOwner={isOwner}
+            onAddMember={() => setAddMemberOpen(true)}
+            onAddLink={addLink}
+            onDeleteLink={onDeleteLink}
+            onEditGlance={(field) => setGlanceField(field)}
           />
-        </div>
+        }
+      >
+        <div className="space-y-6">
+          {/* UPDATED: sticky top-[116px] md:top-[64px] */}
+          <div className="sticky top-[116px] md:top-[64px] z-20 bg-[#05070D]/95 backdrop-blur-md pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <DsrtTabs
+              variant="underline"
+              tabs={tabs}
+              activeValue={activeTab}
+              onValueChange={setActiveTab}
+            />
+          </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6 mt-6">
-          <div className="min-w-0">
-            {/* TABS */}
-            <div className="flex items-center justify-between border-b border-white/[0.08] mb-6">
-              <div className="flex gap-0.5 -mb-px overflow-x-auto scrollbar-hide">
-                {tabs.map(t => {
-                  const Icon = t.icon
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setActiveTab(t.id)}
-                      className={
-                        'px-4 py-3 text-[14px] font-medium whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ' +
-                        (activeTab === t.id
-                          ? 'text-white border-white'
-                          : 'text-white/45 border-transparent hover:text-white/80')
-                      }
-                    >
-                      <Icon size={15} weight={activeTab === t.id ? 'fill' : 'regular'} />
-                      {t.label}
-                      {t.badge && t.badge > 0 && (
-                        <span className="ml-0.5 text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                          {t.badge}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="flex items-center gap-0.5 pb-2">
-                <button className="w-8 h-8 rounded-md hover:bg-white/[0.05] text-white/50 hover:text-white flex items-center justify-center transition-colors" title="Share">
-                  <ShareNetwork size={15} />
-                </button>
-                <button className="w-8 h-8 rounded-md hover:bg-white/[0.05] text-white/50 hover:text-white flex items-center justify-center transition-colors" title="Save">
-                  <BookmarkSimple size={15} />
-                </button>
-                <button className="w-8 h-8 rounded-md hover:bg-white/[0.05] text-white/50 hover:text-white flex items-center justify-center transition-colors" title="More">
-                  <DotsThreeOutline size={15} />
-                </button>
-              </div>
-            </div>
-
-            {/* TAB CONTENT */}
-            {activeTab === 'overview' && (
-              <>
-                <ProjectAnalyticsPanel slug={slug} isOwner={isOwner} />
-                <ProjectTipsPanel stage={project.stage} projectType={project.project_type} domain={project.industry} isOwner={isOwner} />
-                
-                <ProjectAbout
-                  slug={slug}
-                  aboutContent={project.about_content}
-                  images={images}
-                  isOwner={isOwner}
-                  onSaveAbout={saveAbout}
-                  onAddImage={addImage}
-                  onDeleteImage={deleteImage}
-                  onUploadFile={(file, kind) => uploadMedia(file, kind)}
-                />
-                
-                <ProjectUpdates
-                  slug={slug}
-                  projectId={project.id}
-                  isOwner={isOwner}
-                  currentUserId={currentUserId}
-                  onUploadFile={(file, kind) => uploadMedia(file, kind)}
-                  projectStage={project.stage}
-                  isMember={team.some((m: any) => m.user_id === currentUserId)}
-                />
-              </>
-            )}
-
-            {activeTab === 'updates' && (
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              <ProjectAnalyticsPanel slug={slug} isOwner={isOwner} />
+              <ProjectTipsPanel stage={project.stage} projectType={project.project_type} domain={project.industry} isOwner={isOwner} />
+              
+              <ProjectAbout
+                slug={slug}
+                aboutContent={project.about_content}
+                images={images}
+                isOwner={isOwner}
+                onSaveAbout={saveAbout}
+                onAddImage={addImage}
+                onDeleteImage={deleteImage}
+                onUploadFile={(file, kind) => uploadMedia(file, kind)}
+              />
+              
               <ProjectUpdates
                 slug={slug}
                 projectId={project.id}
@@ -366,46 +324,45 @@ export function ProjectDetailPage({ slug }: Props) {
                 projectStage={project.stage}
                 isMember={team.some((m: any) => m.user_id === currentUserId)}
               />
-            )}
+            </div>
+          )}
 
-            {activeTab === 'team' && (
-              <TeamStructureTab slug={slug} projectId={project.id} isOwner={isOwner} currentUserId={currentUserId} />
-            )}
-
-            {activeTab === 'reviews' && (
-              <ProjectReviews slug={slug} projectId={project.id} currentUserId={currentUserId} isOwner={isOwner} isPublic={project.is_public} />
-            )}
-
-            {activeTab === 'documentation' && (
-              <ProjectDocumentation slug={slug} project={project} isOwner={isOwner} />
-            )}
-
-            {activeTab === 'applicants' && (canViewApplicants || isOwner) && (
-              <ApplicantsTab slug={slug} isOwner={isOwner} />
-            )}
-
-            {activeTab === 'settings' && isOwner && (
-              <div className="space-y-5">
-                <ProjectSettings slug={slug} project={project} onUpdate={patchProject} onArchive={archiveProject} />
-                <PermissionsPanel slug={slug} />
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <ProjectSidebar
-              project={project}
-              team={team}
-              links={links}
+          {activeTab === 'updates' && (
+            <ProjectUpdates
+              slug={slug}
+              projectId={project.id}
               isOwner={isOwner}
-              onAddMember={() => setAddMemberOpen(true)}
-              onAddLink={addLink}
-              onDeleteLink={onDeleteLink}
-              onEditGlance={(field) => setGlanceField(field)}
+              currentUserId={currentUserId}
+              onUploadFile={(file, kind) => uploadMedia(file, kind)}
+              projectStage={project.stage}
+              isMember={team.some((m: any) => m.user_id === currentUserId)}
             />
-          </div>
+          )}
+
+          {activeTab === 'team' && (
+            <TeamStructureTab slug={slug} projectId={project.id} isOwner={isOwner} currentUserId={currentUserId} />
+          )}
+
+          {activeTab === 'reviews' && (
+            <ProjectReviews slug={slug} projectId={project.id} currentUserId={currentUserId} isOwner={isOwner} isPublic={project.is_public} />
+          )}
+
+          {activeTab === 'documentation' && (
+            <ProjectDocumentation slug={slug} project={project} isOwner={isOwner} />
+          )}
+
+          {activeTab === 'applicants' && (canViewApplicants || isOwner) && (
+            <ApplicantsTab slug={slug} isOwner={isOwner} />
+          )}
+
+          {activeTab === 'settings' && isOwner && (
+            <div className="space-y-5">
+              <ProjectSettings slug={slug} project={project} onUpdate={patchProject} onArchive={archiveProject} />
+              <PermissionsPanel slug={slug} />
+            </div>
+          )}
         </div>
-      </div>
+      </DsrtLayoutWithRail>
 
       {addMemberOpen && (
         <AddMemberModal slug={slug} onClose={() => setAddMemberOpen(false)} onAdded={() => fetchDetail()} />
@@ -430,6 +387,6 @@ export function ProjectDetailPage({ slug }: Props) {
           onSent={() => fetchDetail()}
         />
       )}
-    </div>
+    </DsrtPage>
   )
 }

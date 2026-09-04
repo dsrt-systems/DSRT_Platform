@@ -1,5 +1,7 @@
 'use client'
 
+import { DsrtTabs } from '@/components/dsrt'
+
 export type HomeTab = 'for-you' | 'latest' | 'ventures' | 'projects'
 
 interface Props {
@@ -7,41 +9,21 @@ interface Props {
   onChange: (t: HomeTab) => void
 }
 
-const TABS: { id: HomeTab; label: string }[] = [
-  { id: 'for-you',  label: 'For You' },
-  { id: 'latest',   label: 'Latest' },
-  { id: 'ventures', label: 'Ventures' },
-  { id: 'projects', label: 'Projects' },
+const TABS = [
+  { value: 'for-you',  label: 'For You' },
+  { value: 'latest',   label: 'Latest' },
+  { value: 'ventures', label: 'Ventures' },
+  { value: 'projects', label: 'Projects' },
 ]
 
 export function HomeTabs({ active, onChange }: Props) {
   return (
-    <div className="relative border-b border-zinc-800/60">
-      <div className="flex gap-0 -mb-px overflow-x-auto scrollbar-hide">
-        {TABS.map(t => {
-          const isActive = active === t.id
-          return (
-            <button
-              key={t.id}
-              onClick={() => onChange(t.id)}
-              className={
-                'relative py-3.5 px-5 text-[14px] font-semibold tracking-tight whitespace-nowrap transition-all ' +
-                (isActive
-                  ? 'text-white'
-                  : 'text-zinc-500 hover:text-zinc-200')
-              }
-            >
-              <span className="relative z-10">{t.label}</span>
-              {isActive && (
-                <span
-                  className="absolute bottom-0 left-4 right-4 h-[2px] rounded-t bg-white"
-                  style={{ boxShadow: '0 0 8px rgba(255,255,255,0.25)' }}
-                />
-              )}
-            </button>
-          )
-        })}
-      </div>
-    </div>
+    <DsrtTabs
+      variant="segmented"
+      tabs={TABS}
+      activeValue={active}
+      onValueChange={(val) => onChange(val as HomeTab)}
+      className="w-full sm:w-auto overflow-x-auto"
+    />
   )
 }

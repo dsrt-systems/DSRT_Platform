@@ -6,14 +6,14 @@ import {
   Globe, Users, Briefcase, Heart, EyeSlash, Eye,
   GithubLogo, TwitterLogo, LinkedinLogo, InstagramLogo,
   YoutubeLogo, FileText, PresentationChart, Link as LinkIcon,
-  Plus, Trash, X, Certificate, Calendar, Flag, Check,
-  ArrowRight, ArrowSquareOut
+  Plus, Trash, Flag, Calendar, ArrowRight, ArrowSquareOut
 } from '@phosphor-icons/react'
 
 import { ProjectKnowledgePanel } from './widgets/ProjectKnowledgePanel'
 import { ProjectMilestonesWidget } from './widgets/ProjectMilestonesWidget'
 import { ProjectResourcesWidget } from './widgets/ProjectResourcesWidget'
 import { ProjectDomainTechEditor } from './widgets/ProjectDomainTechEditor'
+import { DsrtPanel, DsrtAvatar, DsrtButton, DsrtInput } from '@/components/dsrt'
 
 interface ProjectLite {
   id: string
@@ -83,11 +83,6 @@ function formatDate(d: string | null): string {
   return new Date(d).toLocaleDateString('en', { month: 'short', year: 'numeric' })
 }
 
-function formatNumber(n: number): string {
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
-  return String(n)
-}
-
 export function ProjectSidebar({
   project, team, links, isOwner,
   onAddMember, onAddLink, onDeleteLink, onEditGlance
@@ -129,131 +124,64 @@ export function ProjectSidebar({
   return (
     <div className="space-y-4">
       {/* 1. At a Glance */}
-      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/[0.06]">
-          <h3 className="text-[15px] font-semibold text-white">At a Glance</h3>
+      <DsrtPanel padding="none" variant="default" className="overflow-hidden">
+        <div className="p-4 border-b border-white/[0.06]">
+          <h3 className="text-[14px] font-semibold text-white">At a Glance</h3>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.05]">
-          <GlanceItem
-            icon={<Flag size={13} className="text-white/50" />}
-            label="Stage"
-            value={STAGE_LABELS[project.stage] || project.stage}
-            editable={isOwner}
-            onEdit={() => onEditGlance('stage')}
-          />
-          <GlanceItem
-            icon={<Globe size={13} className="text-white/50" />}
-            label="Industry"
-            value={project.industry || '—'}
-            emptyValueLabel="Add"
-            editable={isOwner}
-            onEdit={() => onEditGlance('industry')}
-          />
-          <GlanceItem
-            icon={<Calendar size={13} className="text-white/50" />}
-            label="Founded"
-            value={formatDate(project.founded_date)}
-            emptyValueLabel="Add"
-            editable={isOwner}
-            onEdit={() => onEditGlance('founded_date')}
-          />
-          <GlanceItem
-            icon={<Users size={13} className="text-white/50" />}
-            label="Team"
-            value={(team.length || 1) + ' ' + ((team.length || 1) === 1 ? 'Member' : 'Members')}
-          />
-          <GlanceItem
-            icon={<Briefcase size={13} className="text-white/50" />}
-            label="Open Roles"
-            value={project.open_roles.toString()}
-            editable={isOwner}
-            onEdit={() => onEditGlance('open_roles')}
-          />
-          <GlanceItem
-            icon={<Heart size={13} className="text-white/50" />}
-            label="Followers"
-            value={formatNumber(project.follower_count || 0)}
-          />
-          <div className="col-span-2 flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02] cursor-pointer"
-               onClick={() => isOwner && onEditGlance('visibility')}>
-            <div className="flex items-center gap-2">
-              {project.is_public ? <Eye size={13} className="text-white/50" /> : <EyeSlash size={13} className="text-white/50" />}
-              <span className="text-[11px] text-white/50 uppercase tracking-wider font-medium">Visibility</span>
+        <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.04]">
+          <GlanceItem icon={<Flag size={13} />} label="Stage" value={STAGE_LABELS[project.stage] || project.stage} editable={isOwner} onEdit={() => onEditGlance('stage')} />
+          <GlanceItem icon={<Globe size={13} />} label="Industry" value={project.industry || '—'} editable={isOwner} onEdit={() => onEditGlance('industry')} />
+          <GlanceItem icon={<Calendar size={13} />} label="Founded" value={formatDate(project.founded_date)} editable={isOwner} onEdit={() => onEditGlance('founded_date')} />
+          <GlanceItem icon={<Users size={13} />} label="Team" value={`${team.length || 1} Members`} />
+          <GlanceItem icon={<Briefcase size={13} />} label="Open Roles" value={project.open_roles.toString()} editable={isOwner} onEdit={() => onEditGlance('open_roles')} />
+          <GlanceItem icon={<Heart size={13} />} label="Followers" value={(project.follower_count || 0).toLocaleString()} />
+          <div className="col-span-2 flex items-center justify-between p-3 hover:bg-white/[0.02] cursor-pointer" onClick={() => isOwner && onEditGlance('visibility')}>
+            <div className="flex items-center gap-2 text-white/50 text-[11px] uppercase tracking-wider font-mono">
+              {project.is_public ? <Eye size={12} /> : <EyeSlash size={12} />} Visibility
             </div>
-            <span className="text-[13px] font-medium text-white/90">
-              {project.is_public ? 'Public' : (project.visibility === 'unlisted' ? 'Unlisted' : 'Private')}
-              {isOwner && <ArrowRight size={11} className="inline ml-1 text-white/30" />}
+            <span className="text-[13px] text-white font-medium">
+              {project.is_public ? 'Public' : 'Private'}
+              {isOwner && <ArrowRight size={10} className="inline ml-1 opacity-50" />}
             </span>
           </div>
         </div>
-      </div>
+      </DsrtPanel>
 
-      {/* 2. Domain & Technology Editor Widget (New in Phase 6) */}
       <ProjectDomainTechEditor slug={project.slug} isOwner={isOwner} />
 
-      {/* 3. Team Members */}
-      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-          <h3 className="text-[15px] font-semibold text-white">
-            Team <span className="text-white/40 font-normal text-[13px]">· {team.length || 1}</span>
-          </h3>
-          {team.length > 4 && (
-            <button className="text-[12px] text-white/60 hover:text-white font-medium">View all</button>
-          )}
+      {/* Team Widget */}
+      <DsrtPanel padding="none" variant="default" className="overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-white/[0.06]">
+          <h3 className="text-[14px] font-semibold text-white">Team ({team.length || 1})</h3>
         </div>
-        <div className="divide-y divide-white/[0.05]">
-          {team.length === 0 ? (
-            <div className="px-4 py-5 text-center text-[13px] text-white/40">
-              No members yet.
-            </div>
-          ) : (
-            team.slice(0, 4).map((m) => (
-              <Link
-                key={m.id}
-                href={'/profile/' + (m.username || m.user_id)}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="w-9 h-9 rounded-full bg-white/[0.06] overflow-hidden flex-shrink-0 flex items-center justify-center">
-                  {m.avatar_url ? (
-                    <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-[13px] font-semibold text-white/80">{(m.full_name || '?').charAt(0)}</span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1">
-                    <p className="text-[13px] font-semibold text-white truncate">{m.full_name || 'Unknown'}</p>
-                    {m.is_verified && <Certificate size={11} weight="fill" className="text-blue-400 flex-shrink-0" />}
-                  </div>
-                  <p className="text-[12px] text-white/50 truncate">{m.role || 'Member'}</p>
-                </div>
-              </Link>
-            ))
-          )}
+        <div className="divide-y divide-white/[0.04]">
+          {team.slice(0, 4).map((m) => (
+            <Link key={m.id} href={'/profile/' + (m.username || m.user_id)} className="flex items-center gap-3 p-3 hover:bg-white/[0.02] transition-colors">
+              <DsrtAvatar src={m.avatar_url} name={m.full_name || ''} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-white truncate">{m.full_name || 'Member'}</p>
+                <p className="text-[11px] text-white/40 truncate">{m.role || 'Member'}</p>
+              </div>
+            </Link>
+          ))}
         </div>
         {isOwner && (
-          <button
-            onClick={onAddMember}
-            className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[13px] font-medium text-white/70 hover:text-white hover:bg-white/[0.04] border-t border-white/[0.06] transition-colors"
-          >
-            <Plus size={13} weight="bold" /> Add member
-          </button>
+          <div className="p-3 border-t border-white/[0.04]">
+            <DsrtButton size="xs" variant="outline" fullWidth onClick={onAddMember}>
+              <Plus size={12} /> Add Member
+            </DsrtButton>
+          </div>
         )}
-      </div>
+      </DsrtPanel>
 
-      {/* 4. Milestones Widget (New in Phase 6) */}
       <ProjectMilestonesWidget slug={project.slug} projectId={project.id} isOwner={isOwner} />
-
-      {/* 5. Typed Resources Widget (New in Phase 6) */}
       <ProjectResourcesWidget slug={project.slug} isOwner={isOwner} />
-
-      {/* 6. Knowledge Overview Widget (New in Phase 6) */}
       <ProjectKnowledgePanel slug={project.slug} projectId={project.id} isOwner={isOwner} />
 
-      {/* 7. General Links */}
-      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/[0.06]">
-          <h3 className="text-[15px] font-semibold text-white">Socials</h3>
+      {/* Socials */}
+      <DsrtPanel padding="none" variant="default" className="overflow-hidden">
+        <div className="p-4 border-b border-white/[0.06]">
+          <h3 className="text-[14px] font-semibold text-white">Socials & Links</h3>
         </div>
         <div className="p-3 grid grid-cols-4 gap-1.5">
           {SOCIAL_LINK_TYPES.filter(t => t.id !== 'documentation' && t.id !== 'pitch_deck').map(t => {
@@ -263,108 +191,60 @@ export function ProjectSidebar({
             return (
               <button
                 key={t.id}
-                onClick={() => {
-                  if (existing) window.open(existing.url, '_blank', 'noopener,noreferrer')
-                  else if (isOwner) promptForUrl(t.id, t.label)
-                }}
-                onContextMenu={(e) => {
-                  if (isOwner && existing) {
-                    e.preventDefault()
-                    if (confirm('Remove ' + t.label + ' link?')) onDeleteLink(existing.id)
-                  }
-                }}
-                disabled={!active && !isOwner}
-                title={active ? t.label + ': ' + existing.url + (isOwner ? ' (right-click to remove)' : '') : (isOwner ? 'Add ' + t.label : t.label + ' (not set)')}
-                className={
-                  'aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all group ' +
-                  (active
-                    ? 'bg-white/[0.06] border border-white/[0.15] hover:bg-white/[0.1] hover:border-white/25 text-white cursor-pointer'
-                    : isOwner
-                      ? 'bg-white/[0.02] border border-dashed border-white/[0.1] text-white/25 hover:text-white/60 hover:border-white/20 cursor-pointer'
-                      : 'bg-white/[0.02] border border-white/[0.05] text-white/15 cursor-not-allowed'
-                  )
-                }
+                onClick={() => existing ? window.open(existing.url, '_blank') : isOwner && promptForUrl(t.id, t.label)}
+                className={`aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-all border ${
+                  active ? 'bg-[#1e3a5f]/40 border-[#2c5282]/50 text-white' : 'bg-white/[0.02] border-white/[0.06] text-white/30'
+                }`}
               >
-                <Icon size={16} weight={active ? 'fill' : 'regular'} />
-                <span className="text-[9px] font-medium truncate w-full text-center px-1">{t.label}</span>
+                <Icon size={16} />
+                <span className="text-[9px] font-mono">{t.label}</span>
               </button>
             )
           })}
         </div>
 
         {customLinks.length > 0 && (
-          <div className="border-t border-white/[0.06] divide-y divide-white/[0.05]">
+          <div className="border-t border-white/[0.04] divide-y divide-white/[0.04]">
             {customLinks.map(l => (
-              <div key={l.id} className="flex items-center gap-2 px-4 py-2.5 hover:bg-white/[0.02] group">
-                <LinkIcon size={13} className="text-white/40 flex-shrink-0" />
-                <a href={l.url} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 text-[13px] text-white/85 hover:text-white truncate">
-                  {l.label}
-                </a>
-                <ArrowSquareOut size={11} className="text-white/30 flex-shrink-0" />
-                {isOwner && (
-                  <button onClick={() => onDeleteLink(l.id)} className="opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 transition-all ml-1">
-                    <Trash size={11} />
-                  </button>
-                )}
+              <div key={l.id} className="flex items-center gap-2 p-3 text-[12px]">
+                <LinkIcon size={12} className="text-white/40" />
+                <a href={l.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-white/80 hover:text-white truncate">{l.label}</a>
+                {isOwner && <button onClick={() => onDeleteLink(l.id)} className="text-white/40 hover:text-red-400"><Trash size={12} /></button>}
               </div>
             ))}
           </div>
         )}
 
         {isOwner && (
-          <div className="border-t border-white/[0.06]">
+          <div className="p-3 border-t border-white/[0.04]">
             {customLinkOpen ? (
-              <div className="p-3 space-y-2 bg-black/20">
-                <input
-                  value={newLinkLabel}
-                  onChange={(e) => setNewLinkLabel(e.target.value)}
-                  placeholder="Link title (e.g. Discord)"
-                  className="w-full text-[13px] bg-white/[0.04] border border-white/[0.1] text-white placeholder:text-white/30 rounded-md h-8 px-2.5 outline-none focus:border-white/25"
-                />
-                <input
-                  value={newLinkUrl}
-                  onChange={(e) => setNewLinkUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full text-[13px] bg-white/[0.04] border border-white/[0.1] text-white placeholder:text-white/30 rounded-md h-8 px-2.5 outline-none focus:border-white/25"
-                />
-                <div className="flex items-center gap-1.5">
-                  <button onClick={() => { setCustomLinkOpen(false); setNewLinkUrl(''); setNewLinkLabel('') }} className="flex-1 text-[12px] text-white/60 hover:text-white h-8 rounded border border-white/[0.1]">
-                    Cancel
-                  </button>
-                  <button onClick={addCustom} disabled={saving || !newLinkUrl.trim() || !newLinkLabel.trim()} className="flex-1 text-[12px] font-semibold bg-white text-black hover:bg-white/90 h-8 rounded disabled:opacity-40">
-                    {saving ? 'Adding...' : 'Add'}
-                  </button>
+              <div className="space-y-2">
+                <DsrtInput placeholder="Title" value={newLinkLabel} onChange={e => setNewLinkLabel(e.target.value)} sizeVariant="sm" />
+                <DsrtInput placeholder="https://..." value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} sizeVariant="sm" />
+                <div className="flex gap-2">
+                  <DsrtButton size="xs" variant="ghost" fullWidth onClick={() => setCustomLinkOpen(false)}>Cancel</DsrtButton>
+                  <DsrtButton size="xs" variant="primary" fullWidth loading={saving} onClick={addCustom}>Add</DsrtButton>
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => setCustomLinkOpen(true)}
-                className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-[13px] font-medium text-white/70 hover:text-white hover:bg-white/[0.04] transition-colors"
-              >
-                <Plus size={13} weight="bold" /> Custom link
-              </button>
+              <DsrtButton size="xs" variant="outline" fullWidth onClick={() => setCustomLinkOpen(true)}>
+                <Plus size={12} /> Add Link
+              </DsrtButton>
             )}
           </div>
         )}
-      </div>
-
+      </DsrtPanel>
     </div>
   )
 }
 
-function GlanceItem({ icon, label, value, editable, onEdit, emptyValueLabel }: any) {
-  const isEmpty = value === '—' || value === '0'
+function GlanceItem({ icon, label, value, editable, onEdit }: any) {
   return (
-    <div className={'px-4 py-2.5 ' + (editable ? 'cursor-pointer hover:bg-white/[0.02]' : '')} onClick={editable && onEdit ? onEdit : undefined}>
-      <div className="flex items-center gap-1.5 mb-1">
-        {icon}
-        <span className="text-[11px] text-white/45 uppercase tracking-wider font-medium">{label}</span>
+    <div className={`p-3 ${editable ? 'cursor-pointer hover:bg-white/[0.02]' : ''}`} onClick={editable ? onEdit : undefined}>
+      <div className="flex items-center gap-1.5 text-white/40 text-[10px] font-mono uppercase tracking-wider mb-1">
+        {icon} {label}
       </div>
-      <p className={'text-[14px] font-semibold ' + (isEmpty ? 'text-white/40' : 'text-white/95')}>
-        {isEmpty && editable && emptyValueLabel ? (
-          <span className="text-white/50 hover:text-white">+ {emptyValueLabel}</span>
-        ) : value}
-      </p>
+      <p className="text-[13px] font-semibold text-white truncate">{value}</p>
     </div>
   )
 }

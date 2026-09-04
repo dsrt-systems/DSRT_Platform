@@ -12,29 +12,27 @@ import {
   EnvelopeSimple,
   PencilSimple,
 } from '@phosphor-icons/react'
+import { DsrtPanel, DsrtEmpty, DsrtButton, DsrtChip } from '@/components/dsrt'
+import { cn } from '@/lib/utils'
 
-// Fully aligned with DB pipeline_stage values, colored by intent.
-const STAGE_META: Record<string, { label: string; Icon: any; className: string }> = {
-  // In-progress / unresolved
-  draft:        { label: 'Draft',        Icon: PencilSimple, className: 'border-zinc-700 bg-zinc-900 text-zinc-400' },
-  submitted:    { label: 'Submitted',    Icon: CheckCircle,  className: 'border-zinc-700 bg-zinc-900 text-zinc-300' },
-  applied:      { label: 'Submitted',    Icon: CheckCircle,  className: 'border-zinc-700 bg-zinc-900 text-zinc-300' },
-  pending:      { label: 'Pending',      Icon: PauseCircle,  className: 'border-zinc-700 bg-zinc-900 text-zinc-300' },
-  reviewing:    { label: 'Reviewing',    Icon: PauseCircle,  className: 'border-blue-500/30 bg-blue-500/10 text-blue-300' },
-  screening:    { label: 'Shortlisted',  Icon: CheckCircle,  className: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' },
-  interviewing: { label: 'Interviewing', Icon: ChatCircle,   className: 'border-purple-500/30 bg-purple-500/10 text-purple-300' },
-  offered:      { label: 'Offer',        Icon: Handshake,    className: 'border-amber-500/30 bg-amber-500/10 text-amber-300' },
-  hired:        { label: 'Selected',     Icon: CheckCircle,  className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' },
-  rejected:     { label: 'Rejected',     Icon: XCircle,      className: 'border-red-500/30 bg-red-500/10 text-red-300' },
-  withdrawn:    { label: 'Withdrawn',    Icon: XCircle,      className: 'border-zinc-700 bg-zinc-900 text-zinc-500' },
-
-  // Legacy aliases (safe-fallbacks for old rows)
-  'under-review': { label: 'Reviewing',    Icon: PauseCircle, className: 'border-blue-500/30 bg-blue-500/10 text-blue-300' },
-  shortlisted:    { label: 'Shortlisted',  Icon: CheckCircle, className: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' },
-  interview:      { label: 'Interviewing', Icon: ChatCircle,  className: 'border-purple-500/30 bg-purple-500/10 text-purple-300' },
-  offer:          { label: 'Offer',        Icon: Handshake,   className: 'border-amber-500/30 bg-amber-500/10 text-amber-300' },
-  accepted:       { label: 'Selected',     Icon: CheckCircle, className: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' },
-  declined:       { label: 'Rejected',     Icon: XCircle,     className: 'border-red-500/30 bg-red-500/10 text-red-300' },
+const STAGE_META: Record<string, { label: string; Icon: any; chip: 'neutral' | 'accent' | 'success' | 'warning' | 'danger' }> = {
+  draft: { label: 'Draft', Icon: PencilSimple, chip: 'neutral' },
+  submitted: { label: 'Submitted', Icon: CheckCircle, chip: 'neutral' },
+  applied: { label: 'Submitted', Icon: CheckCircle, chip: 'neutral' },
+  pending: { label: 'Pending', Icon: PauseCircle, chip: 'neutral' },
+  reviewing: { label: 'Reviewing', Icon: PauseCircle, chip: 'accent' },
+  screening: { label: 'Shortlisted', Icon: CheckCircle, chip: 'accent' },
+  interviewing: { label: 'Interviewing', Icon: ChatCircle, chip: 'info' as any },
+  offered: { label: 'Offer', Icon: Handshake, chip: 'warning' },
+  hired: { label: 'Selected', Icon: CheckCircle, chip: 'success' },
+  rejected: { label: 'Rejected', Icon: XCircle, chip: 'danger' },
+  withdrawn: { label: 'Withdrawn', Icon: XCircle, chip: 'neutral' },
+  'under-review': { label: 'Reviewing', Icon: PauseCircle, chip: 'accent' },
+  shortlisted: { label: 'Shortlisted', Icon: CheckCircle, chip: 'accent' },
+  interview: { label: 'Interviewing', Icon: ChatCircle, chip: 'accent' },
+  offer: { label: 'Offer', Icon: Handshake, chip: 'warning' },
+  accepted: { label: 'Selected', Icon: CheckCircle, chip: 'success' },
+  declined: { label: 'Rejected', Icon: XCircle, chip: 'danger' },
 }
 
 function timeAgo(iso: string): string {
@@ -65,34 +63,30 @@ export function ApplicationList({
 }) {
   if (applications.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-zinc-800 p-14 text-center bg-gradient-to-b from-zinc-900/20 to-transparent">
-        <div className="w-14 h-14 mx-auto mb-4 rounded-2xl border border-zinc-800 bg-zinc-950 flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <FileText size={22} className="text-zinc-500" />
-        </div>
-        <h2 className="text-[17px] font-bold text-white mb-1.5">
-          No {filter !== 'all' ? filter : ''} applications
-        </h2>
-        <p className="text-[13px] text-zinc-500 mb-6 max-w-md mx-auto leading-relaxed">
-          {filter === 'drafts'
+      <DsrtEmpty
+        icon={FileText}
+        title={`No ${filter !== 'all' ? filter + ' ' : ''}applications`}
+        description={
+          filter === 'drafts'
             ? "You don't have any in-progress applications."
-            : 'When you apply for opportunities on DSRT, you can track their progress here.'}
-        </p>
-        <Link
-          href="/looking-for"
-          className="inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-xl bg-white text-black text-[13px] font-bold hover:bg-zinc-100 transition-colors shadow-sm"
-        >
-          Explore Opportunities
-        </Link>
-      </div>
+            : 'When you apply for opportunities on DSRT, you can track their progress here.'
+        }
+        action={
+          <DsrtButton asChild variant="white" size="sm">
+            <Link href="/looking-for">Explore Opportunities</Link>
+          </DsrtButton>
+        }
+      />
     )
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-[#18181b] via-[#121215] to-[#0f0f11] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
-      <div className="px-5 py-4 border-b border-zinc-800/80">
-        <h3 className="text-[13px] font-bold text-white">Your Applications</h3>
+    <DsrtPanel padding="none" variant="default" className="overflow-hidden">
+      <div className="px-4 sm:px-5 py-4 border-b border-white/[0.06]">
+        <h3 className="text-[13px] font-semibold text-white">Your Applications</h3>
       </div>
-      <div className="divide-y divide-zinc-800/70">
+
+      <div className="divide-y divide-white/[0.04]">
         {applications.map((app) => {
           const opp = app.opportunity
           if (!opp) return null
@@ -100,7 +94,6 @@ export function ApplicationList({
           const meta = STAGE_META[app.pipeline_stage] || STAGE_META.submitted
           const contextName = opp.project?.name || opp.venture?.name || null
           const isDraft = app.pipeline_stage === 'draft'
-
           const href = isDraft
             ? `/looking-for/${opp.id}/apply/${app.id}`
             : `/looking-for/my-applications/${app.id}`
@@ -109,9 +102,9 @@ export function ApplicationList({
             <Link
               key={app.id}
               href={href}
-              className="flex items-center gap-4 px-5 py-4 hover:bg-zinc-900/30 transition-colors group"
+              className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-white/[0.02] transition-colors group"
             >
-              <div className="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden flex items-center justify-center shrink-0 shadow-inner">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#05070D] border border-white/[0.08] overflow-hidden flex items-center justify-center shrink-0">
                 {opp.venture?.logo_url ? (
                   <img src={opp.venture.logo_url} alt="" className="w-full h-full object-cover" />
                 ) : opp.project?.icon ? (
@@ -119,7 +112,7 @@ export function ApplicationList({
                 ) : opp.cover_image_url ? (
                   <img src={opp.cover_image_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-[14px] font-bold text-zinc-500">
+                  <span className="text-[14px] font-bold text-white/40">
                     {(opp.title || '?').charAt(0).toUpperCase()}
                   </span>
                 )}
@@ -127,51 +120,61 @@ export function ApplicationList({
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <h4 className="text-[15px] font-bold text-white group-hover:text-blue-300 transition-colors truncate max-w-md">
+                  <h4 className="text-[14px] sm:text-[15px] font-semibold text-white group-hover:text-[#93c5fd] transition-colors truncate max-w-full sm:max-w-md">
                     {opp.title}
                   </h4>
                   {isDraft && (
-                    <span className="inline-flex items-center h-5 px-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-zinc-900 border border-zinc-800 text-zinc-500">
+                    <DsrtChip size="sm" tone="neutral">
                       Draft
-                    </span>
+                    </DsrtChip>
                   )}
                   {app.unread_messages > 0 && (
-                    <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                    <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#1e3a5f]/40 border border-[#2c5282]/40 text-[#93c5fd]">
                       <EnvelopeSimple size={10} weight="fill" />
                       {app.unread_messages} New
                     </span>
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-[12px] text-zinc-500">
+                <div className="flex flex-wrap items-center gap-2 text-[12px] text-white/40">
                   {contextName && (
                     <>
-                      <span className="text-zinc-400 font-medium">{contextName}</span>
-                      <span className="text-zinc-700">·</span>
+                      <span className="text-white/60 font-medium">{contextName}</span>
+                      <span className="text-white/20">·</span>
                     </>
                   )}
                   <span className="capitalize">
                     {String(opp.opportunity_type || '').replace(/-/g, ' ')}
                   </span>
-                  <span className="text-zinc-700">·</span>
-                  <span>{isDraft ? 'Started' : 'Applied'} {timeAgo(app.created_at)}</span>
+                  <span className="text-white/20">·</span>
+                  <span>
+                    {isDraft ? 'Started' : 'Applied'} {timeAgo(app.created_at)}
+                  </span>
                 </div>
               </div>
 
-              <div className="shrink-0 flex items-center gap-4 text-right">
+              <div className="shrink-0 flex items-center gap-3 text-right">
                 <div className="hidden sm:block text-right">
                   <div
-                    className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider border ${meta.className}`}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border',
+                      meta.chip === 'success' && 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+                      meta.chip === 'warning' && 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+                      meta.chip === 'danger' && 'border-red-500/30 bg-red-500/10 text-red-300',
+                      meta.chip === 'accent' && 'border-[#2c5282]/40 bg-[#1e3a5f]/30 text-[#93c5fd]',
+                      meta.chip === 'neutral' && 'border-white/[0.08] bg-white/[0.03] text-white/60',
+                      (meta.chip as string) === 'info' && 'border-sky-500/30 bg-sky-500/10 text-sky-300'
+                    )}
                   >
                     <meta.Icon size={12} weight={isDraft ? 'regular' : 'fill'} />
                     {meta.label}
                   </div>
-                  <div className="text-[10px] text-zinc-500 mt-1 uppercase tracking-widest font-semibold">
-                    Last update {timeAgo(app.stage_updated_at || app.updated_at)}
+                  <div className="text-[10px] font-mono text-white/30 mt-1 uppercase tracking-widest">
+                    Updated {timeAgo(app.stage_updated_at || app.updated_at)}
                   </div>
                 </div>
 
-                <div className="w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-950/50 flex items-center justify-center text-zinc-400 group-hover:bg-zinc-800 group-hover:text-white transition-colors">
+                <div className="w-8 h-8 rounded-lg border border-white/[0.08] bg-white/[0.03] flex items-center justify-center text-white/40 group-hover:bg-white/[0.08] group-hover:text-white transition-colors">
                   <ArrowUpRight size={14} weight="bold" />
                 </div>
               </div>
@@ -181,16 +184,17 @@ export function ApplicationList({
       </div>
 
       {hasMore && onLoadMore && (
-        <div className="px-5 py-5 border-t border-zinc-800/80 flex justify-center">
-          <button
+        <div className="px-4 sm:px-5 py-4 border-t border-white/[0.06] flex justify-center">
+          <DsrtButton
+            variant="outline"
+            size="sm"
             onClick={onLoadMore}
-            disabled={loadingMore}
-            className="h-10 px-6 rounded-xl border border-zinc-800 hover:border-zinc-600 text-[13px] font-semibold text-zinc-300 hover:text-white transition-colors disabled:opacity-60"
+            loading={loadingMore}
           >
-            {loadingMore ? 'Loading...' : 'Load more applications'}
-          </button>
+            {loadingMore ? 'Loading…' : 'Load more applications'}
+          </DsrtButton>
         </div>
       )}
-    </div>
+    </DsrtPanel>
   )
 }

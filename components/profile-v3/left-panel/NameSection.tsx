@@ -53,46 +53,44 @@ export function NameSection({
     if (!dsrtEmail) return
     navigator.clipboard.writeText(dsrtEmail)
     setCopied(true)
-    toast.success('DSRT Email copied')
+    toast.success('DSRT Mail address copied')
     setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <InlineEditableText
           value={fullName || ''}
           onSave={handleSave}
           isOwner={isOwner}
           placeholder="Your name"
-          className="text-[20px] font-bold text-white tracking-tight leading-tight"
-          editClassName="text-[20px] font-bold text-white tracking-tight"
+          className="text-[20px] sm:text-[22px] font-bold text-white tracking-tight leading-tight"
+          editClassName="text-[20px] sm:text-[22px] font-bold text-white tracking-tight"
           maxLength={80}
         />
         {isVerified && (
-          <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" weight="fill" />
+          <CheckCircle className="w-5 h-5 text-blue-400 flex-shrink-0" weight="fill" />
         )}
       </div>
       
       {username && (
-        <div className="flex items-center gap-2">
-          <p className="text-[13px] text-zinc-500 font-medium">@{username}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-[13px] text-white/50 font-medium">@{username}</p>
           
-          <span className="text-zinc-800">•</span>
-          
-          {/* Futuristic DSRT Email Badge */}
+          {/* Formal DSRT Mail Badge - Deep Slate Blue instead of "vibe" gradient */}
           <button 
             onClick={copyEmail}
             className={cn(
-              "group flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all duration-200",
+              "group flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all duration-200 select-none",
               copied 
-                ? "bg-green-500/10 border-green-500/30 text-green-400" 
-                : "bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/40"
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" 
+                : "bg-[#1e3a5f]/40 border-[#2c5282]/40 text-[#93c5fd] hover:bg-[#1e3a5f]/60 hover:border-[#2c5282]/60"
             )}
             title="Copy DSRT Mail address"
           >
-            <Envelope className="w-3 h-3" weight={copied ? 'fill' : 'duotone'} />
-            <span className="text-[10px] font-bold tracking-wide">
+            <Envelope className="w-3 h-3" weight={copied ? 'fill' : 'regular'} />
+            <span className="text-[10px] font-mono tracking-wide">
               {dsrtEmail}
             </span>
             <Copy className={cn(

@@ -14,7 +14,7 @@
 
 @layer base {
   :root {
-    /* Light mode â€” warm neutrals */
+    /* Light mode — warm neutrals */
     --background: 30 20% 97%;
     --foreground: 220 25% 12%;
     --card: 0 0% 100%;
@@ -48,7 +48,7 @@
   }
 
   .dark {
-    /* Dark mode â€” deep charcoal + cerulean accents */
+    /* Dark mode — deep charcoal + cerulean accents */
     --background: 220 25% 8%;
     --foreground: 220 10% 92%;
     --card: 220 22% 11%;
@@ -100,13 +100,11 @@
     font-weight: 600;
   }
 
-  /* Palantir-style monospace for labels */
   .font-mono {
     font-family: 'IBM Plex Mono', 'SF Mono', 'Courier New', monospace;
     letter-spacing: 0.02em;
   }
 
-  /* Uppercase micro-labels (Palantir signature) */
   .label-mono {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
@@ -117,134 +115,75 @@
   }
 }
 
-/* =====================================   SKEUOMORPHIC COMPONENTS
-   ============================================ */
+/* =====================================   SKEUOMORPHIC COMPONENTS   ============================================ */
 
 @layer components {
-  /* Raised card â€” subtle 3D depth */
   .skeu-card {
-    background: linear-gradient(
-      145deg,
-      hsl(var(--card)) 0%,
-      hsl(var(--card) / 0.95) 100%
-    );
+    background: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.95) 100%);
     border: 1px solid hsl(var(--border));
     border-radius: var(--radius);
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.04),
-      0 2px 8px rgba(0, 0, 0, 0.06),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .dark .skeu-card {
-    background: linear-gradient(
-      145deg,
-      hsl(220 22% 12%) 0%,
-      hsl(220 25% 9%) 100%
-    );
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 4px 12px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.03),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+    background: linear-gradient(145deg, hsl(220 22% 12%) 0%, hsl(220 25% 9%) 100%);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03), inset 0 -1px 0 rgba(0, 0, 0, 0.4);
   }
 
-  /* Pressed / inset card */
   .skeu-inset {
     background: hsl(var(--muted) / 0.5);
     border: 1px solid hsl(var(--border));
     border-radius: var(--radius);
-    box-shadow:
-      inset 0 2px 4px rgba(0, 0, 0, 0.08),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .dark .skeu-inset {
     background: hsl(220 25% 6%);
-    box-shadow:
-      inset 0 2px 8px rgba(0, 0, 0, 0.5),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.02);
   }
 
-  /* Skeuomorphic button */
   .skeu-btn {
-    background: linear-gradient(
-      145deg,
-      hsl(var(--card)) 0%,
-      hsl(var(--muted)) 100%
-    );
+    background: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--muted)) 100%);
     border: 1px solid hsl(var(--border));
     border-radius: var(--radius);
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.05),
-      0 2px 4px rgba(0, 0, 0, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.15);
     transition: all 0.1s ease;
   }
 
   .skeu-btn:hover {
-    box-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.08),
-      0 4px 8px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2);
     transform: translateY(-1px);
   }
 
   .skeu-btn:active {
     transform: translateY(0);
-    box-shadow:
-      inset 0 2px 4px rgba(0, 0, 0, 0.15),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), inset 0 -1px 0 rgba(255, 255, 255, 0.1);
   }
 
   .dark .skeu-btn {
-    background: linear-gradient(
-      145deg,
-      hsl(220 22% 14%) 0%,
-      hsl(220 25% 10%) 100%
-    );
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 2px 6px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+    background: linear-gradient(145deg, hsl(220 22% 14%) 0%, hsl(220 25% 10%) 100%);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -1px 0 rgba(0, 0, 0, 0.5);
   }
 
-  /* Primary cerulean button */
   .skeu-btn-primary {
-    background: linear-gradient(
-      145deg,
-      hsl(var(--cerulean-light)) 0%,
-      hsl(var(--cerulean)) 50%,
-      hsl(var(--cerulean-dark)) 100%
-    );
+    background: linear-gradient(145deg, hsl(var(--cerulean-light)) 0%, hsl(var(--cerulean)) 50%, hsl(var(--cerulean-dark)) 100%);
     color: white;
     border: 1px solid hsl(var(--cerulean-dark));
     border-radius: var(--radius);
-    box-shadow:
-      0 1px 2px rgba(0, 100, 180, 0.2),
-      0 2px 6px rgba(0, 100, 180, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.3),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 2px rgba(0, 100, 180, 0.2), 0 2px 6px rgba(0, 100, 180, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.2);
     transition: all 0.15s ease;
   }
 
   .skeu-btn-primary:hover {
-    box-shadow:
-      0 2px 4px rgba(0, 100, 180, 0.3),
-      0 4px 12px rgba(0, 100, 180, 0.25),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    box-shadow: 0 2px 4px rgba(0, 100, 180, 0.3), 0 4px 12px rgba(0, 100, 180, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 
-  /* Tab bar with clear division */
   .skeu-tab-bar {
     background: hsl(var(--muted) / 0.3);
     border: 1px solid hsl(var(--border));
     border-radius: calc(var(--radius) + 2px);
     padding: 3px;
-    box-shadow:
-      inset 0 1px 2px rgba(0, 0, 0, 0.06),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .skeu-tab {
@@ -265,32 +204,17 @@
   }
 
   .skeu-tab.active {
-    background: linear-gradient(
-      145deg,
-      hsl(var(--card)) 0%,
-      hsl(var(--card) / 0.9) 100%
-    );
+    background: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.9) 100%);
     color: hsl(var(--foreground));
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.08),
-      0 2px 4px rgba(0, 0, 0, 0.06),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     border: 1px solid hsl(var(--border));
   }
 
-  /* Divider â€” precise Palantir style */
   .skeu-divider {
     height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(var(--border)) 20%,
-      hsl(var(--border)) 80%,
-      transparent 100%
-    );
+    background: linear-gradient(90deg, transparent 0%, hsl(var(--border)) 20%, hsl(var(--border)) 80%, transparent 100%);
   }
 
-  /* Section header â€” uppercase label */
   .section-label {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 10px;
@@ -300,7 +224,6 @@
     font-weight: 500;
   }
 
-  /* Accent dot */
   .accent-dot {
     display: inline-block;
     width: 6px;
@@ -310,7 +233,6 @@
     box-shadow: 0 0 8px hsl(var(--cerulean) / 0.5);
   }
 
-  /* Elegant chip */
   .chip {
     display: inline-flex;
     align-items: center;
@@ -337,7 +259,6 @@
     border-color: hsl(var(--accent) / 0.4);
   }
 
-  /* Numeric display â€” Palantir style */
   .numeric {
     font-family: 'IBM Plex Mono', monospace;
     font-variant-numeric: tabular-nums;
@@ -374,57 +295,28 @@
     display: none;
   }
 }
-/* Add at the end of globals.css */
 
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    hsl(var(--muted) / 0.4) 0%,
-    hsl(var(--muted) / 0.6) 50%,
-    hsl(var(--muted) / 0.4) 100%
-  );
+  background: linear-gradient(90deg, hsl(var(--muted) / 0.4) 0%, hsl(var(--muted) / 0.6) 50%, hsl(var(--muted) / 0.4) 100%);
   background-size: 200% 100%;
   animation: shimmer 2s infinite linear;
 }
 
-/* Fade in animation */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .fade-in {
   animation: fadeIn 0.3s ease-out;
 }
 
-
-/* ===== TEAM UP UTILITIES ===== */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
 /* ===== TEAM UP ACCESSIBILITY & POLISH ===== */
-
-/* Respect prefers-reduced-motion for banner slider + all transitions */
 @media (prefers-reduced-motion: reduce) {
   .team-up-no-motion,
   .team-up-no-motion *,
@@ -437,7 +329,6 @@
   }
 }
 
-/* Consistent focus ring across Team Up */
 [data-teamup-search]:focus-visible,
 [role="tab"]:focus-visible,
 [role="searchbox"]:focus-visible {
@@ -446,9 +337,7 @@
 }
 
 /* TipTap prose overrides for opportunity content */
-.ProseMirror:focus-visible {
-  outline: none;
-}
+.ProseMirror:focus-visible { outline: none; }
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -456,45 +345,19 @@
   pointer-events: none;
   height: 0;
 }
-.ProseMirror ul[data-type="taskList"] {
-  list-style: none;
-  padding: 0;
-}
-.ProseMirror ul[data-type="taskList"] li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-.ProseMirror ul[data-type="taskList"] li > label {
-  flex-shrink: 0;
-  margin-top: 0.25rem;
-}
+.ProseMirror ul[data-type="taskList"] { list-style: none; padding: 0; }
+.ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5rem; }
+.ProseMirror ul[data-type="taskList"] li > label { flex-shrink: 0; margin-top: 0.25rem; }
 .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
-  accent-color: rgb(59 130 246);
-  width: 0.875rem;
-  height: 0.875rem;
-  cursor: pointer;
+  accent-color: rgb(59 130 246); width: 0.875rem; height: 0.875rem; cursor: pointer;
 }
-.ProseMirror hr {
-  border: none;
-  border-top: 1px solid rgb(39 39 42);
-  margin: 1.5rem 0;
-}
+.ProseMirror hr { border: none; border-top: 1px solid rgb(39 39 42); margin: 1.5rem 0; }
 
-/* ===== TEAM UP EDITOR PLACEHOLDER FIX ===== */
 .ProseMirror .is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  color: rgb(82 82 91);
-  pointer-events: none;
-  height: 0;
-  white-space: pre-line;
-  font-size: 16px;
-  line-height: 1.75;
+  content: attr(data-placeholder); float: left; color: rgb(82 82 91);
+  pointer-events: none; height: 0; white-space: pre-line; font-size: 16px; line-height: 1.75;
 }
-.ProseMirror p:empty::before {
-  content: '';
-}
+.ProseMirror p:empty::before { content: ''; }
 
 [contenteditable][data-placeholder]:empty::before {
   content: attr(data-placeholder);
@@ -502,24 +365,11 @@
   pointer-events: none;
 }
 
-/* Template editor placeholders */
-[contenteditable][data-placeholder]:empty::before {
-  content: attr(data-placeholder);
-  color: rgb(82 82 91);
-  pointer-events: none;
-}
-
-/* Hide scrollbar utility */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-[contenteditable][data-placeholder]:empty::before {
-  content: attr(data-placeholder);
-  color: rgb(82 82 91);
-  pointer-events: none;
+/* Fallback letter C for missing Coco Icon */
+.fallback-coco {
+  font-family: 'IBM Plex Mono', monospace;
+  background: linear-gradient(180deg, #ffffff 0%, #a0a0a0 100%);
+  background-clip: text;            /* STANDARD property added here */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }

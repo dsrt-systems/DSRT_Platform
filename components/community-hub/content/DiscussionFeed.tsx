@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { MessagesSquare } from 'lucide-react'
-import { LoadingState, EmptyState, ErrorState, ForbiddenState, SkeletonRows } from '@/components/kernel-ui'
+import { ErrorState, ForbiddenState } from '@/components/kernel-ui'
 import { PostComposer } from './PostComposer'
 import { AnnouncementComposer } from './AnnouncementComposer'
 import { AnnouncementBanner } from './AnnouncementBanner'
@@ -10,6 +10,7 @@ import { PostCard } from './PostCard'
 import { useCommunityFeed } from '@/hooks/useCommunityFeed'
 import type { CommunityDetail } from '@/hooks/useCommunityDetail'
 import { useUser } from '@/hooks/useUser'
+import { DsrtEmpty, DsrtPanel, DsrtSkeleton, DsrtRowSkeleton } from '@/components/dsrt'
 
 interface Props {
   detail: CommunityDetail
@@ -18,16 +19,15 @@ interface Props {
 export function DiscussionFeed({ detail }: Props) {
   const { user } = useUser()
   const caps = detail.capabilities
-  const c = detail.community
 
   if (!caps.can_view) {
     return (
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+      <DsrtPanel>
         <ForbiddenState
           title="Members only"
           description="Join this community to view its discussion."
         />
-      </div>
+      </DsrtPanel>
     )
   }
 
@@ -67,11 +67,13 @@ function DiscussionFeedContent({ detail, currentUser }: { detail: CommunityDetai
       )}
 
       {loading ? (
-        <SkeletonRows count={4} />
+        <DsrtPanel>
+          <DsrtRowSkeleton count={5} />
+        </DsrtPanel>
       ) : error ? (
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+        <DsrtPanel>
           <ErrorState errorCode={error} onRetry={reload} />
-        </div>
+        </DsrtPanel>
       ) : (
         <>
           {announcements.map((a: any) => (
@@ -90,13 +92,13 @@ function DiscussionFeedContent({ detail, currentUser }: { detail: CommunityDetai
           ))}
 
           {items.length === 0 && announcements.length === 0 && pinned.length === 0 ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-              <EmptyState
+            <DsrtPanel>
+              <DsrtEmpty
                 icon={MessagesSquare}
                 title="No posts yet"
                 description={caps.can_post ? 'Be the first to share something.' : 'Join to start the conversation.'}
               />
-            </div>
+            </DsrtPanel>
           ) : (
             items.map((p: any) => (
               <PostCard
@@ -111,8 +113,8 @@ function DiscussionFeedContent({ detail, currentUser }: { detail: CommunityDetai
           )}
 
           {hasMore && (
-            <div ref={sentinelRef} className="pt-4">
-              {loadingMore && <LoadingState variant="compact" label="Loading more…" />}
+            <div ref={sentinelRef} className="pt-4 flex justify-center">
+              {loadingMore && <span className="text-[11px] font-mono text-white/40 uppercase tracking-wider">Loading more...</span>}
             </div>
           )}
         </>

@@ -5,7 +5,7 @@ import { ProfileV3Page } from '@/components/profile-v3/ProfileV3Page'
 export const dynamic = 'force-dynamic'
 
 export default async function Page({ params }: { params: { username: string } }) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user: currentAuthUser } } = await supabase.auth.getUser()
 
   if (params.username === 'me') {
@@ -28,7 +28,8 @@ export default async function Page({ params }: { params: { username: string } })
 
   const isOwner = currentAuthUser?.id === profile.id
 
-  const [followersRes, followingRes] = await Promise.all([
+  // Parallel fetching for follow stats + current follow status
+  const [followersRes, followingRes, isFollowingRes] = await Promise.all([
     supabase
       .from('follows')
       .select('id', { count: 'exact', head: true })
@@ -39,6 +40,15 @@ export default async function Page({ params }: { params: { username: string } })
       .select('id', { count: 'exact', head: true })
       .eq('follower_id', profile.id)
       .eq('following_type', 'user'),
+    // Check if current user follows this profile
+    currentAuthUser && !isOwner
+      ? supabase
+          .from('follows')
+          .select('id', { count: 'exact', head: true })
+          .eq('follower_id', currentAuthUser.id)
+          .eq('following_type', 'user')
+          .eq('following_id', profile.id)
+      : Promise.resolve({ count: 0 }),
   ])
 
   return (
@@ -48,6 +58,7 @@ export default async function Page({ params }: { params: { username: string } })
       currentUserId={currentAuthUser?.id || null}
       followerCount={followersRes.count || 0}
       followingCount={followingRes.count || 0}
+      isFollowing={(isFollowingRes.count || 0) > 0}
     />
   )
 }

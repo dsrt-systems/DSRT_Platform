@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { RotatingHeadline } from './RotatingHeadline'
+import { DsrtButton } from '@/components/dsrt'
 
 const DSRT_PHRASES = [
   'builders connect.',
@@ -34,34 +35,28 @@ export function HeroSection() {
       animate="show"
       className="flex flex-col justify-center w-full max-w-2xl relative z-10"
     >
-      <motion.p variants={itemVariants} className="text-[12px] font-semibold tracking-widest text-white/50 uppercase mb-4">
-        DSRT Connect
+      <motion.p variants={itemVariants} className="text-[11px] font-mono font-bold tracking-widest text-white/40 uppercase mb-5">
+        DSRT Connect Platform
       </motion.p>
 
       <motion.div variants={itemVariants} className="mb-6">
-        <h1 className="text-[32px] sm:text-[40px] lg:text-[46px] font-bold tracking-tight leading-[1.1] text-white mb-1">
+        <h1 className="text-[36px] sm:text-[48px] lg:text-[56px] font-bold tracking-tight leading-[1.05] text-white mb-2 drop-shadow-lg">
           A platform where
         </h1>
         <RotatingHeadline phrases={DSRT_PHRASES} />
       </motion.div>
 
-      <motion.p variants={itemVariants} className="text-[16px] leading-relaxed text-white/70 mt-2 max-w-[500px]">
-        The intelligent network for builders, projects, and ventures to securely collaborate and manage operations.
+      <motion.p variants={itemVariants} className="text-[15px] sm:text-[16px] leading-relaxed text-white/60 mt-4 max-w-[500px]">
+        The intelligent network for builders, engineers, and founders to securely collaborate, discover opportunities, and scale operations.
       </motion.p>
 
-      <motion.div variants={itemVariants} className="flex items-center gap-3 mt-10">
-        <Link
-          href="/signup"
-          className="inline-flex items-center justify-center h-10 px-6 rounded-md bg-[#4F7CFF] hover:bg-[#3D6BF5] text-white text-[14px] font-semibold transition-colors"
-        >
-          Create account
-        </Link>
-        <Link
-          href="/product"
-          className="inline-flex items-center justify-center h-10 px-6 rounded-md border border-white/15 hover:border-white/30 hover:bg-white/[0.03] text-white text-[14px] font-medium transition-colors"
-        >
-          Overview
-        </Link>
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-10">
+        <DsrtButton asChild variant="white" size="lg" className="justify-center shadow-2xl">
+          <Link href="/signup">Join the Network</Link>
+        </DsrtButton>
+        <DsrtButton asChild variant="outline" size="lg" className="justify-center">
+          <Link href="/company">Read our Manifesto</Link>
+        </DsrtButton>
       </motion.div>
     </motion.div>
   )
