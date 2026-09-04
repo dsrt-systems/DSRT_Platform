@@ -13,7 +13,7 @@ export function AuthLayout({ initialView = 'signin' }: { initialView?: AuthView 
   const [view, setView] = useState<AuthView>(initialView)
 
   return (
-    <div className="min-h-[100dvh] bg-[#05070D] flex flex-col relative overflow-hidden text-white font-sans">
+    <div className="min-h-[100dvh] relative overflow-hidden text-white font-sans">
       {/* Background image + overlays */}
       <AuthBackground />
 
@@ -49,7 +49,7 @@ export function AuthLayout({ initialView = 'signin' }: { initialView?: AuthView 
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center lg:justify-between px-6 lg:px-20 xl:px-32 z-10 w-full max-w-[1600px] mx-auto gap-12 lg:gap-24">
+      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center lg:justify-between px-6 lg:px-20 xl:px-32 z-10 w-full max-w-[1600px] mx-auto gap-12 lg:gap-24 relative">
         {/* Left Side — Desktop Hero */}
         <div className="hidden lg:flex flex-col max-w-[500px]">
           <motion.div
@@ -60,7 +60,7 @@ export function AuthLayout({ initialView = 'signin' }: { initialView?: AuthView 
             <h1 className="text-[48px] font-bold tracking-tight leading-[1.1] mb-4">
               {view === 'signin' ? 'Welcome back' : 'Join DSRT'}
             </h1>
-            <p className="text-[18px] text-white/50">
+            <p className="text-[18px] text-white/60">
               {view === 'signin' ? 'Continue where you left off.' : 'Build what matters. Together.'}
             </p>
           </motion.div>
@@ -96,7 +96,7 @@ export function AuthLayout({ initialView = 'signin' }: { initialView?: AuthView 
       </main>
 
       {/* Footer */}
-      <footer className="px-6 py-8 text-[12px] text-white/40 flex flex-col sm:flex-row items-center justify-center sm:gap-6 gap-3 z-10 relative mt-auto">
+      <footer className="px-6 py-8 text-[12px] text-white/50 flex flex-col sm:flex-row items-center justify-center sm:gap-6 gap-3 z-10 relative mt-auto">
         <span className="font-medium tracking-wide">© 2026 DSRT. All rights reserved.</span>
         <div className="hidden sm:block h-3 w-px bg-white/20" />
         <div className="flex gap-6 font-medium">
@@ -125,7 +125,7 @@ function Feature({
     <div className="flex flex-col gap-2 max-w-[140px]">
       <div className="text-[#4F7CFF]">{icon}</div>
       <h3 className="text-[13px] font-semibold text-white/90">{title}</h3>
-      <p className="text-[12px] text-white/40 leading-relaxed">{desc}</p>
+      <p className="text-[12px] text-white/50 leading-relaxed">{desc}</p>
     </div>
   )
 }

@@ -1,4 +1,3 @@
-// filepath: app/(auth)/signup/page.tsx
 import type { Metadata } from 'next'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 

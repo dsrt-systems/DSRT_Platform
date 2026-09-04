@@ -5,11 +5,8 @@ import { AppProviders } from '@/components/providers/AppProviders'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.dsrtai.com'),
-  title: {
-    default: 'DSRT — Build with the right people',
-    // IMPORTANT: no extra suffix, prevents duplicated titles
-    template: '%s',
-  },
+  // Plain string title — no template. Prevents duplicated tab titles.
+  title: 'DSRT — Build with the right people',
   description: 'The command center for builders. Where mission meets execution.',
   applicationName: 'DSRT',
   keywords: ['DSRT', 'builders', 'ventures', 'projects', 'collaboration'],
@@ -43,7 +40,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://www.dsrtai.com',
-    title: 'DSRT | Build with the right people',
+    title: 'DSRT — Build with the right people',
     description: 'The command center for builders. Where mission meets execution.',
     siteName: 'DSRT',
     images: [
