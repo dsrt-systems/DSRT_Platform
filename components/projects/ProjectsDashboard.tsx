@@ -14,7 +14,7 @@ import { ProjectExplorePage } from '@/components/projects-explore/ProjectExplore
 import {
   Plus, CircleNotch, CaretDown, WarningCircle, Heart, Briefcase,
   DotsThree, MapPin, Users, ArrowRight, ArrowSquareOut, Star, BookmarkSimple,
-  Wrench, GitBranch, CheckCircle, Lightbulb, ShieldCheck, SquaresFour
+  Wrench, GitBranch, CheckCircle, Lightbulb, ShieldCheck, SquaresFour, Eye, Clock
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -293,40 +293,30 @@ function ProjectsDashboardContent() {
   }), [sortedProjects])
 
   const sections = useMemo(() => {
-    const now = Date.now()
-    const twoWeeks = 14 * 24 * 60 * 60 * 1000
-
     const actively_building = filteredByStatus.filter(p => {
       const activeStages = ['idea', 'planning', 'prototype', 'development', 'building', 'testing', 'mvp']
       return activeStages.includes(p.stage || '') && p.status !== 'archived' && p.status !== 'completed'
     })
 
-    const recently_updated = filteredByStatus.filter(p => {
-      const ts = new Date(p.last_activity_at || p.updated_at || 0).getTime()
-      return ts > 0 && (now - ts) < twoWeeks && !actively_building.some(x => x.id === p.id)
-    })
-
     const research_and_experiments = filteredByStatus.filter(p => {
       const isResearch = p.project_type === 'research' || p.project_type === 'experiment' || p.stage === 'research'
-      return isResearch && !actively_building.some(x => x.id === p.id) && !recently_updated.some(x => x.id === p.id)
+      return isResearch && !actively_building.some(x => x.id === p.id)
     })
 
     const open_source = filteredByStatus.filter(p => {
       return p.is_open_source && !actively_building.some(x => x.id === p.id) &&
-             !recently_updated.some(x => x.id === p.id) &&
              !research_and_experiments.some(x => x.id === p.id)
     })
 
     const shownIds = new Set([
       ...actively_building.map(p => p.id),
-      ...recently_updated.map(p => p.id),
       ...research_and_experiments.map(p => p.id),
       ...open_source.map(p => p.id),
     ])
 
     const other = filteredByStatus.filter(p => !shownIds.has(p.id))
 
-    return { actively_building, recently_updated, research_and_experiments, open_source, other }
+    return { actively_building, research_and_experiments, open_source, other }
   }, [filteredByStatus])
 
   const firstName =
@@ -403,7 +393,7 @@ function ProjectsDashboardContent() {
               : 'bg-white/[0.03] border-white/[0.08]'
           }`}>
             <div className="flex items-center gap-3">
-              <WarningCircle size={18} className={draftLimitInfo.count >= draftLimitInfo.limit ? 'text-red-400' : 'text-white/60'} />
+              <WarningCircle size={18} weight="fill" className={draftLimitInfo.count >= draftLimitInfo.limit ? 'text-red-400' : 'text-white/60'} />
               <p className="text-[13px] text-white/80 font-medium">
                 {draftLimitInfo.count >= draftLimitInfo.limit ? (
                   <><strong className="text-white">Draft limit reached ({draftLimitInfo.count}/{draftLimitInfo.limit}).</strong> Publish or delete an existing draft to create new ones.</>
@@ -553,20 +543,20 @@ function ProjectsDashboardContent() {
                   </div>
                 ) : error ? (
                   <div className="p-8 border border-red-500/20 bg-red-500/5 rounded-2xl text-center space-y-3 w-full">
-                    <WarningCircle size={28} className="text-red-400 mx-auto" />
+                    <WarningCircle size={28} weight="fill" className="text-red-400 mx-auto" />
                     <h3 className="text-[16px] font-bold text-white">Unable to load your projects</h3>
                     <p className="text-[13px] text-zinc-400 max-w-sm mx-auto">
                       Something went wrong while retrieving your project workspace.
                     </p>
-                    <button onClick={loadWorkspaceData} className="px-5 py-2.5 bg-zinc-800 border border-zinc-700 hover:border-zinc-500 text-white rounded-xl text-[13px] font-bold transition-colors">
+                    <button onClick={loadWorkspaceData} className="px-5 py-2.5 bg-white text-[#05070D] rounded-xl text-[13px] font-bold transition-colors hover:bg-zinc-200">
                       Try again
                     </button>
                   </div>
                 ) : filteredByStatus.length === 0 ? (
                   quickStatus === 'all' ? (
                     <div className="p-12 border border-white/[0.06] rounded-2xl bg-[#121215]/50 text-center space-y-4 shadow-inner w-full">
-                      <div className="w-16 h-16 bg-white/[0.03] rounded-2xl flex items-center justify-center mx-auto border border-white/[0.05]">
-                        <Wrench size={32} className="text-zinc-500" />
+                      <div className="w-16 h-16 bg-zinc-900 rounded-2xl flex items-center justify-center mx-auto">
+                        <Wrench size={32} weight="fill" className="text-white" />
                       </div>
                       <div>
                         <h3 className="text-[16px] font-bold text-white">You haven't created a project yet.</h3>
@@ -578,7 +568,9 @@ function ProjectsDashboardContent() {
                     </div>
                   ) : (
                     <div className="p-12 border border-white/[0.06] rounded-2xl bg-[#121215]/50 text-center space-y-3 w-full">
-                      <Wrench size={32} className="text-zinc-600 mx-auto" />
+                      <div className="w-16 h-16 bg-zinc-900 rounded-2xl flex items-center justify-center mx-auto">
+                        <Wrench size={28} weight="fill" className="text-white" />
+                      </div>
                       <p className="text-[14px] text-zinc-400 font-bold">No {quickStatus} projects.</p>
                       <button onClick={() => setQuickStatus('all')} className="text-[13px] font-bold text-zinc-500 hover:text-white underline underline-offset-4">
                         View all projects
@@ -588,7 +580,6 @@ function ProjectsDashboardContent() {
                 ) : (
                   <div className="space-y-10 w-full min-w-0">
                     <ProjectSectionRow title="Actively building" subtitle="Projects moving forward" projects={sections.actively_building} onDeleteRequest={setDeleteModalProject} />
-                    <ProjectSectionRow title="Recently updated" subtitle="Last two weeks" projects={sections.recently_updated} onDeleteRequest={setDeleteModalProject} />
                     <ProjectSectionRow title="Research & experiments" subtitle="Learning and technical exploration" projects={sections.research_and_experiments} onDeleteRequest={setDeleteModalProject} />
                     <ProjectSectionRow title="Open source" subtitle="Publicly available and open for contribution" projects={sections.open_source} onDeleteRequest={setDeleteModalProject} />
                     <ProjectSectionRow title="Other projects" subtitle="" projects={sections.other} onDeleteRequest={setDeleteModalProject} />
@@ -626,8 +617,8 @@ function ProjectsDashboardContent() {
           <div>
             {followingProjects.length === 0 ? (
               <div className="rounded-3xl border border-dashed border-white/[0.1] p-16 text-center bg-[#121215]/50 max-w-4xl mx-auto">
-                <div className="w-16 h-16 bg-white/[0.03] rounded-2xl flex items-center justify-center mx-auto border border-white/[0.05] mb-5">
-                  <Heart size={32} className="text-zinc-500" />
+                <div className="w-16 h-16 bg-zinc-900 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                  <Heart size={32} weight="fill" className="text-white" />
                 </div>
                 <h3 className="text-[18px] font-bold text-white mb-2">Not following any projects</h3>
                 <p className="text-[13.5px] text-zinc-500 mb-6 max-w-md mx-auto">Follow projects in Explore to track their builds and updates in your feed.</p>
@@ -648,8 +639,8 @@ function ProjectsDashboardContent() {
         {/* ── APPLICATIONS TAB ─────────────────────────── */}
         {activeTab === 'applications' && (
           <div className="rounded-3xl border border-dashed border-white/[0.1] p-16 text-center bg-[#121215]/50 max-w-4xl mx-auto">
-            <div className="w-16 h-16 bg-white/[0.03] rounded-2xl flex items-center justify-center mx-auto border border-white/[0.05] mb-5">
-              <Briefcase size={32} className="text-zinc-500" />
+            <div className="w-16 h-16 bg-zinc-900 rounded-2xl flex items-center justify-center mx-auto mb-5">
+              <Briefcase size={32} weight="fill" className="text-white" />
             </div>
             <h3 className="text-[18px] font-bold text-white mb-2">Applications & role activity</h3>
             <p className="text-[13.5px] text-zinc-500 max-w-md mx-auto mb-6">
@@ -805,6 +796,7 @@ function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project;
 
   const domainTags = (project.category || [project.industry].filter(Boolean) as string[])
   const techTags = (project.tech_stack || [])
+  const fullDescription = project.description || project.short_description
 
   return (
     <div onClick={handleCardClick} className="group relative bg-[#121215] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-5 flex flex-col md:flex-row gap-6 cursor-pointer transition-all shadow-sm w-full min-w-0">
@@ -812,7 +804,7 @@ function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project;
         {project.cover_image_url ? (
           <img src={project.cover_image_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-zinc-900/40"><Wrench size={32} className="text-zinc-800" /></div>
+          <div className="w-full h-full flex items-center justify-center bg-zinc-900"><Wrench size={32} weight="fill" className="text-zinc-700" /></div>
         )}
         {project.logo_url && (
           <div className="absolute bottom-3 left-3 w-12 h-12 rounded-xl border border-white/[0.1] shadow-lg bg-[#09090b] overflow-hidden">
@@ -829,8 +821,13 @@ function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project;
                 <h3 className="text-[18px] font-bold text-white truncate group-hover:text-[#38bdf8] transition-colors tracking-tight">{project.name}</h3>
                 {project.is_dsrt_verified && <CheckCircle size={15} weight="fill" className="text-[#38bdf8] shrink-0" />}
               </div>
-              {(project.tagline || project.short_description) && (
-                <p className="text-[13.5px] text-zinc-400 truncate">{project.tagline || project.short_description}</p>
+              {project.tagline && (
+                <p className="text-[13.5px] font-medium text-zinc-300 truncate mb-1.5">{project.tagline}</p>
+              )}
+              {fullDescription && (
+                <p className="text-[12.5px] text-zinc-500 line-clamp-2 leading-relaxed">
+                  {fullDescription}
+                </p>
               )}
             </div>
 
@@ -854,18 +851,19 @@ function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project;
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap mb-3">
+          {/* SOLID TAG PILLS */}
+          <div className="flex items-center gap-2 flex-wrap mb-3 mt-3">
             {domainTags.slice(0, 2).map((d, i) => (
-              <span key={i} className="px-2.5 py-1 bg-white/[0.03] border border-white/[0.05] text-zinc-300 text-[11px] rounded-md font-semibold tracking-wide">{d}</span>
+              <span key={i} className="px-3 py-1 bg-[#1e3a5f] text-[#60a5fa] text-[11px] rounded-full font-bold tracking-wide">{d}</span>
             ))}
-            {project.stage && <span className="px-2.5 py-1 bg-[#38bdf8]/10 border border-[#38bdf8]/20 text-[#38bdf8] text-[11px] rounded-md font-bold uppercase tracking-wider">{project.stage}</span>}
-            {project.location && <span className="flex items-center gap-1 text-[11.5px] font-medium text-zinc-500 ml-2"><MapPin size={12} /> {project.location}</span>}
+            {project.stage && <span className="px-3 py-1 bg-[#0284c7] text-white text-[11px] rounded-full font-bold uppercase tracking-wider">{project.stage}</span>}
+            {project.location && <span className="flex items-center gap-1 text-[11.5px] font-medium text-zinc-500 ml-2"><MapPin size={12} weight="fill" /> {project.location}</span>}
           </div>
 
           {techTags.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               {techTags.slice(0, 4).map((t, i) => (
-                <span key={i} className="px-2 py-1 text-[10.5px] font-mono font-medium text-zinc-400 bg-[#09090b] border border-white/[0.04] rounded-md">{t}</span>
+                <span key={i} className="px-2.5 py-1 text-[10.5px] font-mono font-semibold text-zinc-300 bg-zinc-800 rounded-md">{t}</span>
               ))}
               {techTags.length > 4 && <span className="text-[10.5px] text-zinc-600 font-mono font-medium ml-1">+{techTags.length - 4}</span>}
             </div>
@@ -873,12 +871,14 @@ function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project;
         </div>
 
         <div className="mt-5 pt-4 border-t border-white/[0.04] flex items-center justify-between gap-4 w-full">
-          <div className="flex items-center gap-5 text-[12px] text-zinc-500 font-mono font-medium">
-            <span className="flex items-center gap-1.5"><Users size={14}/> {project.team_size || 1}</span>
-            {project.is_open_source && <span className="flex items-center gap-1.5"><GitBranch size={14} /> OSS</span>}
+          <div className="flex items-center gap-4 text-[12px] text-zinc-500 font-mono font-medium flex-wrap">
+            <span className="flex items-center gap-1.5"><Users size={14} weight="fill"/> {project.team_size || 1}</span>
+            <span className="flex items-center gap-1.5"><Eye size={14} weight="fill"/> {project.view_count || 0}</span>
+            <span className="flex items-center gap-1.5"><Clock size={14} weight="fill"/> {timeAgo(project.updated_at || project.last_activity_at || project.created_at)}</span>
+            {project.is_open_source && <span className="flex items-center gap-1.5"><GitBranch size={14} weight="fill" /> OSS</span>}
           </div>
-          <button onClick={(e) => { e.stopPropagation(); router.push(`/projects/${project.slug}`) }} className="h-9 px-4 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[12.5px] font-bold text-white transition-colors">
-            Open project
+          <button onClick={(e) => { e.stopPropagation(); router.push(`/projects/${project.slug}`) }} className="h-9 px-4 rounded-xl bg-white text-[#05070D] hover:bg-zinc-200 text-[12.5px] font-bold transition-colors shrink-0">
+            Open
           </button>
         </div>
       </div>
@@ -894,7 +894,7 @@ function ProjectDraftCard({ project }: { project: Project }) {
         {project.cover_image_url ? (
           <img src={project.cover_image_url} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center"><Wrench size={26} className="text-white/10" /></div>
+          <div className="w-full h-full flex items-center justify-center"><Wrench size={26} weight="fill" className="text-white/10" /></div>
         )}
         <span className="absolute top-3 left-3 text-[9px] font-extrabold text-black bg-white px-2 py-1 rounded-md uppercase tracking-widest shadow-sm">
           Draft
@@ -905,8 +905,8 @@ function ProjectDraftCard({ project }: { project: Project }) {
         {project.project_number && (
           <p className="text-[11px] text-zinc-500 font-mono font-medium mb-3">{project.project_number}</p>
         )}
-        <p className="text-[11px] text-zinc-500 mb-4 font-medium">
-          Edited {timeAgo(project.updated_at || project.created_at)}
+        <p className="text-[11px] text-zinc-500 mb-4 font-medium flex items-center gap-1">
+          <Clock size={12} weight="fill" /> Edited {timeAgo(project.updated_at || project.created_at)}
         </p>
         <button className="w-full flex items-center justify-center gap-1.5 text-[12.5px] font-bold text-zinc-300 bg-white/[0.04] border border-white/[0.06] group-hover:bg-white group-hover:text-[#05070D] px-3 h-10 rounded-xl transition-colors">
           Continue building <ArrowRight size={12} weight="bold" />
@@ -978,8 +978,8 @@ function ProjectTechnicalMarquee({ resources }: { resources: any[] }) {
     <div className="mt-20 pt-12 border-t border-white/[0.08] w-full min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#121215] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
-            <Wrench size={20} weight="fill" className="text-zinc-400" />
+          <div className="w-12 h-12 rounded-2xl bg-zinc-900 flex items-center justify-center flex-shrink-0">
+            <Wrench size={20} weight="fill" className="text-white" />
           </div>
           <div>
             <h2 className="text-[20px] font-bold text-white tracking-tight">DSRT Technical Library</h2>
@@ -1030,8 +1030,8 @@ function ProjectTechnicalMarquee({ resources }: { resources: any[] }) {
                   }}
                   className={`absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                     isSaved
-                      ? 'bg-white/[0.08] text-white'
-                      : 'bg-transparent text-zinc-600 hover:bg-white/[0.06] hover:text-white'
+                      ? 'bg-white text-[#05070D]'
+                      : 'bg-zinc-800 text-zinc-400 hover:bg-white hover:text-[#05070D]'
                   }`}
                   aria-label={isSaved ? 'Remove from saved' : 'Save'}
                 >

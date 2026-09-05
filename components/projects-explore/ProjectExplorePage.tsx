@@ -12,7 +12,7 @@ import { ProjectSortDropdown } from './ProjectSortDropdown'
 import { useProjectExploreUrlState } from '@/hooks/useProjectExploreUrlState'
 import { useProjectInfiniteFeed } from '@/hooks/useProjectInfiniteFeed'
 import { getProjectAffinityLearner } from '@/lib/project-explore/affinity-learner'
-import { DsrtSection, DsrtInput, DsrtButton, DsrtTabs, DsrtEmpty, DsrtCardSkeleton, DsrtChip, DsrtLayoutWithRail } from '@/components/dsrt'
+import { DsrtInput, DsrtButton, DsrtTabs, DsrtEmpty, DsrtCardSkeleton, DsrtChip, DsrtLayoutWithRail } from '@/components/dsrt'
 
 const DISCOVERY_TABS = [
   { value: 'recommended', label: 'Recommended' },
@@ -157,53 +157,46 @@ export function ProjectExplorePage() {
   const primaryModule = modules[0]
 
   return (
-    <div className="space-y-6 px-4 md:px-6">
-      {/* Header */}
-      <DsrtSection
-        title="Explore Projects"
-        description="Discover experiments, research, hardware, and open source built across every domain."
-      >
-        <div className="space-y-4">
-          <DsrtInput
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && executeSearch()}
-            placeholder="Search projects, PyTorch, robotics, open source, research..."
-            icon={<MagnifyingGlass size={16} />}
-            sizeVariant="lg"
-            rightSlot={
-              <div className="flex items-center gap-1">
-                {searchInput && (
-                  <button onClick={clearSearch} className="p-1 text-white/40 hover:text-white">
-                    <X size={14} />
-                  </button>
-                )}
-                <DsrtButton size="xs" variant="primary" onClick={executeSearch}>Search</DsrtButton>
-              </div>
-            }
-          />
-
-          {activeFilterChips.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap pt-1">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-white/40">Active:</span>
-              {activeFilterChips.map((chip, i) => (
-                <DsrtChip key={i} onRemove={chip.remove} tone="accent" size="sm">{chip.label}</DsrtChip>
-              ))}
-              <button onClick={clearFilters} className="text-[11px] font-mono text-white/50 hover:text-white underline ml-1">
-                Clear all
-              </button>
+    <div className="space-y-6 w-full">
+      <div className="space-y-4 pt-2">
+        <DsrtInput
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && executeSearch()}
+          placeholder="Search projects, PyTorch, robotics, open source, research..."
+          icon={<MagnifyingGlass size={16} />}
+          sizeVariant="lg"
+          rightSlot={
+            <div className="flex items-center gap-1">
+              {searchInput && (
+                <button onClick={clearSearch} className="p-1 text-white/40 hover:text-white">
+                  <X size={14} />
+                </button>
+              )}
+              <DsrtButton size="xs" variant="primary" onClick={executeSearch}>Search</DsrtButton>
             </div>
-          )}
+          }
+        />
 
-          {activeTab === 'recommended' && !isFiltered && (
-            <div className="rounded-2xl overflow-hidden border border-white/[0.08]">
-              <ProjectFeaturedCarousel banners={banners} />
-            </div>
-          )}
-        </div>
-      </DsrtSection>
+        {activeFilterChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-white/40">Active:</span>
+            {activeFilterChips.map((chip, i) => (
+              <DsrtChip key={i} onRemove={chip.remove} tone="accent" size="sm">{chip.label}</DsrtChip>
+            ))}
+            <button onClick={clearFilters} className="text-[11px] font-mono text-white/50 hover:text-white underline ml-1">
+              Clear all
+            </button>
+          </div>
+        )}
 
-      {/* Responsive Workspace */}
+        {activeTab === 'recommended' && !isFiltered && (
+          <div className="rounded-2xl overflow-hidden border border-white/[0.08]">
+            <ProjectFeaturedCarousel banners={banners} />
+          </div>
+        )}
+      </div>
+
       <DsrtLayoutWithRail
         railPosition="left"
         railBreakpoint="lg"
@@ -216,7 +209,6 @@ export function ProjectExplorePage() {
         }
       >
         <div className="space-y-6">
-          {/* Controls Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
             <div>
               <h3 className="text-[16px] font-semibold text-white tracking-tight">
@@ -259,7 +251,6 @@ export function ProjectExplorePage() {
             </div>
           </div>
 
-          {/* State Rendering */}
           {loading ? (
             <DsrtCardSkeleton count={6} />
           ) : error ? (
