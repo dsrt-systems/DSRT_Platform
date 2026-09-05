@@ -2,6 +2,7 @@
 'use client'
 
 import { Check } from 'lucide-react'
+import { Lightbulb, ShieldCheck } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { ProjectStepKey } from '@/stores/projectCreationStore'
 
@@ -37,7 +38,7 @@ const STEP_TIPS: Record<ProjectStepKey, { title: string; tips: string[]; usage: 
       'Select up to 3 domains from our global taxonomy for exact matching.',
       'You can expand the description anytime inside your Project Workspace.',
     ],
-    usage: 'Domains and definitions train the DSRT AI recommendation engine to connect you with interested builders and relevant opportunities.',
+    usage: 'Domains and definitions train the DSRT recommendation engine to connect you with interested builders and relevant opportunities.',
   },
   build: {
     title: 'Tips for build details',
@@ -46,7 +47,7 @@ const STEP_TIPS: Record<ProjectStepKey, { title: string; tips: string[]; usage: 
       'Add key frameworks and tools so developers can evaluate technical fit.',
       'Connecting a repository allows DSRT to display live activity metrics.',
     ],
-    usage: 'Your tech stack and stage allow other developers to filter projects in Explore and find open-source repositories matching their skills.',
+    usage: 'Your tech stack and stage allow other developers to filter projects in Explore and find repositories matching their skills.',
   },
   collaboration: {
     title: 'Tips for collaboration',
@@ -85,8 +86,7 @@ export function ProjectCreationSidebar({
 
   return (
     <aside className="w-full lg:w-[300px] lg:flex-shrink-0">
-      <div className="lg:sticky lg:top-24 space-y-6">
-        
+      <div className="lg:sticky lg:top-24 space-y-5">
         {/* Setup Steps */}
         <div>
           <p className="text-[11px] font-bold text-white/40 tracking-widest uppercase mb-4 px-1">
@@ -147,31 +147,46 @@ export function ProjectCreationSidebar({
           </nav>
         </div>
 
-        {/* Tips Box */}
-        <div className="rounded-md border border-white/[0.06] bg-[#0A0A0C] p-4">
-          <p className="text-[10px] font-bold text-white/50 tracking-widest uppercase mb-3">
-            {currentTips.title}
-          </p>
-          <ul className="space-y-2">
+        {/* Tips Box — solid blue gradient padded */}
+        <div className="relative p-5 rounded-2xl bg-gradient-to-br from-[#38bdf8] to-[#2563eb] shadow-[0_8px_30px_rgba(59,130,246,0.15)] overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-px bg-white/40 pointer-events-none" />
+
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-black/10 flex items-center justify-center border border-black/5 shadow-inner">
+              <Lightbulb size={16} weight="fill" className="text-[#05070D]" />
+            </div>
+            <p className="text-[11px] font-mono uppercase tracking-widest text-[#05070D] font-bold">
+              {currentTips.title}
+            </p>
+          </div>
+
+          <ul className="space-y-2.5">
             {currentTips.tips.map((tip, idx) => (
-              <li key={idx} className="text-[12px] text-white/65 leading-relaxed flex gap-2">
-                <span className="text-white/30 flex-shrink-0">·</span>
+              <li key={idx} className="text-[12.5px] text-[#05070D]/90 leading-relaxed flex gap-2 font-semibold">
+                <span className="text-[#05070D]/50 flex-shrink-0 font-bold">•</span>
                 <span>{tip}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* How We Use This Box */}
-        <div className="rounded-md border border-white/[0.06] bg-[#0A0A0C] p-4">
-          <p className="text-[10px] font-bold text-white/50 tracking-widest uppercase mb-2">
-            How we use this
-          </p>
-          <p className="text-[12px] text-white/65 leading-relaxed">
+        {/* How We Use This Box — solid blue gradient padded */}
+        <div className="relative p-5 rounded-2xl bg-gradient-to-br from-[#38bdf8] to-[#2563eb] shadow-[0_8px_30px_rgba(59,130,246,0.15)] overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-px bg-white/40 pointer-events-none" />
+
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-black/10 flex items-center justify-center border border-black/5 shadow-inner">
+              <ShieldCheck size={16} weight="fill" className="text-[#05070D]" />
+            </div>
+            <p className="text-[11px] font-mono uppercase tracking-widest text-[#05070D] font-bold">
+              How we use this
+            </p>
+          </div>
+
+          <p className="text-[12.5px] text-[#05070D]/90 leading-relaxed font-semibold">
             {currentTips.usage}
           </p>
         </div>
-
       </div>
     </aside>
   )

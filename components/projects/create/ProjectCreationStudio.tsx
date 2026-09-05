@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Loader2, LogOut } from 'lucide-react'
@@ -51,6 +51,7 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
   const [initializing, setInitializing] = useState(true)
   const [draftCount, setDraftCount] = useState<number>(0)
   const [showLimitWarning, setShowLimitWarning] = useState(false)
+  const savingLock = useRef(false)
 
   const {
     data,
@@ -64,37 +65,41 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
     canNavigateToStep,
     reset,
     hydrateFromServer,
+    updateData,
   } = useProjectCreationStore()
 
   useEffect(() => {
     const init = async () => {
       try {
         const countRes = await fetch('/api/projects/drafts/count')
-        const countData = await countRes.json()
+        const countData = await countRes.json().catch(() => ({ count: 0, limit: 10 }))
         setDraftCount(countData.count || 0)
 
         if (continueDraftId) {
-          const res = await fetch(`/api/projects/draft/${continueDraftId}`)
-          if (res.ok) {
-            const json = await res.json()
-            if (json.draft) {
-              reset()
-              hydrateFromServer(json.draft)
-              toast.success(`Resumed draft: ${json.draft.name}`)
-            }
+          const res = await fetch(`/api/projects/draft/${encodeURIComponent(continueDraftId)}`)
+          const json = await res.json().catch(() => ({}))
+
+          if (res.ok && json.draft) {
+            reset()
+            hydrateFromServer(json.draft)
+            toast.success(`Resumed draft: ${json.draft.name || 'Untitled'}`)
           } else {
-            toast.error('Could not load draft')
-            router.push('/projects/create')
+            toast.error(json.error || 'Could not load draft')
+            router.replace('/projects/create')
             return
           }
         } else {
-          reset()
+          // Keep local in-progress draft if present; otherwise start fresh
+          const hasLocal = !!(useProjectCreationStore.getState().data.name || useProjectCreationStore.getState().data.id)
+          if (!hasLocal) reset()
+
           if ((countData.count || 0) >= (countData.limit || 10)) {
             setShowLimitWarning(true)
           }
         }
       } catch (err) {
         console.error('Init error:', err)
+        toast.error('Failed to initialize project studio')
       } finally {
         setInitializing(false)
         setMounted(true)
@@ -102,12 +107,18 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
     }
 
     init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [continueDraftId])
 
   const triggerAutoSave = useCallback(
     async (isExiting = false) => {
-      if (!data.name || data.name.trim().length < 2) return
+      if (savingLock.current) return null
+      if (!data.name || data.name.trim().length < 2) {
+        if (isExiting) toast.error('Add a project name (min 2 characters) before saving')
+        return null
+      }
 
+      savingLock.current = true
       setSaving(true)
       try {
         const res = await fetch('/api/projects/draft', {
@@ -115,37 +126,58 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         })
-        const result = await res.json()
+        const result = await res.json().catch(() => ({}))
 
         if (!res.ok) {
           if (result.code === 'DRAFT_LIMIT_REACHED') {
-            toast.error(result.error, { duration: 6000 })
+            toast.error(result.error || 'Draft limit reached', { duration: 6000 })
             setShowLimitWarning(true)
             if (isExiting) router.push('/projects')
-            return
+            return null
           }
           throw new Error(result.error || 'Save failed')
         }
 
-        if (result.project?.id && !data.id) {
-          useProjectCreationStore.getState().updateData({ id: result.project.id })
+        if (result.project?.id) {
+          // Keep id in store so publish works
+          if (data.id !== result.project.id) {
+            updateData({ id: result.project.id })
+          }
         }
 
         markSaved()
+
         if (isExiting) {
           toast.success('Project draft saved')
           reset()
           router.push('/projects')
         }
+
+        return result.project || null
       } catch (e: any) {
         console.error('Autosave error:', e)
-        if (isExiting) toast.error(e.message || 'Failed to save draft')
+        toast.error(e.message || 'Failed to save draft')
+        return null
       } finally {
         setSaving(false)
+        savingLock.current = false
       }
     },
-    [data, markSaved, router, setSaving, reset]
+    [data, markSaved, router, setSaving, reset, updateData]
   )
+
+  // Debounced autosave while editing
+  useEffect(() => {
+    if (!mounted || initializing) return
+    if (!hasUnsavedChanges) return
+    if (!data.name || data.name.trim().length < 2) return
+
+    const t = setTimeout(() => {
+      triggerAutoSave(false)
+    }, 1200)
+
+    return () => clearTimeout(t)
+  }, [data, hasUnsavedChanges, mounted, initializing, triggerAutoSave])
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -159,13 +191,13 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
 
   const handleSaveExit = () => triggerAutoSave(true)
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const steps: ProjectStepKey[] = ['identity', 'definition', 'build', 'collaboration', 'publish']
     const idx = steps.indexOf(currentStep)
     if (idx < steps.length - 1) {
       const nextStep = steps[idx + 1]
       setCurrentStep(nextStep)
-      if (hasUnsavedChanges) triggerAutoSave(false)
+      if (hasUnsavedChanges) await triggerAutoSave(false)
     }
   }
 
@@ -173,6 +205,18 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
     const steps: ProjectStepKey[] = ['identity', 'definition', 'build', 'collaboration', 'publish']
     const idx = steps.indexOf(currentStep)
     if (idx > 0) setCurrentStep(steps[idx - 1])
+  }
+
+  const handlePublishClick = async () => {
+    // Ensure draft exists/saved before publish step trigger
+    if (!data.id || hasUnsavedChanges) {
+      const saved = await triggerAutoSave(false)
+      if (!saved?.id && !useProjectCreationStore.getState().data.id) {
+        toast.error('Could not save draft before publishing')
+        return
+      }
+    }
+    document.getElementById('hidden-publish-trigger')?.click()
   }
 
   if (!mounted || initializing) {
@@ -188,12 +232,15 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
 
   const { heading, description } = STEP_HEADINGS[currentStep]
   const currentStepNumber = PROJECT_STEPS.findIndex(s => s.key === currentStep) + 1
-  const canContinueCurrent = completedSteps[currentStep] || currentStep === 'publish' || currentStep === 'build' || currentStep === 'collaboration'
-  const isAtLimit = draftCount >= 10 && !continueDraftId
+  const canContinueCurrent =
+    completedSteps[currentStep] ||
+    currentStep === 'publish' ||
+    currentStep === 'build' ||
+    currentStep === 'collaboration'
+  const isAtLimit = draftCount >= 10 && !continueDraftId && !data.id
 
   return (
     <div className="min-h-screen bg-[#05070D] text-white flex flex-col">
-      {/* Header */}
       <header className="sticky top-0 z-30 bg-[#05070D]/95 backdrop-blur-md border-b border-white/[0.06] h-16 flex items-center px-4 sm:px-6">
         <div className="max-w-[1400px] w-full mx-auto flex items-center justify-between">
           <DsrtLogo size={26} showText />
@@ -266,9 +313,7 @@ export function ProjectCreationStudio({ continueDraftId }: Props) {
                 canContinue={canContinueCurrent && !isAtLimit}
                 onBack={handleBack}
                 onContinue={handleNext}
-                onPublish={() => {
-                  document.getElementById('hidden-publish-trigger')?.click()
-                }}
+                onPublish={handlePublishClick}
               />
             </div>
           </div>

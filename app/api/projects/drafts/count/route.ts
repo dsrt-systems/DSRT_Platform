@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
-
 export const DRAFT_LIMIT = 10
 
 export async function GET() {
@@ -11,15 +10,19 @@ export async function GET() {
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('projects')
     .select('id', { count: 'exact', head: true })
-    .eq('founder_id', user.id)
-    .eq('status', 'draft')
+    .or(`founder_id.eq.${user.id},user_id.eq.${user.id}`)
+    .or('status.eq.draft,visibility.eq.draft')
 
-  return NextResponse.json({ 
-    count: count || 0, 
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({
+    count: count || 0,
     limit: DRAFT_LIMIT,
-    remaining: Math.max(0, DRAFT_LIMIT - (count || 0))
+    remaining: Math.max(0, DRAFT_LIMIT - (count || 0)),
   })
 }

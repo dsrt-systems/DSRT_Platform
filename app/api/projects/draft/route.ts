@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     } = body
 
     if (!name || name.trim().length < 2) {
-      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Name is required (min 2 characters)' }, { status: 400 })
     }
 
     const updatePayload: Record<string, any> = {
@@ -42,47 +42,69 @@ export async function POST(request: Request) {
       license: license || null,
       collaboration_status: collaboration_status || 'solo',
       visibility: visibility || 'public',
-      is_public: visibility === 'public',
+      is_public: false, // drafts are never public until publish
       show_in_explore: show_in_explore !== false,
       logo_url: logo_url || null,
       cover_image_url: cover_image_url || null,
-      updated_at: new Date().toISOString()
+      founder_id: user.id,
+      user_id: user.id,
+      updated_at: new Date().toISOString(),
     }
 
-    // UPDATE EXISTING DRAFT
+    // UPDATE EXISTING DRAFT (owner by founder_id OR user_id)
     if (id) {
+      const { data: existing, error: findErr } = await supabase
+        .from('projects')
+        .select('id, slug, status')
+        .eq('id', id)
+        .or(`founder_id.eq.${user.id},user_id.eq.${user.id}`)
+        .maybeSingle()
+
+      if (findErr) throw findErr
+      if (!existing) {
+        return NextResponse.json({ error: 'Draft not found or access denied' }, { status: 404 })
+      }
+
       const { data, error } = await supabase
         .from('projects')
         .update(updatePayload)
-        .eq('id', id)
-        .eq('founder_id', user.id)
-        .select('id, slug')
+        .eq('id', existing.id)
+        .select('id, slug, status')
         .single()
 
       if (error) throw error
       return NextResponse.json({ success: true, project: data })
     }
 
-    // ─── ENFORCE 10 DRAFT LIMIT ───
-    const { count: draftCount } = await supabase
+    // ENFORCE DRAFT LIMIT
+    const { count: draftCount, error: countErr } = await supabase
       .from('projects')
       .select('id', { count: 'exact', head: true })
-      .eq('founder_id', user.id)
-      .eq('status', 'draft')
+      .or(`founder_id.eq.${user.id},user_id.eq.${user.id}`)
+      .or('status.eq.draft,visibility.eq.draft')
+
+    if (countErr) throw countErr
 
     if ((draftCount || 0) >= DRAFT_LIMIT) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: `You've reached the ${DRAFT_LIMIT} draft project limit. Please publish or delete an existing draft first.`,
         code: 'DRAFT_LIMIT_REACHED',
         limit: DRAFT_LIMIT,
-        current: draftCount
+        current: draftCount,
       }, { status: 429 })
     }
 
     // CREATE NEW DRAFT
-    let slug = slugify(name, { lower: true, strict: true }).slice(0, 40)
-    const { data: existing } = await supabase.from('projects').select('id').eq('slug', slug).maybeSingle()
-    if (existing) slug = `${slug}-${Math.random().toString(36).substring(2, 8)}`
+    let slug = slugify(name, { lower: true, strict: true }).slice(0, 40) || `project-${Date.now()}`
+    const { data: existingSlug } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('slug', slug)
+      .maybeSingle()
+
+    if (existingSlug) {
+      slug = `${slug}-${Math.random().toString(36).substring(2, 8)}`
+    }
 
     const { data, error } = await supabase
       .from('projects')
@@ -92,21 +114,28 @@ export async function POST(request: Request) {
         founder_id: user.id,
         user_id: user.id,
         status: 'draft',
+        visibility: 'draft',
         is_public: false,
       })
-      .select('id, slug')
+      .select('id, slug, status')
       .single()
 
     if (error) throw error
 
-    try {
+    // Ensure owner membership exists
+    const { data: member } = await supabase
+      .from('project_members')
+      .select('id')
+      .eq('project_id', data.id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!member) {
       await supabase.from('project_members').insert({
         project_id: data.id,
         user_id: user.id,
         role: 'owner',
       })
-    } catch {
-      // Non-critical
     }
 
     return NextResponse.json({ success: true, project: data })

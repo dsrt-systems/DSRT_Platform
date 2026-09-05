@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 
 export async function GET(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const { id } = await context.params
@@ -12,26 +12,27 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!id) return NextResponse.json({ error: 'Draft id/slug required' }, { status: 400 })
 
   try {
-    // Fetch by id OR slug (support both), only if user owns it
+    // Load by id OR slug, owned by founder_id OR user_id
     const { data, error } = await supabase
       .from('projects')
       .select('*')
       .or(`id.eq.${id},slug.eq.${id}`)
-      .eq('founder_id', user.id)
-      .single()
+      .or(`founder_id.eq.${user.id},user_id.eq.${user.id}`)
+      .maybeSingle()
 
-    if (error || !data) {
+    if (error) throw error
+    if (!data) {
       return NextResponse.json({ error: 'Draft not found' }, { status: 404 })
     }
 
-    // Map database columns → store shape
     const draft = {
       id: data.id,
       name: data.name || '',
       project_type: data.project_type || 'software',
-      tagline: data.tagline || '',
+      tagline: data.tagline || data.short_description || '',
       logo_url: data.logo_url || null,
       cover_image_url: data.cover_image_url || null,
       description: data.description || data.about_content || '',
@@ -47,13 +48,14 @@ export async function GET(
       collaboration_status: data.collaboration_status || 'solo',
       collaborators: [],
       looking_for_roles: [],
-      visibility: data.visibility || 'public',
+      visibility: data.visibility === 'draft' ? 'public' : (data.visibility || 'public'),
       show_in_explore: data.show_in_explore !== false,
       show_on_profile: true,
     }
 
     return NextResponse.json({ success: true, draft })
   } catch (error: any) {
+    console.error('[Load Draft] error:', error)
     return NextResponse.json({ error: error?.message || 'Failed to load draft' }, { status: 500 })
   }
 }
