@@ -21,49 +21,51 @@ export function useCocoStream() {
 
   /**
    * ACTION BRIDGE (§61): consumes structured tool outputs
-   * and executes them against the browser (router.push, focus, etc.)
+   * and executes them against the browser (router.push, focus, custom events, etc.)
    */
   const executeClientAction = useCallback(
     (output: any) => {
       if (!output || typeof output !== 'object') return
 
-      switch (output.action) {
-        case 'client_navigate': {
-          if (output.route && typeof output.route === 'string') {
-            router.push(output.route)
-          }
-          break
-        }
+      const action = output.action
+      const route = output.route || output.path
 
-        case 'client_ui_fill': {
-          const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-            `[data-coco-field="${output.field_id}"]`
-          )
-          if (field) {
-            const nativeSetter = Object.getOwnPropertyDescriptor(
-              field.tagName === 'TEXTAREA'
-                ? window.HTMLTextAreaElement.prototype
-                : window.HTMLInputElement.prototype,
-              'value'
-            )?.set
-            nativeSetter?.call(field, output.value)
-            field.dispatchEvent(new Event('input', { bubbles: true }))
-            field.focus()
-          }
-          break
+      // Navigation handler with safety check & micro-delay so stream text renders first
+      if (action === 'client_navigate' || (route && typeof route === 'string' && route.startsWith('/'))) {
+        const target = String(route)
+        if (target.startsWith('/')) {
+          setTimeout(() => router.push(target), 50)
         }
+        return
+      }
 
-        case 'client_ui_select': {
-          window.dispatchEvent(
-            new CustomEvent('coco:select', {
-              detail: {
-                componentId: output.component_id,
-                optionKey: output.option_key,
-              },
-            })
-          )
-          break
+      // UI Form Autofill
+      if (action === 'client_ui_fill') {
+        const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+          `[data-coco-field="${output.field_id}"]`
+        )
+        if (field) {
+          const proto =
+            field.tagName === 'TEXTAREA'
+              ? window.HTMLTextAreaElement.prototype
+              : window.HTMLInputElement.prototype
+          Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(field, output.value)
+          field.dispatchEvent(new Event('input', { bubbles: true }))
+          field.focus()
         }
+        return
+      }
+
+      // UI Option Select
+      if (action === 'client_ui_select') {
+        window.dispatchEvent(
+          new CustomEvent('coco:select', {
+            detail: {
+              componentId: output.component_id,
+              optionKey: output.option_key,
+            },
+          })
+        )
       }
     },
     [router]
@@ -133,7 +135,7 @@ export function useCocoStream() {
             try {
               const event: CocoStreamEvent = JSON.parse(jsonStr)
 
-              // ── handleEvent inline so executeClientAction is in scope ──
+              // ── Handle incoming stream events ──
               switch (event.event) {
                 case 'stream.start':
                   setConversationId(event.data.conversation_id)
@@ -206,7 +208,7 @@ export function useCocoStream() {
                   )
                   break
 
-                // ── ACTION BRIDGE ──
+                // ── ACTION BRIDGE EVENT ──
                 case 'action.client_bridge':
                   executeClientAction(event.data.output)
                   break
@@ -220,7 +222,7 @@ export function useCocoStream() {
                 case 'tool.started':
                 case 'tool.completed':
                 case 'message.completed':
-                  // handled by loop exit / ignored for UI
+                  // Handled by stream lifecycle or UI rendering
                   break
               }
             } catch {
@@ -262,7 +264,7 @@ export function useCocoStream() {
         })
         const json = await res.json()
 
-        // ACTION BRIDGE: execute any client-side action returned
+        // ACTION BRIDGE: execute client action upon confirmation resolution
         if (json.data?.result?.output) {
           executeClientAction(json.data.result.output)
         }

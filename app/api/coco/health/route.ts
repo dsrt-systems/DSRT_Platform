@@ -1,40 +1,58 @@
-// ============================================================
-// app/api/coco/health/route.ts
-// ============================================================
-
 import { NextResponse } from 'next/server'
-import { probeGroq } from '@/lib/coco/gateway/providers/groq'
-import { isOpenAIConfigured } from '@/lib/coco/gateway/providers/openai'
-import { COCO_GROQ_CASCADE, COCO_GROQ_MODELS } from '@/lib/coco/gateway/models'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET() {
-  const groqKey = process.env.GROQ_API_KEY
-  const hasGroq = Boolean(groqKey && groqKey.trim().length > 0)
-  const hasOpenAI = isOpenAIConfigured()
+  try {
+    const groqKey = process.env.GROQ_API_KEY
+    const hasGroq = Boolean(groqKey && groqKey.trim())
+    const hasOpenAI = Boolean(process.env.OPENAI_API_KEY?.trim())
 
-  const probe = hasGroq
-    ? await probeGroq()
-    : { ok: false, detail: 'GROQ_API_KEY missing' }
+    let groq_test: { ok: boolean; model?: string; detail: string } = {
+      ok: false,
+      detail: 'not_run',
+    }
 
-  return NextResponse.json({
-    status: probe.ok ? 'healthy' : hasOpenAI ? 'degraded' : 'unhealthy',
-    env: {
-      has_groq_key: hasGroq,
-      groq_key_preview: hasGroq ? `${groqKey!.slice(0, 7)}...` : null,
-      has_openai_key: hasOpenAI,
-      backup_keys: [
-        Boolean(process.env.GROQ_API_KEY_BACKUP_1),
-        Boolean(process.env.GROQ_API_KEY_BACKUP_2),
-      ],
-    },
-    models: {
-      configured: COCO_GROQ_MODELS,
-      cascade: COCO_GROQ_CASCADE,
-    },
-    groq_test: probe,
-    timestamp: new Date().toISOString(),
-  })
+    if (hasGroq) {
+      try {
+        const { probeGroq } = await import('@/lib/coco/gateway/providers/groq')
+        groq_test = await probeGroq()
+      } catch (err: any) {
+        groq_test = { ok: false, detail: err?.message || 'probe import/exec failed' }
+      }
+    } else {
+      groq_test = { ok: false, detail: 'GROQ_API_KEY missing' }
+    }
+
+    let models: unknown = null
+    try {
+      const m = await import('@/lib/coco/gateway/models')
+      models = { configured: m.COCO_GROQ_MODELS, cascade: m.COCO_GROQ_CASCADE }
+    } catch {
+      models = { error: 'models module missing' }
+    }
+
+    return NextResponse.json({
+      status: groq_test.ok ? 'healthy' : hasOpenAI ? 'degraded' : 'unhealthy',
+      env: {
+        has_groq_key: hasGroq,
+        groq_key_preview: hasGroq ? `${groqKey!.slice(0, 7)}...` : null,
+        has_openai_key: hasOpenAI,
+      },
+      models,
+      groq_test,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (err: any) {
+    // Never 500 hard without body
+    return NextResponse.json(
+      {
+        status: 'unhealthy',
+        error: err?.message || 'health failed',
+        timestamp: new Date().toISOString(),
+      },
+      { status: 200 }
+    )
+  }
 }

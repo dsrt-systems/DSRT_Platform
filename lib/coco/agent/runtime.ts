@@ -177,18 +177,47 @@ export async function* runAgentTurn(params: RunAgentParams): AsyncGenerator<Coco
         }
       )
 
-      const actionRunId = await createActionRun({
-        userId,
-        conversationId,
-        messageId: assistantMessageId,
-        toolCall: toolCallObj,
-        toolVersion: toolDef.version,
-        riskLevel: toolDef.risk_level,
-        requiresConfirmation: riskEval.requires_confirmation,
-        summary: `Execute ${tc.name}`,
-      })
+      // 6. Action run initialization with DB safety fallbacks
+      let actionRunId: string = randomUUID()
+      const actionSummary = tc.name === 'navigate.to'
+        ? `Navigate to ${String((parsedArgs as any).route || 'page')}`
+        : `Execute ${tc.name}`
 
-      // HIGH RISK → pause and wait for user confirmation
+      try {
+        actionRunId = await createActionRun({
+          userId,
+          conversationId,
+          messageId: null, // FK safe, do not pass unpersisted client-side UUIDs
+          toolCall: toolCallObj,
+          toolVersion: toolDef.version,
+          riskLevel: toolDef.risk_level,
+          requiresConfirmation: riskEval.requires_confirmation,
+          summary: actionSummary,
+        })
+      } catch (err: any) {
+        console.error('[COCO] createActionRun failed (continuing tool exec):', err?.message)
+        // If high-risk requires confirmation but record initialization failed, abort to preserve boundary rules
+        if (riskEval.requires_confirmation) {
+          yield {
+            event: 'error',
+            request_id: requestId,
+            timestamp: new Date().toISOString(),
+            data: {
+              code: 'COCO_ACTION_CREATE_FAILED',
+              message: err?.message || 'Could not create action run record for confirmation workflow',
+            },
+          }
+          yield {
+            event: 'stream.end',
+            request_id: requestId,
+            timestamp: new Date().toISOString(),
+            data: { reason: 'error' },
+          }
+          return
+        }
+      }
+
+      // HIGH RISK → pause execution loop and await user confirmation
       if (riskEval.requires_confirmation) {
         yield {
           event: 'action.proposed',
@@ -197,7 +226,7 @@ export async function* runAgentTurn(params: RunAgentParams): AsyncGenerator<Coco
           data: {
             action_run_id: actionRunId,
             tool_name: tc.name,
-            summary: `Execute ${tc.name}`,
+            summary: actionSummary,
             requires_confirmation: true,
           },
         }
@@ -232,7 +261,7 @@ export async function* runAgentTurn(params: RunAgentParams): AsyncGenerator<Coco
         data: { action_run_id: actionRunId, verified: !!result.verified },
       }
 
-      // ACTION BRIDGE: forward client-side actions (navigate, fill, select)
+      // ACTION BRIDGE: forward client-side events directly to client viewport via streaming events
       if (
         result.success &&
         result.output &&
@@ -264,7 +293,7 @@ export async function* runAgentTurn(params: RunAgentParams): AsyncGenerator<Coco
     }
 
     if (toolsHandled > 0) {
-      continue // loop so model can summarize tool results
+      continue // loop so model can process and summarize tool output results
     } else {
       break
     }

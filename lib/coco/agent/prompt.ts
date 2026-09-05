@@ -1,62 +1,63 @@
 // ============================================================
 // lib/coco/agent/prompt.ts
-// Builds the COCO system prompt from the Context Envelope.
 // ============================================================
 
 import type { CocoContextEnvelope } from '@/types/coco'
 
 export function buildSystemPrompt(ctx: CocoContextEnvelope): string {
   let prompt = `You are COCO, the intelligent operating layer of DSRT Connect.
-Your job is to assist the user, navigate the platform, manage their projects, and answer questions.
-Be concise, professional, and confident. Do not use generic AI pleasantries ("I'd be happy to help!").
-If you need to execute an action, use the provided tools.
+Be concise, direct, and professional. No filler phrases.
 
-[USER IDENTITY]
+[USER]
 Name: ${ctx.identity.full_name || ctx.identity.username || 'Builder'}
 Role: ${ctx.identity.role}
-Verified: ${ctx.identity.is_verified}
 
-[CURRENT CONTEXT]
-The user is currently on route: ${ctx.navigation.route}
-Logical page: ${ctx.navigation.page}
+[WHERE THE USER IS]
+Route: ${ctx.navigation.route}
+Page: ${ctx.navigation.page}
 `
 
   if (ctx.component) {
-    prompt += `Active UI Component: ${ctx.component.registry_id}\n`
+    prompt += `Component: ${ctx.component.registry_id}\n`
   }
 
   if (ctx.entity) {
-    prompt += `\n[FOCUSED ENTITY: ${ctx.entity.type.toUpperCase()}]\n`
+    prompt += `\n[FOCUSED ENTITY: ${ctx.entity.type}]\n`
     prompt += `ID: ${ctx.entity.id}\n`
-    prompt += `Name: ${ctx.entity.display_name}\n`
+    prompt += `Name: ${ctx.entity.display_name || 'unknown'}\n`
     if (ctx.entity.summary) {
-      prompt += `Details: ${JSON.stringify(ctx.entity.summary, null, 2)}\n`
+      prompt += `Summary: ${JSON.stringify(ctx.entity.summary)}\n`
     }
   }
 
   if (ctx.ui_state) {
-    prompt += `\n[UI STATE]\n`
-    prompt += JSON.stringify(ctx.ui_state, null, 2) + '\n'
-  }
-
-  if (ctx.related?.entities?.length) {
-    prompt += `\n[RELATED ENTITIES]\n`
-    ctx.related.entities.forEach(e => {
-      prompt += `- ${e.type}: ${e.display_name || e.slug} (${e.id})\n`
-    })
+    prompt += `\n[UI STATE]\n${JSON.stringify(ctx.ui_state)}\n`
   }
 
   if (ctx.memory?.items?.length) {
-    prompt += `\n[MEMORY & PREFERENCES]\n`
-    ctx.memory.items.forEach(m => {
+    prompt += `\n[MEMORY]\n`
+    for (const m of ctx.memory.items) {
       prompt += `- ${m.key}: ${m.value}\n`
-    })
+    }
   }
 
-  prompt += `\n[RULES]
-1. Never invent data. If you don't know, use a search tool or ask the user.
-2. If the user asks you to perform an action, use the appropriate tool.
-3. If an action requires confirmation, it will happen automatically after you call the tool.`
+  prompt += `
+[NAVIGATION — CRITICAL]
+When the user asks to go somewhere, open a section, or "take me to X", you MUST call the tool navigate.to.
+Pass route as a clear destination string. Examples:
+- "projects" or "my projects" or "project section" → navigate.to with route "projects"
+- "ventures" → route "ventures"
+- "mail" or "inbox" → route "inbox"
+- "home" → route "home"
+- "looking for" → route "looking-for"
+- "profile" → route "profile"
+Do NOT only describe navigation in text. CALL THE TOOL.
+
+[RULES]
+1. Prefer tools over guessing when acting on DSRT.
+2. Never invent private data.
+3. After a successful navigate.to tool result, briefly confirm where you sent them.
+`
 
   return prompt
 }

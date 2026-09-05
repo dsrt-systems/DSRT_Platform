@@ -1,21 +1,20 @@
 // ============================================================
 // lib/coco/actions/manager.ts
-// Manages the state machine for tool actions (coco_action_runs).
 // ============================================================
 
 import { adminClient } from '@/lib/supabase/admin'
-import type { 
-  UUID, 
-  ActionRunId, 
-  CocoToolCall, 
+import type {
+  UUID,
+  ActionRunId,
+  CocoToolCall,
   CocoActionStatus,
-  CocoToolResult 
+  CocoToolResult,
 } from '@/types/coco'
 
 interface CreateActionRunParams {
   userId: UUID
   conversationId: UUID
-  messageId: UUID
+  messageId?: UUID | null
   toolCall: CocoToolCall
   toolVersion: string
   riskLevel: string
@@ -23,20 +22,28 @@ interface CreateActionRunParams {
   summary: string
 }
 
-/**
- * Step 1: Model proposed a tool call. We record it.
- */
 export async function createActionRun(params: CreateActionRunParams): Promise<ActionRunId> {
-  const status: CocoActionStatus = params.requiresConfirmation 
-    ? 'awaiting_confirmation' 
-    : 'authorized' // Skip confirmation phase if low risk
+  const status: CocoActionStatus = params.requiresConfirmation
+    ? 'awaiting_confirmation'
+    : 'authorized'
+
+  // Only attach proposing_message_id if that message actually exists
+  let proposingMessageId: string | null = params.messageId || null
+  if (proposingMessageId) {
+    const { data: msg } = await adminClient
+      .from('coco_messages')
+      .select('id')
+      .eq('id', proposingMessageId)
+      .maybeSingle()
+    if (!msg) proposingMessageId = null
+  }
 
   const { data, error } = await adminClient
     .from('coco_action_runs')
     .insert({
       user_id: params.userId,
       conversation_id: params.conversationId,
-      proposing_message_id: params.messageId,
+      proposing_message_id: proposingMessageId,
       tool_name: params.toolCall.tool_name,
       tool_version: params.toolVersion,
       risk_level: params.riskLevel,
@@ -44,7 +51,9 @@ export async function createActionRun(params: CreateActionRunParams): Promise<Ac
       proposed_call: params.toolCall as any,
       summary: params.summary,
       idempotency_key: params.toolCall.idempotency_key || null,
-      expires_at: params.requiresConfirmation ? new Date(Date.now() + 5 * 60000).toISOString() : null // 5 min TTL
+      expires_at: params.requiresConfirmation
+        ? new Date(Date.now() + 5 * 60_000).toISOString()
+        : null,
     })
     .select('id')
     .single()
@@ -53,16 +62,13 @@ export async function createActionRun(params: CreateActionRunParams): Promise<Ac
   return data.id
 }
 
-/**
- * Step 2: User clicked "Execute" on the UI.
- */
 export async function authorizeActionRun(actionId: ActionRunId, userId: UUID): Promise<boolean> {
   const { data, error } = await adminClient
     .from('coco_action_runs')
-    .update({ 
+    .update({
       status: 'authorized',
       confirmed: true,
-      confirmed_at: new Date().toISOString()
+      confirmed_at: new Date().toISOString(),
     })
     .eq('id', actionId)
     .eq('user_id', userId)
@@ -74,25 +80,19 @@ export async function authorizeActionRun(actionId: ActionRunId, userId: UUID): P
   return !!data
 }
 
-/**
- * Step 3: Executor picks it up and marks it 'executing'.
- */
 export async function startActionRun(actionId: ActionRunId): Promise<void> {
   await adminClient
     .from('coco_action_runs')
-    .update({ 
+    .update({
       status: 'executing',
-      started_at: new Date().toISOString()
+      started_at: new Date().toISOString(),
     })
     .eq('id', actionId)
     .in('status', ['authorized'])
 }
 
-/**
- * Step 4: Execution finished (success or fail).
- */
 export async function resolveActionRun(
-  actionId: ActionRunId, 
+  actionId: ActionRunId,
   result: CocoToolResult
 ): Promise<void> {
   const status: CocoActionStatus = result.success ? 'completed' : 'failed'
@@ -104,14 +104,12 @@ export async function resolveActionRun(
       result: result as any,
       error: result.error as any,
       completed_at: new Date().toISOString(),
-      verification: result.verified !== undefined ? { passed: result.verified } : null
+      verification:
+        result.verified !== undefined ? { passed: result.verified } : null,
     })
     .eq('id', actionId)
 }
 
-/**
- * User explicitly clicked "Cancel" on the UI.
- */
 export async function cancelActionRun(actionId: ActionRunId, userId: UUID): Promise<void> {
   await adminClient
     .from('coco_action_runs')
