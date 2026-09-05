@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import slugify from 'slugify'
 
 export const dynamic = 'force-dynamic'
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -36,14 +37,19 @@ export async function POST(request: Request) {
     } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'Project draft ID missing. Save the draft first, then publish.' }, { status: 400 })
+      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
     }
 
-    // Verify ownership with founder_id OR user_id
-    const { data: currentProject, error: findErr } = await supabase
-      .from('projects')
-      .select('id, slug, name, location, industry, project_number, status')
-      .eq('id', id)
+    const isUuid = UUID_REGEX.test(id)
+    let findQuery = supabase.from('projects').select('id, slug, name, location, industry, project_number, status')
+
+    if (isUuid) {
+      findQuery = findQuery.eq('id', id)
+    } else {
+      findQuery = findQuery.eq('slug', id)
+    }
+
+    const { data: currentProject, error: findErr } = await findQuery
       .or(`founder_id.eq.${user.id},user_id.eq.${user.id}`)
       .maybeSingle()
 
@@ -94,79 +100,34 @@ export async function POST(request: Request) {
     const { data: project, error: updateError } = await supabase
       .from('projects')
       .update(updatePayload)
-      .eq('id', id)
+      .eq('id', currentProject.id)
       .select('id, name, slug, industry, location')
       .single()
 
     if (updateError) throw updateError
 
-    // Ensure owner membership
+    // Ensure member entry
     const { data: member } = await supabase
       .from('project_members')
       .select('id')
-      .eq('project_id', id)
+      .eq('project_id', project.id)
       .eq('user_id', user.id)
       .maybeSingle()
 
     if (!member) {
       await supabase.from('project_members').insert({
-        project_id: id,
+        project_id: project.id,
         user_id: user.id,
         role: 'owner',
       })
     }
 
-    // Domain taxonomy sync (best-effort)
-    if (domains && domains.length > 0) {
-      try {
-        const { data: domainRows } = await supabase
-          .from('project_domains_taxonomy')
-          .select('id, name')
-          .in('name', domains)
-
-        if (domainRows?.length) {
-          const domainAssignments = domainRows.map((d: any) => ({
-            project_id: id,
-            domain_id: d.id,
-            is_primary: d.name === (primary_domain || domains[0]),
-          }))
-          await supabase
-            .from('project_domain_assignments')
-            .upsert(domainAssignments, { onConflict: 'project_id,domain_id' })
-        }
-      } catch (e) {
-        console.warn('[publish] domain sync skipped', e)
-      }
-    }
-
-    // Technology taxonomy sync (best-effort)
-    if (technologies && technologies.length > 0) {
-      try {
-        const { data: techRows } = await supabase
-          .from('project_technologies_taxonomy')
-          .select('id, name')
-          .in('name', technologies)
-
-        if (techRows?.length) {
-          const techAssignments = techRows.map((t: any) => ({
-            project_id: id,
-            technology_id: t.id,
-          }))
-          await supabase
-            .from('project_technology_assignments')
-            .upsert(techAssignments, { onConflict: 'project_id,technology_id' })
-        }
-      } catch (e) {
-        console.warn('[publish] tech sync skipped', e)
-      }
-    }
-
-    // Spawn Looking For roles (best-effort)
+    // Spawn Looking For roles
     if (looking_for_roles && looking_for_roles.length > 0) {
       try {
         const roleInserts = looking_for_roles.map((role: any) => ({
           user_id: user.id,
-          project_id: id,
+          project_id: project.id,
           context_type: 'project',
           request_type: 'collaborate',
           title: role.title,
@@ -183,25 +144,10 @@ export async function POST(request: Request) {
 
         const { error: rolesErr } = await supabase.from('team_up_requests').insert(roleInserts)
         if (!rolesErr) {
-          await supabase.from('projects').update({ open_roles: roleInserts.length }).eq('id', id)
+          await supabase.from('projects').update({ open_roles: roleInserts.length }).eq('id', project.id)
         }
       } catch (e) {
         console.warn('[publish] roles sync skipped', e)
-      }
-    }
-
-    // Activity signal (best-effort)
-    if (isPublic) {
-      try {
-        await supabase.from('user_activity_signals').insert({
-          user_id: user.id,
-          signal_type: 'publish',
-          entity_type: 'project',
-          entity_id: id,
-          weight: 15.0,
-        })
-      } catch {
-        // non-critical
       }
     }
 

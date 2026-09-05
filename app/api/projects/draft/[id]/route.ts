@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> }
@@ -12,20 +14,29 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!id) return NextResponse.json({ error: 'Draft id/slug required' }, { status: 400 })
+  if (!id) return NextResponse.json({ error: 'Draft id or slug required' }, { status: 400 })
 
   try {
-    // Load by id OR slug, owned by founder_id OR user_id
-    const { data, error } = await supabase
+    const isUuid = UUID_REGEX.test(id)
+
+    // Query safely by ID or SLUG depending on format to prevent PostgreSQL UUID type casting errors
+    let query = supabase
       .from('projects')
       .select('*')
-      .or(`id.eq.${id},slug.eq.${id}`)
+
+    if (isUuid) {
+      query = query.eq('id', id)
+    } else {
+      query = query.eq('slug', id)
+    }
+
+    const { data, error } = await query
       .or(`founder_id.eq.${user.id},user_id.eq.${user.id}`)
       .maybeSingle()
 
     if (error) throw error
     if (!data) {
-      return NextResponse.json({ error: 'Draft not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Draft not found or access denied' }, { status: 404 })
     }
 
     const draft = {

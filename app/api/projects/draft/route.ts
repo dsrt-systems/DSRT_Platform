@@ -4,6 +4,7 @@ import slugify from 'slugify'
 
 export const dynamic = 'force-dynamic'
 const DRAFT_LIMIT = 10
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
       license: license || null,
       collaboration_status: collaboration_status || 'solo',
       visibility: visibility || 'public',
-      is_public: false, // drafts are never public until publish
+      is_public: false,
       show_in_explore: show_in_explore !== false,
       logo_url: logo_url || null,
       cover_image_url: cover_image_url || null,
@@ -51,32 +52,37 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }
 
-    // UPDATE EXISTING DRAFT (owner by founder_id OR user_id)
+    // UPDATE EXISTING DRAFT
     if (id) {
-      const { data: existing, error: findErr } = await supabase
-        .from('projects')
-        .select('id, slug, status')
-        .eq('id', id)
+      const isUuid = UUID_REGEX.test(id)
+      let findQuery = supabase.from('projects').select('id, slug, status')
+
+      if (isUuid) {
+        findQuery = findQuery.eq('id', id)
+      } else {
+        findQuery = findQuery.eq('slug', id)
+      }
+
+      const { data: existing, error: findErr } = await findQuery
         .or(`founder_id.eq.${user.id},user_id.eq.${user.id}`)
         .maybeSingle()
 
       if (findErr) throw findErr
-      if (!existing) {
-        return NextResponse.json({ error: 'Draft not found or access denied' }, { status: 404 })
+
+      if (existing) {
+        const { data, error } = await supabase
+          .from('projects')
+          .update(updatePayload)
+          .eq('id', existing.id)
+          .select('id, slug, status')
+          .single()
+
+        if (error) throw error
+        return NextResponse.json({ success: true, project: data })
       }
-
-      const { data, error } = await supabase
-        .from('projects')
-        .update(updatePayload)
-        .eq('id', existing.id)
-        .select('id, slug, status')
-        .single()
-
-      if (error) throw error
-      return NextResponse.json({ success: true, project: data })
     }
 
-    // ENFORCE DRAFT LIMIT
+    // ENFORCE DRAFT LIMIT FOR NEW DRAFTS
     const { count: draftCount, error: countErr } = await supabase
       .from('projects')
       .select('id', { count: 'exact', head: true })
@@ -122,7 +128,7 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    // Ensure owner membership exists
+    // Ensure member entry exists
     const { data: member } = await supabase
       .from('project_members')
       .select('id')
