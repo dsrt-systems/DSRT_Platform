@@ -64,6 +64,62 @@ export function ComposerCore({ mode, initialState }: Props) {
     if (!fromIdentityId && defaultFromId) setFromIdentityId(defaultFromId)
   }, [defaultFromId, fromIdentityId])
 
+  // ============================================================
+  // COCO INTEGRATION — listen for programmatic fill events
+  // COCO tools dispatch these events; the composer state responds.
+  // Selectors on DOM elements are also present as a fallback.
+  // ============================================================
+  useEffect(() => {
+    const handleCocoFillRecipient = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (!detail?.recipient) return
+      // Build a simple recipient object shape used by RecipientField
+      const raw = String(detail.recipient).trim()
+      const cleaned = raw.replace(/^@/, '')
+      setTo((prev) => {
+        const exists = prev.some((r: any) =>
+          (r?.email && r.email === cleaned) ||
+          (r?.username && r.username === cleaned) ||
+          (r?.handle && r.handle === cleaned)
+        )
+        if (exists) return prev
+        const entry = cleaned.includes('@')
+          ? { email: cleaned, label: cleaned }
+          : { username: cleaned, handle: cleaned, label: `@${cleaned}` }
+        return [...prev, entry]
+      })
+    }
+
+    const handleCocoFillSubject = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (typeof detail?.subject === 'string') setSubject(detail.subject)
+    }
+
+    const handleCocoFillBody = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (typeof detail?.body === 'string') {
+        // Accept plain text or HTML
+        const html = detail.body.includes('<')
+          ? detail.body
+          : detail.body
+              .split('\n')
+              .map((line: string) => `<p>${escapeHtml(line)}</p>`)
+              .join('')
+        setBodyHtml(html)
+      }
+    }
+
+    window.addEventListener('coco:mail:fill-recipient', handleCocoFillRecipient as EventListener)
+    window.addEventListener('coco:mail:fill-subject', handleCocoFillSubject as EventListener)
+    window.addEventListener('coco:mail:fill-body', handleCocoFillBody as EventListener)
+
+    return () => {
+      window.removeEventListener('coco:mail:fill-recipient', handleCocoFillRecipient as EventListener)
+      window.removeEventListener('coco:mail:fill-subject', handleCocoFillSubject as EventListener)
+      window.removeEventListener('coco:mail:fill-body', handleCocoFillBody as EventListener)
+    }
+  }, [])
+
   const isDirty =
     !!subject || !!bodyHtml || to.length > 0 || cc.length > 0 || bcc.length > 0 ||
     attachments.length > 0 || entityAttachments.length > 0
@@ -213,12 +269,12 @@ export function ComposerCore({ mode, initialState }: Props) {
   }
 
   return (
-    <div className="flex flex-col w-full h-full bg-gradient-to-b from-[#0B0D14] to-[#08090F] overflow-hidden">
-      
+    <div
+      data-coco-mail-composer-root
+      className="flex flex-col w-full h-full bg-gradient-to-b from-[#0B0D14] to-[#08090F] overflow-hidden"
+    >
       {/* ─── HEADER ─── */}
       <div className="h-14 sm:h-12 px-3 sm:px-4 flex items-center justify-between bg-white/[0.02] border-b border-white/[0.06] flex-shrink-0">
-        
-        {/* Mobile Left: Back Button */}
         <div className="flex items-center sm:hidden">
           <button
             onClick={closeCompose}
@@ -228,7 +284,6 @@ export function ComposerCore({ mode, initialState }: Props) {
           </button>
         </div>
 
-        {/* Title & Status */}
         <div className="flex flex-col justify-center min-w-0 flex-1 sm:flex-none">
           <p className="text-[14px] sm:text-[13px] font-bold text-white tracking-tight truncate px-2 sm:px-0">
             {initialState?.mode === 'reply' ? 'Reply' : initialState?.mode === 'reply_all' ? 'Reply all' : initialState?.mode === 'forward' ? 'Forward' : 'New Message'}
@@ -242,7 +297,6 @@ export function ComposerCore({ mode, initialState }: Props) {
           </div>
         </div>
 
-        {/* Desktop Right: Window Controls */}
         <div className="hidden sm:flex items-center gap-1">
           <button
             onClick={() => setMinimized(true)}
@@ -296,15 +350,22 @@ export function ComposerCore({ mode, initialState }: Props) {
           </div>
         </div>
 
-        <RecipientField label="To" value={to} onChange={setTo} autoFocus={to.length === 0} />
-        
+        {/* COCO hook: recipient — wraps RecipientField so DOM queries can find it */}
+        <div data-coco-mail-to>
+          <RecipientField label="To" value={to} onChange={setTo} autoFocus={to.length === 0} />
+        </div>
+
         {showCc && (
           <>
-            <RecipientField label="Cc" value={cc} onChange={setCc} />
-            <RecipientField label="Bcc" value={bcc} onChange={setBcc} />
+            <div data-coco-mail-cc>
+              <RecipientField label="Cc" value={cc} onChange={setCc} />
+            </div>
+            <div data-coco-mail-bcc>
+              <RecipientField label="Bcc" value={bcc} onChange={setBcc} />
+            </div>
           </>
         )}
-        
+
         {!showCc && (
           <div className="px-4 py-2 border-b border-white/[0.06] flex items-center">
             <div className="w-10 shrink-0" />
@@ -319,6 +380,7 @@ export function ComposerCore({ mode, initialState }: Props) {
 
         <div className="px-4 border-b border-white/[0.06] flex items-center gap-3">
           <input
+            data-coco-mail-subject
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Subject"
@@ -326,11 +388,11 @@ export function ComposerCore({ mode, initialState }: Props) {
           />
         </div>
 
-        <div className="flex-1 flex flex-col min-h-[300px]">
+        {/* COCO hook: body wrapper. RichEditor internals also expose their contenteditable via [data-coco-mail-body-target] if you add it there. */}
+        <div data-coco-mail-body className="flex-1 flex flex-col min-h-[300px]">
           <RichEditor value={bodyHtml} onChange={setBodyHtml} />
         </div>
 
-        {/* Attached Entities */}
         {entityAttachments.length > 0 && (
           <div className="border-t border-white/[0.06] px-4 py-3 bg-[#08090F] shrink-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -365,8 +427,6 @@ export function ComposerCore({ mode, initialState }: Props) {
 
       {/* ─── FOOTER TOOLBAR ─── */}
       <div className="h-[60px] sm:h-[64px] px-2 sm:px-4 flex items-center justify-between border-t border-white/[0.06] bg-[#0A0C13] shrink-0">
-        
-        {/* Left: Scrollable Attachment Actions */}
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide pr-2">
           <button onClick={() => fileInputRef.current?.click()} className="w-10 h-10 rounded-full hover:bg-white/[0.06] text-white/60 hover:text-white flex items-center justify-center shrink-0">
             <Paperclip className="w-5 h-5" />
@@ -387,7 +447,6 @@ export function ComposerCore({ mode, initialState }: Props) {
           </button>
         </div>
 
-        {/* Right: Send & Discard */}
         <div className="flex items-center gap-2 shrink-0 pl-2 border-l border-white/[0.06]">
           <button
             onClick={handleDiscard}
@@ -417,4 +476,17 @@ export function ComposerCore({ mode, initialState }: Props) {
       )}
     </div>
   )
+}
+
+// ------------------------------------------------------------
+// Utility
+// ------------------------------------------------------------
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }

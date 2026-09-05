@@ -1,4 +1,9 @@
+// ============================================================
+// app/api/coco/health/route.ts
+// ============================================================
+
 import { NextResponse } from 'next/server'
+import { adminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -19,7 +24,7 @@ export async function GET() {
         const { probeGroq } = await import('@/lib/coco/gateway/providers/groq')
         groq_test = await probeGroq()
       } catch (err: any) {
-        groq_test = { ok: false, detail: err?.message || 'probe import/exec failed' }
+        groq_test = { ok: false, detail: err?.message || 'probe failed' }
       }
     } else {
       groq_test = { ok: false, detail: 'GROQ_API_KEY missing' }
@@ -33,6 +38,33 @@ export async function GET() {
       models = { error: 'models module missing' }
     }
 
+    let kb: any = { ok: false }
+    try {
+      const { count: docCount } = await adminClient
+        .from('coco_knowledge_docs')
+        .select('*', { count: 'exact', head: true })
+      const { count: chunkCount } = await adminClient
+        .from('coco_knowledge_chunks')
+        .select('*', { count: 'exact', head: true })
+
+      kb = {
+        ok: true,
+        docs: docCount || 0,
+        chunks: chunkCount || 0,
+        embedding_provider: hasOpenAI ? 'openai' : 'hash_fallback',
+      }
+    } catch (err: any) {
+      kb = { ok: false, error: err?.message }
+    }
+
+    const voice = {
+      transcription_provider: hasGroq ? 'groq_whisper_large_v3_turbo' : 'unavailable',
+      stt_ready: hasGroq,
+      tts_provider: 'browser_native',
+      notes:
+        'STT via Groq Whisper Turbo (free tier). TTS uses the user browser SpeechSynthesis (zero cost).',
+    }
+
     return NextResponse.json({
       status: groq_test.ok ? 'healthy' : hasOpenAI ? 'degraded' : 'unhealthy',
       env: {
@@ -42,16 +74,13 @@ export async function GET() {
       },
       models,
       groq_test,
+      kb,
+      voice,
       timestamp: new Date().toISOString(),
     })
   } catch (err: any) {
-    // Never 500 hard without body
     return NextResponse.json(
-      {
-        status: 'unhealthy',
-        error: err?.message || 'health failed',
-        timestamp: new Date().toISOString(),
-      },
+      { status: 'unhealthy', error: err?.message, timestamp: new Date().toISOString() },
       { status: 200 }
     )
   }

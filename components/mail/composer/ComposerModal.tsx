@@ -7,7 +7,7 @@ import { ComposerCore } from './ComposerCore'
 import { cn } from '@/lib/utils'
 
 export function ComposerModal() {
-  const { isOpen, isFullscreen, initialState, closeCompose } = useComposer()
+  const { isOpen, isFullscreen, initialState, closeCompose, openCompose } = useComposer()
 
   // Lock body scroll when compose is open
   useEffect(() => {
@@ -29,19 +29,36 @@ export function ComposerModal() {
     return () => window.removeEventListener('keydown', onKey)
   }, [isOpen, closeCompose])
 
+  // ============================================================
+  // COCO INTEGRATION — allow COCO to open the composer programmatically
+  // ============================================================
+  useEffect(() => {
+    const handleCocoOpen = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {}
+      const state = detail?.initialState
+      // Only pass object; if none provided, call with no args (satisfies types)
+      if (state && typeof state === 'object') openCompose(state)
+      else openCompose()
+    }
+    window.addEventListener('coco:mail:open-compose', handleCocoOpen as EventListener)
+    return () => window.removeEventListener('coco:mail:open-compose', handleCocoOpen as EventListener)
+  }, [openCompose])
+
   if (!isOpen) return null
 
-  // ─── FULLSCREEN (Always on Mobile OR Toggled on Desktop) ───
+  // ─── FULLSCREEN ───
   if (isFullscreen) {
     return (
       <div
+        data-coco-mail-composer
+        data-coco-composer-modal
         className={cn(
           'fixed inset-0 z-[150]',
           'bg-black/80 backdrop-blur-sm',
           'flex flex-col sm:items-center sm:justify-center p-0 sm:p-6'
         )}
       >
-        <div 
+        <div
           className="w-full h-full sm:w-[900px] sm:max-w-[95vw] sm:h-[85vh] sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
@@ -54,11 +71,11 @@ export function ComposerModal() {
     )
   }
 
-  // ─── DOCKED (Desktop) & NATIVE SHEET (Mobile Default) ───
+  // ─── DOCKED / SHEET ───
   return (
-    <>
-      {/* MOBILE: Force into a full screen view even if not technically 'isFullscreen' */}
-      <div 
+    <div data-coco-mail-composer data-coco-composer-modal>
+      {/* Mobile full-screen */}
+      <div
         className="sm:hidden fixed inset-0 z-[150] bg-[#05070D] flex flex-col overflow-hidden"
         style={{
           paddingTop: 'env(safe-area-inset-top)',
@@ -68,7 +85,7 @@ export function ComposerModal() {
         <ComposerCore mode="full" initialState={initialState} />
       </div>
 
-      {/* DESKTOP: Bottom Right Dock */}
+      {/* Desktop bottom-right dock */}
       <div className="hidden sm:flex fixed bottom-0 right-6 z-[150] items-end pointer-events-none">
         <div
           className={cn(
@@ -81,6 +98,6 @@ export function ComposerModal() {
           <ComposerCore mode="quick" initialState={initialState} />
         </div>
       </div>
-    </>
+    </div>
   )
 }

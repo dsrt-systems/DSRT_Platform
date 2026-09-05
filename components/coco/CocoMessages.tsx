@@ -1,6 +1,6 @@
 // ============================================================
 // components/coco/CocoMessages.tsx
-// Message list renderer.
+// Message list with markdown + actions.
 // ============================================================
 
 'use client'
@@ -8,15 +8,18 @@
 import { useEffect, useRef } from 'react'
 import type { CocoUiMessage } from '@/lib/coco/sdk/types'
 import { CocoActionCard } from './CocoActionCard'
+import { CocoMarkdown } from './CocoMarkdown'
+import { CocoMessageActions } from './CocoMessageActions'
 import { cn } from '@/lib/utils'
 
 interface Props {
   messages: CocoUiMessage[]
   onConfirmAction: (id: string) => void
   onCancelAction: (id: string) => void
+  onRateMessage: (messageId: string, rating: 1 | -1 | 0) => void
 }
 
-export function CocoMessages({ messages, onConfirmAction, onCancelAction }: Props) {
+export function CocoMessages({ messages, onConfirmAction, onCancelAction, onRateMessage }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,21 +28,25 @@ export function CocoMessages({ messages, onConfirmAction, onCancelAction }: Prop
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-8 py-6">
-        <div className="text-center max-w-[280px]">
-          <h3 className="text-[15px] font-semibold text-white/85 tracking-tight">
-            Hey there.
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+        <div className="text-center max-w-[300px]">
+          <h3 className="text-[16px] font-semibold text-white/90 tracking-tight">
+            Hello.
           </h3>
-          <p className="text-[12.5px] text-white/45 mt-1.5 leading-relaxed">
-            I can see this page. Ask about anything on DSRT Connect or beyond.
+          <p className="text-[13px] text-white/50 mt-2 leading-relaxed">
+            I can see this page. Ask about anything on DSRT or beyond.
           </p>
         </div>
 
-        <div className="w-full mt-5 space-y-1.5">
-          {['What am I looking at?', 'Summarize this page', 'Help me build'].map(s => (
+        <div className="w-full max-w-[320px] mt-6 space-y-1.5">
+          {[
+            'What am I looking at?',
+            'Summarize this page',
+            'What can you do?',
+          ].map((s) => (
             <button
               key={s}
-              className="w-full text-left px-3 py-2 rounded-md bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.04] text-[12px] text-white/60 hover:text-white/85 transition-colors"
+              className="w-full text-left px-3.5 py-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.05] text-[12.5px] text-white/70 hover:text-white/95 transition-colors"
             >
               {s}
             </button>
@@ -50,27 +57,35 @@ export function CocoMessages({ messages, onConfirmAction, onCancelAction }: Prop
   }
 
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-3 space-y-3">
-      {messages.map(msg => (
+    <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-4">
+      {messages.map((msg) => (
         <div
           key={msg.id}
           className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
         >
-          <div className={cn('max-w-[85%]', msg.role === 'user' ? '' : 'w-full')}>
+          <div className={cn('max-w-[92%]', msg.role === 'user' ? '' : 'w-full')}>
             {msg.content.kind === 'text' && (
-              <div
-                className={cn(
-                  'text-[13px] leading-relaxed tracking-tight whitespace-pre-wrap break-words',
-                  msg.role === 'user'
-                    ? 'px-3 py-2 rounded-lg bg-white/[0.06] text-white/90 border border-white/[0.04]'
-                    : 'text-white/85'
+              <>
+                {msg.role === 'user' ? (
+                  <div className="px-3.5 py-2 rounded-2xl bg-white/[0.08] text-white/95 text-[13.5px] leading-relaxed border border-white/[0.04]">
+                    {msg.content.text}
+                  </div>
+                ) : (
+                  <div>
+                    <CocoMarkdown content={msg.content.text} />
+                    {msg.streaming && (
+                      <span className="inline-block w-[6px] h-[13px] bg-white/60 ml-0.5 align-middle animate-pulse rounded-sm" />
+                    )}
+                    {!msg.streaming && msg.content.text && msg.content.text.length > 0 && (
+                      <CocoMessageActions
+                        content={msg.content.text}
+                        feedback={msg.feedback}
+                        onRate={(r) => onRateMessage(msg.id, r)}
+                      />
+                    )}
+                  </div>
                 )}
-              >
-                {msg.content.text}
-                {msg.streaming && (
-                  <span className="inline-block w-[6px] h-[12px] bg-white/60 ml-0.5 align-middle animate-pulse" />
-                )}
-              </div>
+              </>
             )}
 
             {msg.pendingAction && (

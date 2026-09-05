@@ -1,19 +1,33 @@
 // ============================================================
 // lib/coco/context/resolvers/knowledge.ts
 // L6 — Retrieved knowledge (RAG).
-// STUB for v0.1. Wired for Phase 9 when Qdrant/embeddings arrive.
+// Now live using pgvector KB.
 // ============================================================
 
 import type { KnowledgeContext } from '@/types/coco'
+import { retrieveKnowledge, shouldQueryKnowledgeBase } from '@/lib/coco/knowledge/retriever'
 
 export async function resolveKnowledge(
-  _query: string,
-  _entityType?: string
+  query: string,
+  entityType?: string
 ): Promise<KnowledgeContext | undefined> {
-  // v0.1: no external knowledge base wired yet.
-  // When Phase 9 lands, this will:
-  //   1. Embed the query using the model gateway
-  //   2. Query Qdrant / pgvector for top-K snippets
-  //   3. Return them with source + trust='retrieved'
-  return undefined
+  if (!query) return undefined
+  if (!shouldQueryKnowledgeBase(query)) return undefined
+
+  const snippets = await retrieveKnowledge({
+    query,
+    limit: 4,
+    minSimilarity: 0.35,
+  })
+
+  if (snippets.length === 0) return undefined
+
+  return {
+    snippets: snippets.map((s) => ({
+      source: `${s.docCategory}/${s.docSlug}#${s.docTitle}`,
+      content: s.content,
+      trust: 'retrieved',
+      relevance_score: s.similarity,
+    })),
+  }
 }

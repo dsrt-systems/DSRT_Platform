@@ -9,8 +9,9 @@ import { useNavBadges } from '@/hooks/useNavBadges'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { CocoProvider } from '@/lib/coco/sdk'
+import { CocoPageAutoWire } from '@/components/coco/CocoPageAutoWire'
 
-export function AppShell({ user, children }: { user: any, children: React.ReactNode }) {
+export function AppShell({ user, children }: { user: any; children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const badges = useNavBadges(user?.id)
@@ -32,21 +33,17 @@ export function AppShell({ user, children }: { user: any, children: React.ReactN
   }
 
   const handleMenuToggle = () => {
-    if (window.innerWidth < 1024) {
-      setIsMobileOpen(true)
-    } else {
-      setIsDesktopCollapsed(!isDesktopCollapsed)
-    }
+    if (window.innerWidth < 1024) setIsMobileOpen(true)
+    else setIsDesktopCollapsed(!isDesktopCollapsed)
   }
 
   return (
     <CocoProvider>
+      {/* Auto-wire every DSRT page to COCO. Zero page changes needed. */}
+      <CocoPageAutoWire />
+
       <div className="flex flex-col min-h-screen bg-[#05070D]">
-        <Navbar
-          user={user}
-          onMenuClick={handleMenuToggle}
-          handleLogout={handleLogout}
-        />
+        <Navbar user={user} onMenuClick={handleMenuToggle} handleLogout={handleLogout} />
 
         <div
           className={cn(

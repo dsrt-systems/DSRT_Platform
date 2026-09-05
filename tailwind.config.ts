@@ -34,6 +34,8 @@ const config: Config = {
           'Consolas',
           'monospace',
         ],
+        // ADDED CURSIVE FONT HERE
+        cursive: ['var(--font-cursive)', 'cursive'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -69,14 +71,12 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // Kernel surface tokens — for platform UI consistency
         surface: {
-          0: '#0a0a0f',   // page canvas
-          1: '#0f0f14',   // primary surface
-          2: '#14141a',   // elevated surface
-          3: '#1a1a22',   // interactive surface (hover)
+          0: '#0a0a0f',   
+          1: '#0f0f14',   
+          2: '#14141a',   
+          3: '#1a1a22',   
         },
-        // DSRT Specific Tokens
         dsrt: {
           base: '#05070D',
           midnight: '#0f172a',
