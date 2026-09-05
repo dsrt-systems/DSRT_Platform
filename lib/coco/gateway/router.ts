@@ -1,84 +1,62 @@
 // ============================================================
 // lib/coco/gateway/router.ts
-// Resolves Tiers to specific Providers/Models. Handles fallbacks.
+// Direct gateway router. Fast, non-blocking, zero memory state lockouts.
 // ============================================================
 
-import type { CocoModelTier, CocoModelRequest, CocoModelResponse, CocoModelStreamChunk } from '@/types/coco'
-import { isHealthy } from './circuit-breaker'
+import type { CocoModelRequest, CocoModelResponse, CocoModelStreamChunk } from '@/types/coco'
 import { executeGroq, streamGroq } from './providers/groq'
-import { executeOpenAI, streamOpenAI } from './providers/openai'
-
-interface RouteTarget {
-  provider: 'groq' | 'openai'
-  modelId: string
-}
-
-function resolveRoute(tier: CocoModelTier, attempt: number = 0): RouteTarget {
-  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY)
-
-  switch (tier) {
-    case 'FAST':
-      if (attempt === 0 && isHealthy('groq')) return { provider: 'groq', modelId: 'llama-3.1-8b-instant' }
-      if (attempt === 1 && hasOpenAI && isHealthy('openai')) return { provider: 'openai', modelId: 'gpt-4o-mini' }
-      return { provider: 'groq', modelId: 'llama-3.1-8b-instant' }
-
-    case 'GENERAL':
-      if (attempt === 0 && isHealthy('groq')) return { provider: 'groq', modelId: 'llama-3.1-8b-instant' }
-      if (attempt === 1 && isHealthy('groq')) return { provider: 'groq', modelId: 'mixtral-8x7b-32768' }
-      if (hasOpenAI && isHealthy('openai')) return { provider: 'openai', modelId: 'gpt-4o-mini' }
-      return { provider: 'groq', modelId: 'llama-3.1-8b-instant' }
-
-    case 'REASONING':
-      if (attempt === 0 && hasOpenAI && isHealthy('openai')) return { provider: 'openai', modelId: 'gpt-4o' }
-      if (attempt === 0 && isHealthy('groq')) return { provider: 'groq', modelId: 'llama-3.1-8b-instant' }
-      if (attempt === 1 && isHealthy('groq')) return { provider: 'groq', modelId: 'mixtral-8x7b-32768' }
-      return { provider: 'groq', modelId: 'llama-3.1-8b-instant' }
-
-    default:
-      return { provider: 'groq', modelId: 'llama-3.1-8b-instant' }
-  }
-}
+import { executeOpenAI, streamOpenAI, isOpenAIConfigured } from './providers/openai'
 
 export async function routeExecution(req: CocoModelRequest): Promise<CocoModelResponse> {
-  let lastError: Error | null = null
-  
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const route = resolveRoute(req.tier, attempt)
-    try {
-      if (route.provider === 'groq') return await executeGroq(req, route.modelId)
-      if (route.provider === 'openai') return await executeOpenAI(req, route.modelId)
-    } catch (err: any) {
-      console.warn(`[COCO Router] Route ${route.provider}/${route.modelId} failed. Attempt ${attempt + 1}/2.`, err.message)
-      lastError = err
+  try {
+    return await executeGroq(req, 'llama-3.1-8b-instant')
+  } catch (groqErr: any) {
+    if (isOpenAIConfigured()) {
+      try {
+        return await executeOpenAI(req, 'gpt-4o-mini')
+      } catch (openaiErr: any) {
+        throw new Error(`AI Providers Exhausted. Groq: ${groqErr.message} | OpenAI: ${openaiErr.message}`)
+      }
     }
+    throw groqErr
   }
-  
-  throw lastError || new Error('COCO_ALL_PROVIDERS_EXHAUSTED')
 }
 
 export async function* routeStream(req: CocoModelRequest): AsyncGenerator<CocoModelStreamChunk> {
   let streamSuccess = false
-  
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const route = resolveRoute(req.tier, attempt)
+
+  try {
+    const stream = streamGroq(req, 'llama-3.1-8b-instant')
+    for await (const chunk of stream) {
+      if (chunk.kind !== 'error') streamSuccess = true
+      yield chunk
+    }
+    if (streamSuccess) return
+  } catch (err: any) {
+    console.warn('[COCO Router] Groq stream failed:', err?.message)
+  }
+
+  // Fallback to OpenAI if configured
+  if (isOpenAIConfigured()) {
     try {
-      const generator = route.provider === 'groq' 
-        ? streamGroq(req, route.modelId) 
-        : streamOpenAI(req, route.modelId)
-      
-      for await (const chunk of generator) {
-        streamSuccess = true
+      const stream = streamOpenAI(req, 'gpt-4o-mini')
+      for await (const chunk of stream) {
         yield chunk
       }
       return
     } catch (err: any) {
-      if (streamSuccess) {
-        yield { kind: 'error', code: 'COCO_STREAM_INTERRUPTED', message: err.message }
-        return
+      yield {
+        kind: 'error',
+        code: 'COCO_ALL_PROVIDERS_EXHAUSTED',
+        message: `OpenAI Stream Error: ${err?.message}`
       }
-      console.warn(`[COCO Router] Stream ${route.provider}/${route.modelId} failed. Retrying...`)
+      return
     }
   }
-  
-  yield { kind: 'error', code: 'COCO_ALL_PROVIDERS_EXHAUSTED', message: 'All AI models are currently busy. Please try again in a moment.' }
+
+  yield {
+    kind: 'error',
+    code: 'COCO_ALL_PROVIDERS_EXHAUSTED',
+    message: 'Could not connect to Groq. Please check your GROQ_API_KEY in Vercel environment variables.'
+  }
 }
