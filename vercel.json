@@ -27,6 +27,11 @@
     {
       "path": "/api/cron/purge-expired-data?secret=${CRON_SECRET}",
       "schedule": "0 6 * * *"
+    },
+  
+    {
+      "path": "/api/coco/cron/cleanup",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

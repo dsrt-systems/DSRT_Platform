@@ -1,29 +1,32 @@
 // ============================================================
 // lib/coco/voice/tts.ts
-// Native SpeechSynthesis wrapper — zero-cost text-to-speech.
+// Native SpeechSynthesis with pause/resume/message-tracking.
 // ============================================================
 
 'use client'
 
 let ttsEnabled = true
 let currentUtterance: SpeechSynthesisUtterance | null = null
+let currentMessageId: string | null = null
 let voicesCache: SpeechSynthesisVoice[] = []
 
-export type TTSState = 'idle' | 'speaking' | 'error'
+export type TTSState = 'idle' | 'speaking' | 'paused' | 'error'
 
-let stateListeners = new Set<(s: TTSState) => void>()
+let stateListeners = new Set<(s: TTSState, messageId: string | null) => void>()
 let currentState: TTSState = 'idle'
 
-function setState(s: TTSState) {
+function setState(s: TTSState, messageId: string | null = null) {
   currentState = s
-  stateListeners.forEach((l) => l(s))
+  stateListeners.forEach((l) => l(s, messageId))
 }
 
-export function getTTSState(): TTSState {
-  return currentState
+export function getTTSState(): { state: TTSState; messageId: string | null } {
+  return { state: currentState, messageId: currentMessageId }
 }
 
-export function subscribeTTSState(fn: (s: TTSState) => void): () => void {
+export function subscribeTTSState(
+  fn: (s: TTSState, messageId: string | null) => void
+): () => void {
   stateListeners.add(fn)
   return () => stateListeners.delete(fn)
 }
@@ -63,8 +66,6 @@ async function loadVoices(): Promise<SpeechSynthesisVoice[]> {
 async function pickVoice(): Promise<SpeechSynthesisVoice | null> {
   const voices = await loadVoices()
   if (voices.length === 0) return null
-
-  // Preference order — warm, natural English voices when available
   const prefs = [
     /Samantha/i,
     /Google US English/i,
@@ -77,7 +78,6 @@ async function pickVoice(): Promise<SpeechSynthesisVoice | null> {
     /^en-GB/i,
     /^en/i,
   ]
-
   for (const pref of prefs) {
     const match = voices.find((v) => pref.test(v.name) || pref.test(v.lang))
     if (match) return match
@@ -85,9 +85,6 @@ async function pickVoice(): Promise<SpeechSynthesisVoice | null> {
   return voices[0]
 }
 
-/**
- * Strip markdown so TTS reads clean text.
- */
 function cleanForSpeech(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, '')
@@ -99,7 +96,7 @@ function cleanForSpeech(text: string): string {
     .trim()
 }
 
-export async function speakText(text: string): Promise<void> {
+export async function speakText(text: string, messageId?: string): Promise<void> {
   if (!ttsEnabled || !isTTSSupported()) return
   const clean = cleanForSpeech(text)
   if (!clean) return
@@ -113,27 +110,59 @@ export async function speakText(text: string): Promise<void> {
   utter.pitch = 1.02
   utter.volume = 1.0
 
-  utter.onstart = () => setState('speaking')
+  utter.onstart = () => {
+    currentMessageId = messageId || null
+    setState('speaking', currentMessageId)
+  }
   utter.onend = () => {
     if (currentUtterance === utter) {
       currentUtterance = null
-      setState('idle')
+      currentMessageId = null
+      setState('idle', null)
     }
   }
   utter.onerror = () => {
     if (currentUtterance === utter) {
       currentUtterance = null
-      setState('error')
-      setTimeout(() => setState('idle'), 800)
+      currentMessageId = null
+      setState('error', null)
+      setTimeout(() => setState('idle', null), 800)
     }
+  }
+  utter.onpause = () => {
+    if (currentUtterance === utter) setState('paused', currentMessageId)
+  }
+  utter.onresume = () => {
+    if (currentUtterance === utter) setState('speaking', currentMessageId)
   }
 
   currentUtterance = utter
   try {
     window.speechSynthesis.speak(utter)
   } catch {
-    setState('idle')
+    setState('idle', null)
   }
+}
+
+export function pauseTTS() {
+  if (!isTTSSupported()) return
+  try {
+    window.speechSynthesis.pause()
+    setState('paused', currentMessageId)
+  } catch {}
+}
+
+export function resumeTTS() {
+  if (!isTTSSupported()) return
+  try {
+    window.speechSynthesis.resume()
+    setState('speaking', currentMessageId)
+  } catch {}
+}
+
+export function toggleTTSPlayback() {
+  if (currentState === 'speaking') pauseTTS()
+  else if (currentState === 'paused') resumeTTS()
 }
 
 export function stopTTS() {
@@ -142,5 +171,11 @@ export function stopTTS() {
     window.speechSynthesis.cancel()
   } catch {}
   currentUtterance = null
-  setState('idle')
+  currentMessageId = null
+  setState('idle', null)
+}
+
+/** True if TTS is currently playing or paused for this specific message. */
+export function isSpeakingMessage(messageId: string): boolean {
+  return currentMessageId === messageId && (currentState === 'speaking' || currentState === 'paused')
 }

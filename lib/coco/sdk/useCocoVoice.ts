@@ -1,6 +1,5 @@
 // ============================================================
 // lib/coco/sdk/useCocoVoice.ts
-// The single React hook that powers COCO voice.
 // ============================================================
 
 'use client'
@@ -12,6 +11,9 @@ import {
   setTTSEnabled,
   speakText,
   stopTTS,
+  pauseTTS,
+  resumeTTS,
+  toggleTTSPlayback,
   subscribeTTSState,
   type TTSState,
 } from '@/lib/coco/voice/tts'
@@ -21,20 +23,25 @@ export interface UseCocoVoiceReturn {
   micState: VoiceRecorderState
   ttsState: TTSState
   ttsEnabled: boolean
+  ttsMessageId: string | null
   level: number
   error: string | null
   startListening: () => Promise<void>
   stopListening: () => Promise<string | null>
   cancel: () => void
   toggleTTS: () => void
-  speak: (text: string) => Promise<void>
+  speak: (text: string, messageId?: string) => Promise<void>
   stopSpeaking: () => void
+  pauseSpeaking: () => void
+  resumeSpeaking: () => void
+  togglePlayback: () => void
 }
 
 export function useCocoVoice(): UseCocoVoiceReturn {
   const recorderRef = useRef<VoiceRecorder | null>(null)
   const [micState, setMicState] = useState<VoiceRecorderState>('idle')
   const [ttsState, setTTSState] = useState<TTSState>('idle')
+  const [ttsMessageId, setTTSMessageId] = useState<string | null>(null)
   const [level, setLevel] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [ttsEnabled, setTTSEnabledState] = useState(true)
@@ -49,11 +56,13 @@ export function useCocoVoice(): UseCocoVoiceReturn {
   }, [])
 
   useEffect(() => {
-    return subscribeTTSState(setTTSState)
+    return subscribeTTSState((s, msgId) => {
+      setTTSState(s)
+      setTTSMessageId(msgId)
+    })
   }, [])
 
   useEffect(() => {
-    // Load persisted preference
     try {
       const saved = localStorage.getItem('coco:tts')
       if (saved === '0') {
@@ -69,8 +78,6 @@ export function useCocoVoice(): UseCocoVoiceReturn {
       return
     }
     setError(null)
-
-    // Stop any speaking before we listen
     stopTTS()
 
     recorderRef.current = new VoiceRecorder({
@@ -85,10 +92,6 @@ export function useCocoVoice(): UseCocoVoiceReturn {
     await recorderRef.current.start()
   }, [supported])
 
-  /**
-   * Stops recording and returns the transcribed text (or null on failure/empty).
-   * Auto-uploads to /api/coco/voice/transcribe.
-   */
   const stopListening = useCallback(async (): Promise<string | null> => {
     const rec = recorderRef.current
     if (!rec) return null
@@ -103,17 +106,12 @@ export function useCocoVoice(): UseCocoVoiceReturn {
       const fd = new FormData()
       fd.append('audio', result.blob, `speech.${extFromMime(result.mimeType)}`)
 
-      const res = await fetch('/api/coco/voice/transcribe', {
-        method: 'POST',
-        body: fd,
-      })
-
+      const res = await fetch('/api/coco/voice/transcribe', { method: 'POST', body: fd })
       const json = await res.json()
       if (!res.ok) {
         setError(json?.error || 'Transcription failed.')
         return null
       }
-
       if (json?.empty) return null
       return (json?.text as string) || null
     } catch (err: any) {
@@ -141,22 +139,19 @@ export function useCocoVoice(): UseCocoVoiceReturn {
   }, [])
 
   const speak = useCallback(
-    async (text: string) => {
+    async (text: string, messageId?: string) => {
       if (!ttsEnabled) return
-      await speakText(text)
+      await speakText(text, messageId)
     },
     [ttsEnabled]
   )
-
-  const stopSpeaking = useCallback(() => {
-    stopTTS()
-  }, [])
 
   return {
     supported,
     micState,
     ttsState,
     ttsEnabled,
+    ttsMessageId,
     level,
     error,
     startListening,
@@ -164,7 +159,10 @@ export function useCocoVoice(): UseCocoVoiceReturn {
     cancel,
     toggleTTS,
     speak,
-    stopSpeaking,
+    stopSpeaking: stopTTS,
+    pauseSpeaking: pauseTTS,
+    resumeSpeaking: resumeTTS,
+    togglePlayback: toggleTTSPlayback,
   }
 }
 

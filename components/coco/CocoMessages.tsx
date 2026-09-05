@@ -1,6 +1,5 @@
 // ============================================================
 // components/coco/CocoMessages.tsx
-// Message list with markdown, actions, and proper scroll padding.
 // ============================================================
 
 'use client'
@@ -29,7 +28,6 @@ export function CocoMessages({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Scroll only if user is near bottom (don't yank them if scrolled up)
     const container = scrollContainerRef.current
     if (!container) return
     const isNearBottom =
@@ -99,6 +97,7 @@ export function CocoMessages({
                         msg.content.text &&
                         msg.content.text.length > 0 && (
                           <CocoMessageActions
+                            messageId={msg.id}
                             content={msg.content.text}
                             feedback={msg.feedback}
                             onRate={(r) => onRateMessage(msg.id, r)}

@@ -1,7 +1,6 @@
 // ============================================================
 // components/coco/CocoComposer.tsx
-// Professional 3D gradient composer with animated water shimmer.
-// Fixed at bottom, always visible, all buttons functional.
+// Composer with water gradient animation. Overlay handled by panel.
 // ============================================================
 
 'use client'
@@ -9,34 +8,27 @@
 import { useState, useRef, KeyboardEvent } from 'react'
 import { Plus, Mic, ArrowUp, AudioLines, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useCocoVoice } from '@/lib/coco/sdk/useCocoVoice'
-import { CocoVoiceOverlay } from './CocoVoiceOverlay'
 
 interface Props {
   onSend: (text: string) => void
   disabled?: boolean
+  onMicClick: () => void
+  ttsEnabled: boolean
+  onToggleTTS: () => void
+  voiceSupported: boolean
 }
 
-export function CocoComposer({ onSend, disabled }: Props) {
+export function CocoComposer({
+  onSend,
+  disabled,
+  onMicClick,
+  ttsEnabled,
+  onToggleTTS,
+  voiceSupported,
+}: Props) {
   const [text, setText] = useState('')
   const [focused, setFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  const {
-    supported: voiceSupported,
-    micState,
-    ttsEnabled,
-    level,
-    error: voiceError,
-    startListening,
-    stopListening,
-    cancel: cancelVoice,
-    toggleTTS,
-    stopSpeaking,
-  } = useCocoVoice()
-
-  const isRecording =
-    micState === 'requesting' || micState === 'recording' || micState === 'stopping'
 
   const handleSend = () => {
     const trimmed = text.trim()
@@ -60,43 +52,16 @@ export function CocoComposer({ onSend, disabled }: Props) {
     el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   }
 
-  const handleMicClick = async () => {
-    if (disabled) return
-    stopSpeaking()
-    await startListening()
-  }
-
-  const handleStopAndSend = async () => {
-    const transcript = await stopListening()
-    if (transcript) onSend(transcript)
-  }
-
   const hasText = text.trim().length > 0
   const active = focused || hasText
 
   return (
     <>
-      {isRecording && (
-        <CocoVoiceOverlay
-          level={level}
-          state={micState as any}
-          onCancel={cancelVoice}
-          onStop={handleStopAndSend}
-        />
-      )}
-
-      {/* WATER GRADIENT KEYFRAMES */}
       <style jsx>{`
         @keyframes coco-water {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
 
         .coco-composer-shell {
@@ -139,7 +104,6 @@ export function CocoComposer({ onSend, disabled }: Props) {
       <div className="px-3 pb-3 pt-2">
         <div className={cn('coco-composer-shell', active && 'active')}>
           <div className="coco-composer-inner flex items-end gap-1.5 px-2 py-2">
-            {/* PLUS BUTTON */}
             <button
               className="w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white/95 hover:bg-white/[0.06] transition-colors shrink-0"
               aria-label="Attach"
@@ -149,7 +113,6 @@ export function CocoComposer({ onSend, disabled }: Props) {
               <Plus className="w-5 h-5" strokeWidth={2} />
             </button>
 
-            {/* TEXTAREA */}
             <textarea
               ref={textareaRef}
               value={text}
@@ -166,7 +129,6 @@ export function CocoComposer({ onSend, disabled }: Props) {
               className="flex-1 min-w-0 bg-transparent text-[14px] text-white placeholder:text-white/45 outline-none resize-none py-2 px-1 leading-relaxed max-h-[120px] scrollbar-hide"
             />
 
-            {/* RIGHT ACTIONS */}
             {hasText ? (
               <button
                 onClick={handleSend}
@@ -186,7 +148,7 @@ export function CocoComposer({ onSend, disabled }: Props) {
             ) : (
               <>
                 <button
-                  onClick={handleMicClick}
+                  onClick={onMicClick}
                   disabled={disabled || !voiceSupported}
                   className={cn(
                     'w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors',
@@ -201,7 +163,7 @@ export function CocoComposer({ onSend, disabled }: Props) {
                 </button>
 
                 <button
-                  onClick={toggleTTS}
+                  onClick={onToggleTTS}
                   className={cn(
                     'w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors',
                     ttsEnabled
@@ -221,12 +183,6 @@ export function CocoComposer({ onSend, disabled }: Props) {
             )}
           </div>
         </div>
-
-        {voiceError && (
-          <p className="text-[11px] text-red-300/80 mt-1.5 px-3 font-mono">
-            {voiceError}
-          </p>
-        )}
       </div>
     </>
   )

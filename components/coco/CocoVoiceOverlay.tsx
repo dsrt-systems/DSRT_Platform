@@ -1,27 +1,26 @@
 // ============================================================
 // components/coco/CocoVoiceOverlay.tsx
-// Fullscreen overlay while user is speaking.
-// Shows waveform bars, transcript-in-progress, and cancel.
+// Full-panel overlay while user is speaking.
+// Rendered at panel level, not composer level, so it covers everything.
 // ============================================================
 
 'use client'
 
-import { X, Check } from 'lucide-react'
+import { X, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  level: number // 0–1
+  level: number
   onCancel: () => void
   onStop: () => void
   state: 'requesting' | 'recording' | 'stopping'
 }
 
 export function CocoVoiceOverlay({ level, onCancel, onStop, state }: Props) {
-  // Build 24 bars, each responding to level with a bit of natural variance
-  const bars = Array.from({ length: 24 }, (_, i) => {
-    const centerDist = Math.abs(i - 11.5) / 12
+  const bars = Array.from({ length: 28 }, (_, i) => {
+    const centerDist = Math.abs(i - 13.5) / 14
     const wobble = Math.sin(Date.now() / 220 + i) * 0.08 + 0.92
-    const base = Math.max(0.08, level * (1 - centerDist * 0.4) * wobble)
+    const base = Math.max(0.1, level * (1 - centerDist * 0.35) * wobble)
     return Math.min(1, base)
   })
 
@@ -33,36 +32,53 @@ export function CocoVoiceOverlay({ level, onCancel, onStop, state }: Props) {
       : 'Listening'
 
   return (
-    <div className="absolute inset-0 z-[30] flex flex-col items-center justify-center bg-[#0B0F17]/95 backdrop-blur-md rounded-inherit">
-      <div className="flex-1 flex flex-col items-center justify-center px-6 w-full">
-        {/* Waveform */}
-        <div className="flex items-end justify-center gap-[3px] h-24 mb-8">
+    <div
+      className="absolute inset-0 z-[50] flex flex-col items-center justify-between px-6 py-10"
+      style={{
+        borderRadius: 'inherit',
+        background: `
+          radial-gradient(circle at 50% 30%, rgba(60, 90, 140, 0.20) 0%, transparent 50%),
+          linear-gradient(180deg, rgba(13, 17, 25, 0.98) 0%, rgba(8, 11, 18, 0.98) 100%)
+        `,
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+      }}
+    >
+      {/* Top spacer */}
+      <div />
+
+      {/* Center: waveform + status */}
+      <div className="flex flex-col items-center">
+        <div className="flex items-end justify-center gap-[3px] h-28 mb-8">
           {bars.map((h, i) => (
             <div
               key={i}
-              className="w-[3px] rounded-full bg-white/90 transition-[height] duration-75"
+              className="w-[3px] rounded-full bg-white transition-[height] duration-75"
               style={{
-                height: `${Math.max(6, h * 96)}px`,
-                opacity: 0.35 + h * 0.65,
+                height: `${Math.max(6, h * 108)}px`,
+                opacity: 0.4 + h * 0.6,
               }}
             />
           ))}
         </div>
 
-        <p className="text-[15px] font-semibold text-white tracking-tight">
+        <p className="text-[17px] font-semibold text-white tracking-tight flex items-center gap-2">
+          {state === 'stopping' && <Loader2 className="w-4 h-4 animate-spin" />}
           {statusText}
         </p>
-        <p className="text-[12px] text-white/50 mt-1.5">Speak naturally — I'll transcribe when you pause.</p>
+        <p className="text-[12.5px] text-white/55 mt-2 text-center max-w-[260px]">
+          Speak naturally — I'll transcribe when you pause.
+        </p>
       </div>
 
       {/* Bottom controls */}
-      <div className="pb-8 flex items-center justify-center gap-6 w-full">
+      <div className="flex items-center justify-center gap-6">
         <button
           onClick={onCancel}
           disabled={state === 'stopping'}
           className={cn(
             'w-12 h-12 rounded-full flex items-center justify-center',
-            'bg-white/[0.06] border border-white/[0.08] text-white/70',
+            'bg-white/[0.06] border border-white/[0.10] text-white/75',
             'hover:bg-white/[0.10] hover:text-white/95 transition-colors',
             'disabled:opacity-40 disabled:cursor-not-allowed'
           )}
@@ -76,8 +92,8 @@ export function CocoVoiceOverlay({ level, onCancel, onStop, state }: Props) {
           disabled={state === 'stopping'}
           className={cn(
             'w-16 h-16 rounded-full flex items-center justify-center',
-            'bg-white text-black shadow-[0_8px_28px_rgba(255,255,255,0.15)]',
-            'hover:bg-white/90 transition-colors',
+            'bg-white text-black shadow-[0_8px_28px_rgba(255,255,255,0.18)]',
+            'hover:bg-white/95 transition-all',
             'disabled:opacity-60 disabled:cursor-not-allowed'
           )}
           aria-label="Send"
