@@ -34,14 +34,13 @@ export function Navbar({ user, onMenuClick, handleLogout }: NavbarProps) {
             <List size={20} weight="bold" />
           </button>
 
-          {/* UPDATED LOGO & BRANDING BLOCK */}
           <Link href="/home" className="flex items-center gap-2 sm:gap-3 group pt-1">
             <DsrtConnectLogo size={28} className="transition-transform duration-200 group-hover:scale-105 shrink-0" />
             <div className="flex flex-col">
               <span className="font-bold text-[16px] tracking-tight text-white leading-none">
                 DSRT Connect
               </span>
-              <span className="font-cursive text-[14px] sm:text-[17px] text-white/90 leading-none mt-1 whitespace-nowrap hidden xs:block sm:block">
+              <span className="font-cursive text-[15px] sm:text-[18px] text-white/90 leading-none mt-0.5 whitespace-nowrap hidden xs:block sm:block tracking-wide">
                 Banaya Connections jo kaam aaya !!
               </span>
             </div>

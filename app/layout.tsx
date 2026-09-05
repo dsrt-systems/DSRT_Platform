@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
-import { Dancing_Script } from 'next/font/google'
+import { Caveat } from 'next/font/google' // <-- Changed to Caveat
 import './globals.css'
 import { AppProviders } from '@/components/providers/AppProviders'
 
-// Initialize the cursive font
-const dancingScript = Dancing_Script({
+// Initialize the legible handwriting font
+const caveat = Caveat({
   subsets: ['latin'],
   variable: '--font-cursive',
   display: 'swap',
@@ -12,13 +12,10 @@ const dancingScript = Dancing_Script({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.dsrtai.com'),
-  
-  // FIXED: Using a template prevents child pages from duplicating the name
   title: {
     default: 'DSRT — Build with the right people',
     template: '%s · DSRT'
   },
-  
   description: 'The command center for builders. Where mission meets execution.',
   applicationName: 'DSRT',
   keywords: ['DSRT', 'builders', 'ventures', 'projects', 'collaboration'],
@@ -95,8 +92,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        // ADDED: dancingScript.variable here so Tailwind can use it
-        className={`font-sans antialiased bg-[#05070D] text-white selection:bg-[#4F7CFF]/30 ${dancingScript.variable}`}
+        className={`font-sans antialiased bg-[#05070D] text-white selection:bg-[#4F7CFF]/30 ${caveat.variable}`}
         suppressHydrationWarning
       >
         <AppProviders>{children}</AppProviders>
