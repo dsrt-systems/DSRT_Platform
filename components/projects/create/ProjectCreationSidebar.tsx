@@ -93,11 +93,14 @@ export function ProjectCreationSidebar({
             Project Setup
           </p>
 
-          <nav className="space-y-2">
+          <nav className="space-y-2.5">
             {PROJECT_STEPS.map((step) => {
               const isCurrent = currentStep === step.key
               const isCompleted = completedSteps[step.key]
               const isClickable = canNavigateToStep(step.key)
+              
+              // Both Active AND Completed tabs use the solid blue gradient background
+              const isSolidBlue = isCurrent || isCompleted
 
               return (
                 <button
@@ -106,36 +109,33 @@ export function ProjectCreationSidebar({
                   onClick={() => isClickable && onStepClick(step.key)}
                   disabled={!isClickable}
                   className={cn(
-                    'w-full flex items-start gap-3 p-3.5 rounded-2xl text-left transition-all duration-300 relative overflow-hidden',
+                    'w-full flex items-start gap-3.5 p-3.5 rounded-2xl text-left transition-all duration-300 relative overflow-hidden',
                     
-                    /* ACTIVE STEP: Solid Blue Gradient Padded Style */
-                    isCurrent && 'bg-gradient-to-br from-[#38bdf8] to-[#2563eb] text-[#05070D] shadow-[0_8px_24px_rgba(56,189,248,0.25)] border border-white/30',
+                    /* SOLID BLUE GRADIENT CARD (ACTIVE OR COMPLETED) */
+                    isSolidBlue && 'bg-gradient-to-br from-[#38bdf8] to-[#2563eb] text-[#05070D] shadow-[0_8px_24px_rgba(56,189,248,0.25)] border border-white/30',
                     
-                    /* COMPLETED STEP: Subtle Glowing Blue Border & Accent */
-                    isCompleted && !isCurrent && 'bg-[#38bdf8]/10 border border-[#38bdf8]/30 text-white hover:bg-[#38bdf8]/15 shadow-sm',
+                    /* INCOMPLETE & UNVISITED STEP (DARK CARD) */
+                    !isSolidBlue && isClickable && 'bg-[#0A0A0C] border border-white/[0.06] text-white/70 hover:bg-white/[0.04]',
                     
-                    /* INCOMPLETE & UNVISITED STEP */
-                    !isCurrent && !isCompleted && isClickable && 'bg-[#0A0A0C] border border-white/[0.06] text-white/70 hover:bg-white/[0.04]',
-                    
-                    /* DISABLED STEP */
-                    !isCurrent && !isCompleted && !isClickable && 'bg-[#0A0A0C]/50 border border-white/[0.03] text-white/30 cursor-not-allowed'
+                    /* DISABLED / UNREACHABLE STEP */
+                    !isSolidBlue && !isClickable && 'bg-[#0A0A0C]/50 border border-white/[0.03] text-white/30 cursor-not-allowed'
                   )}
                 >
-                  {/* Subtle inner top glow line for 3D depth when current */}
-                  {isCurrent && (
+                  {/* Inner top glow line for 3D padded depth on solid blue cards */}
+                  {isSolidBlue && (
                     <div className="absolute inset-x-0 top-0 h-px bg-white/50 pointer-events-none" />
                   )}
 
                   <div className="flex-shrink-0 mt-0.5">
-                    {isCurrent ? (
+                    {isCompleted ? (
+                      /* Completed Checkmark Badge */
+                      <div className="w-6 h-6 rounded-lg bg-[#05070D] text-[#38bdf8] flex items-center justify-center font-bold shadow-sm">
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </div>
+                    ) : isCurrent ? (
                       /* Active Step Badge */
                       <div className="w-6 h-6 rounded-lg bg-[#05070D] text-white flex items-center justify-center font-black text-[11px] shadow-sm">
                         {step.number}
-                      </div>
-                    ) : isCompleted ? (
-                      /* Completed Step Checkmark Badge */
-                      <div className="w-6 h-6 rounded-lg bg-[#38bdf8] text-[#05070D] flex items-center justify-center font-bold shadow-sm">
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
                       </div>
                     ) : (
                       /* Pending Step Badge */
@@ -149,15 +149,15 @@ export function ProjectCreationSidebar({
                     <div
                       className={cn(
                         'text-[13.5px] leading-tight transition-colors',
-                        isCurrent ? 'font-extrabold text-[#05070D]' : isCompleted ? 'font-bold text-[#38bdf8]' : 'font-semibold text-white/60'
+                        isSolidBlue ? 'font-extrabold text-[#05070D]' : 'font-semibold text-white/60'
                       )}
                     >
                       {step.title}
                     </div>
                     <div
                       className={cn(
-                        'text-[11.5px] mt-1 leading-tight font-medium',
-                        isCurrent ? 'text-[#05070D]/80 font-semibold' : 'text-zinc-500'
+                        'text-[11.5px] mt-1 leading-tight',
+                        isSolidBlue ? 'text-[#05070D]/80 font-semibold' : 'text-zinc-500 font-medium'
                       )}
                     >
                       {step.desc}
