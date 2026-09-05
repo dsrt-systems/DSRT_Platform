@@ -1,6 +1,6 @@
 // ============================================================
 // components/coco/CocoPanel.tsx
-// Floating COCO panel — 3D gradient, professional, mobile-capped at 60vh.
+// Floating COCO panel — composer always pinned to bottom.
 // ============================================================
 
 'use client'
@@ -17,7 +17,8 @@ import { speakText, stopTTS } from '@/lib/coco/voice/tts'
 
 function cleanDisplayError(rawError: string): string {
   if (!rawError) return 'Something went wrong.'
-  if (rawError.includes('404') || rawError.includes('model_not_found')) return 'AI updating, one moment...'
+  if (rawError.includes('404') || rawError.includes('model_not_found'))
+    return 'AI updating, one moment...'
   try {
     const parsed = JSON.parse(rawError.substring(rawError.indexOf('{')))
     if (parsed?.error?.message) return parsed.error.message
@@ -41,14 +42,12 @@ export function CocoPanel() {
   const spokenRef = useRef<Set<string>>(new Set())
   const userCountRef = useRef(0)
 
-  // Stop TTS when user sends new message
   useEffect(() => {
     const userCount = messages.filter((m) => m.role === 'user').length
     if (userCount > userCountRef.current) stopTTS()
     userCountRef.current = userCount
   }, [messages])
 
-  // Speak completed assistant messages
   useEffect(() => {
     const last = [...messages].reverse().find((m) => m.role === 'assistant')
     if (!last || last.streaming || last.content.kind !== 'text') return
@@ -58,7 +57,6 @@ export function CocoPanel() {
     speakText(last.content.text)
   }, [messages])
 
-  // Cleanup on close
   useEffect(() => {
     if (!isOpen) {
       stopTTS()
@@ -72,20 +70,17 @@ export function CocoPanel() {
 
   return (
     <>
-      {/* Subtle backdrop on mobile only, no scroll lock */}
+      {/* Mobile subtle backdrop */}
       <div
         onClick={close}
         className="md:hidden fixed inset-0 z-[55] bg-black/40 backdrop-blur-[2px] transition-opacity"
         aria-hidden
       />
 
-      {/* FLOATING PANEL */}
       <div
         className={cn(
           'fixed z-[60] pointer-events-none',
-          // Mobile: float from bottom with padding on all sides
           'bottom-4 left-4 right-4',
-          // Desktop: bottom-right corner
           'md:bottom-6 md:right-6 md:left-auto'
         )}
         style={{
@@ -95,11 +90,8 @@ export function CocoPanel() {
         <div
           className={cn(
             'pointer-events-auto relative flex flex-col overflow-hidden',
-            // Mobile: 60vh max, rounded on all corners (floating card)
             'w-full h-[60vh] max-h-[560px] rounded-[24px]',
-            // Desktop: fixed dimensions
             'md:w-[400px] md:h-[620px] md:rounded-[24px]',
-            // 3D gradient border + layered shadows
             'border border-white/[0.09]',
             'shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9),0_10px_30px_-10px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]'
           )}
@@ -115,23 +107,29 @@ export function CocoPanel() {
           <div
             className="absolute inset-x-0 top-0 h-24 pointer-events-none opacity-70"
             style={{
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.045) 0%, transparent 100%)',
+              background:
+                'linear-gradient(180deg, rgba(255,255,255,0.045) 0%, transparent 100%)',
             }}
             aria-hidden
           />
 
-          {/* HEADER */}
+          {/* HEADER (fixed height) */}
           <div className="relative flex items-center justify-between px-4 h-12 border-b border-white/[0.05] shrink-0 z-10">
             <div className="flex items-center gap-2.5 min-w-0">
               <div
                 className="w-6 h-6 rounded-md flex items-center justify-center border border-white/[0.10]"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%)',
+                  background:
+                    'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%)',
                 }}
               >
-                <span className="text-[10px] font-bold text-white/95 tracking-tight">C</span>
+                <span className="text-[10px] font-bold text-white/95 tracking-tight">
+                  C
+                </span>
               </div>
-              <span className="text-[14px] font-semibold text-white/95 tracking-tight">COCO</span>
+              <span className="text-[14px] font-semibold text-white/95 tracking-tight">
+                COCO
+              </span>
               <CocoContextBadge />
             </div>
 
@@ -154,7 +152,7 @@ export function CocoPanel() {
             </div>
           </div>
 
-          {/* MESSAGES */}
+          {/* MESSAGES (flex-1, scrollable) */}
           <div className="flex-1 min-h-0 relative">
             <CocoMessages
               messages={messages}
@@ -164,7 +162,7 @@ export function CocoPanel() {
             />
           </div>
 
-          {/* ERROR */}
+          {/* ERROR (fixed above composer) */}
           {error && (
             <div className="px-4 py-2 border-t border-red-500/20 bg-red-500/[0.05] shrink-0 relative z-10">
               <p className="text-[11.5px] text-red-300/85 font-mono truncate">
@@ -173,7 +171,7 @@ export function CocoPanel() {
             </div>
           )}
 
-          {/* COMPOSER */}
+          {/* COMPOSER (always pinned at bottom, shrink-0) */}
           <div className="shrink-0 relative z-10">
             <CocoComposer onSend={sendMessage} disabled={isBusy} />
           </div>
