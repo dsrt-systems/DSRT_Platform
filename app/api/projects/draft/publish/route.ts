@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     const isUuid = UUID_REGEX.test(id)
-    let findQuery = supabase.from('projects').select('id, slug, name, location, industry, project_number, status')
+    let findQuery = supabase.from('projects').select('id, slug, name, industry, project_number, status')
 
     if (isUuid) {
       findQuery = findQuery.eq('id', id)
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
       .from('projects')
       .update(updatePayload)
       .eq('id', currentProject.id)
-      .select('id, name, slug, industry, location')
+      .select('id, name, slug, industry')
       .single()
 
     if (updateError) throw updateError
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // Spawn Looking For roles
+    // Spawn Looking For roles (best-effort)
     if (looking_for_roles && looking_for_roles.length > 0) {
       try {
         const roleInserts = looking_for_roles.map((role: any) => ({
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
           description: role.description || null,
           commitment: role.commitment || 'part-time',
           work_mode: role.work_mode || 'remote',
-          location: project.location || 'Remote',
+          location: 'Remote',
           industry: primary_domain || project.industry,
           status: 'published',
           published_at: new Date().toISOString(),

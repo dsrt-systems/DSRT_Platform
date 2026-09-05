@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
+// Create Project Modal Component
+import { CreateProjectModal } from '@/components/projects/CreateProjectModal'
+
 // Explore page
 import { ProjectExplorePage } from '@/components/projects-explore/ProjectExplorePage'
 
@@ -162,6 +165,9 @@ function ProjectsDashboardContent() {
   const [deleteModalProject, setDeleteModalProject] = useState<Project | null>(null)
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
   const [deleting, setDeleting] = useState(false)
+
+  // Create Project Modal triggers
+  const [createModalOpen, setCreateModalOpen] = useState(false)
 
   const loadWorkspaceData = useCallback(async () => {
     setLoading(true)
@@ -347,7 +353,7 @@ function ProjectsDashboardContent() {
           </div>
 
           <button
-            onClick={() => router.push('/projects/create')}
+            onClick={() => setCreateModalOpen(true)}
             className="inline-flex items-center gap-1.5 h-11 px-5 rounded-xl bg-white text-[#05070D] hover:bg-zinc-200 text-[13.5px] font-bold shadow-sm transition-all active:scale-95 shrink-0"
           >
             <Plus size={15} weight="bold" /> New project
@@ -566,7 +572,7 @@ function ProjectsDashboardContent() {
                         <h3 className="text-[16px] font-bold text-white">You haven't created a project yet.</h3>
                         <p className="text-[13.5px] text-zinc-500 max-w-sm mx-auto mt-1">Build something worth sharing.</p>
                       </div>
-                      <button onClick={() => router.push('/projects/create')} className="mt-2 inline-flex items-center gap-1.5 h-11 px-6 rounded-xl bg-white text-[#05070D] hover:bg-zinc-200 text-[13.5px] font-bold transition-colors">
+                      <button onClick={() => setCreateModalOpen(true)} className="mt-2 inline-flex items-center gap-1.5 h-11 px-6 rounded-xl bg-white text-[#05070D] hover:bg-zinc-200 text-[13.5px] font-bold transition-colors">
                         <Plus size={16} weight="bold" /> Create your first project
                       </button>
                     </div>
@@ -699,6 +705,12 @@ function ProjectsDashboardContent() {
           </div>
         </div>
       )}
+
+      {/* Create Project Modal */}
+      <CreateProjectModal 
+        open={createModalOpen} 
+        onClose={() => setCreateModalOpen(false)} 
+      />
     </div>
   )
 }

@@ -99,7 +99,7 @@ export function ProjectCreationSidebar({
               const isCompleted = completedSteps[step.key]
               const isClickable = canNavigateToStep(step.key)
               
-              // Both Active AND Completed tabs use the solid blue gradient background
+              // Now ACTIVE and COMPLETED steps both get the solid blue treatment
               const isSolidBlue = isCurrent || isCompleted
 
               return (
@@ -126,7 +126,7 @@ export function ProjectCreationSidebar({
                     <div className="absolute inset-x-0 top-0 h-px bg-white/50 pointer-events-none" />
                   )}
 
-                  <div className="flex-shrink-0 mt-0.5">
+                  <div className="flex-shrink-0 mt-0.5 relative z-10">
                     {isCompleted ? (
                       /* Completed Checkmark Badge */
                       <div className="w-6 h-6 rounded-lg bg-[#05070D] text-[#38bdf8] flex items-center justify-center font-bold shadow-sm">
@@ -145,7 +145,7 @@ export function ProjectCreationSidebar({
                     )}
                   </div>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 relative z-10">
                     <div
                       className={cn(
                         'text-[13.5px] leading-tight transition-colors',
@@ -156,8 +156,8 @@ export function ProjectCreationSidebar({
                     </div>
                     <div
                       className={cn(
-                        'text-[11.5px] mt-1 leading-tight',
-                        isSolidBlue ? 'text-[#05070D]/80 font-semibold' : 'text-zinc-500 font-medium'
+                        'text-[11.5px] mt-1 leading-tight font-medium',
+                        isSolidBlue ? 'text-[#05070D]/80 font-semibold' : 'text-zinc-500'
                       )}
                     >
                       {step.desc}
