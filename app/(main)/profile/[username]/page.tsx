@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { ProfileV3Page } from '@/components/profile-v3/ProfileV3Page'
+import { CocoPageInjector } from '@/components/coco/CocoPageInjector'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,37 +29,29 @@ export default async function Page({ params }: { params: { username: string } })
 
   const isOwner = currentAuthUser?.id === profile.id
 
-  // Parallel fetching for follow stats + current follow status
   const [followersRes, followingRes, isFollowingRes] = await Promise.all([
-    supabase
-      .from('follows')
-      .select('id', { count: 'exact', head: true })
-      .eq('following_type', 'user')
-      .eq('following_id', profile.id),
-    supabase
-      .from('follows')
-      .select('id', { count: 'exact', head: true })
-      .eq('follower_id', profile.id)
-      .eq('following_type', 'user'),
-    // Check if current user follows this profile
+    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_type', 'user').eq('following_id', profile.id),
+    supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', profile.id).eq('following_type', 'user'),
     currentAuthUser && !isOwner
-      ? supabase
-          .from('follows')
-          .select('id', { count: 'exact', head: true })
-          .eq('follower_id', currentAuthUser.id)
-          .eq('following_type', 'user')
-          .eq('following_id', profile.id)
+      ? supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', currentAuthUser.id).eq('following_type', 'user').eq('following_id', profile.id)
       : Promise.resolve({ count: 0 }),
   ])
 
   return (
-    <ProfileV3Page
-      profile={profile}
-      isOwner={isOwner}
-      currentUserId={currentAuthUser?.id || null}
-      followerCount={followersRes.count || 0}
-      followingCount={followingRes.count || 0}
-      isFollowing={(isFollowingRes.count || 0) > 0}
-    />
+    <>
+      <CocoPageInjector 
+        page="profile" 
+        entity={{ type: 'user', id: profile.id }} 
+        component={{ registry_id: 'profile.overview' }} 
+      />
+      <ProfileV3Page
+        profile={profile}
+        isOwner={isOwner}
+        currentUserId={currentAuthUser?.id || null}
+        followerCount={followersRes.count || 0}
+        followingCount={followingRes.count || 0}
+        isFollowing={(isFollowingRes.count || 0) > 0}
+      />
+    </>
   )
 }
