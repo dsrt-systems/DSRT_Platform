@@ -4,30 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 export const dynamic = 'force-dynamic'
 
 const DEFAULT_BANNERS = [
-  {
-    id: 'b1',
-    title: 'Share Your Experiments',
-    image_url: '/banners/team-up-1.png',
-    cta_route: '/projects/create',
-  },
-  {
-    id: 'b2',
-    title: 'Build with COCO AI',
-    image_url: '/banners/coco-bg.png',
-    cta_route: '/coco',
-  },
-  {
-    id: 'b3',
-    title: 'Find Technical Collaborators',
-    image_url: '/banners/team-up-2.png',
-    cta_route: '/looking-for',
-  },
-  {
-    id: 'b4',
-    title: 'Start a DSRT Project',
-    image_url: '/banners/create-project-bg.png',
-    cta_route: '/projects/create',
-  },
+  { id: 'p1', title: 'Share Your Experiments', image_url: '/banners/project-1.png', cta_route: '/projects/create' },
+  { id: 'p2', title: 'Build with COCO',         image_url: '/banners/project-2.png', cta_route: '/coco' },
+  { id: 'p3', title: 'Find Collaborators',      image_url: '/banners/project-3.png', cta_route: '/looking-for' },
+  { id: 'p4', title: 'Start a Project',         image_url: '/banners/project-4.png', cta_route: '/projects/create' },
+  { id: 'p5', title: 'Open Source on DSRT',     image_url: '/banners/project-5.png', cta_route: '/projects?tab=explore' },
 ]
 
 export async function GET() {
