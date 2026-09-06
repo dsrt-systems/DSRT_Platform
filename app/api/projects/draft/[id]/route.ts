@@ -70,3 +70,52 @@ export async function GET(
     return NextResponse.json({ error: error?.message || 'Failed to load draft' }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!id) return NextResponse.json({ error: 'Draft id or slug required' }, { status: 400 })
+
+  try {
+    const isUuid = UUID_REGEX.test(id)
+
+    // First, verify the project exists, belongs to the user, and IS A DRAFT
+    let verifyQuery = supabase
+      .from('projects')
+      .select('id, status')
+      .eq('status', 'draft')
+
+    if (isUuid) {
+      verifyQuery = verifyQuery.eq('id', id)
+    } else {
+      verifyQuery = verifyQuery.eq('slug', id)
+    }
+
+    const { data: project, error: verifyErr } = await verifyQuery
+      .or(`founder_id.eq.${user.id},user_id.eq.${user.id}`)
+      .maybeSingle()
+
+    if (verifyErr || !project) {
+      return NextResponse.json({ error: 'Draft not found or cannot be deleted' }, { status: 404 })
+    }
+
+    // Perform deletion
+    const { error: deleteErr } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', project.id)
+
+    if (deleteErr) throw deleteErr
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('[Delete Draft] error:', error)
+    return NextResponse.json({ error: error?.message || 'Failed to delete draft' }, { status: 500 })
+  }
+}

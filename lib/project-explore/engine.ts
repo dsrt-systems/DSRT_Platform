@@ -97,7 +97,7 @@ export class ProjectExploreEngine {
         founder:users!projects_founder_id_fkey(id, full_name, username, avatar_url, is_verified),
         founder_id, user_id
       `)
-      .neq('status', 'archived')
+      .not('status', 'in', '("archived","draft")') // FIXED: Strictly exclude drafts and archived
       .or('is_public.eq.true,visibility.eq.public')
 
     // Exclude dismissed

@@ -89,6 +89,12 @@ const IconApplications = (p: IconProps) => (
   </svg>
 )
 
+const TrashIcon = (p: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+  </svg>
+)
+
 const TABS = [
   { id: 'my-projects', label: 'My Projects', icon: IconMyProjects },
   { id: 'explore',     label: 'Explore',     icon: IconExplore },
@@ -195,7 +201,8 @@ function ProjectsDashboardContent() {
       if (dashRes.ok) {
         const data = await dashRes.json()
         setMyProjects(data.projects || [])
-        setDrafts(data.drafts || [])
+        // Enforce the explicit draft status locally for the carousel
+        setDrafts((data.drafts || []).map((d: any) => ({ ...d, status: 'draft' })))
       } else {
         setError(true)
       }
@@ -236,18 +243,29 @@ function ProjectsDashboardContent() {
 
     setDeleting(true)
     try {
-      const res = await fetch(`/api/projects/${deleteModalProject.slug}`, {
-        method: 'DELETE',
-      })
-      if (!res.ok) throw new Error('Failed to archive project')
+      const isDraft = deleteModalProject.status === 'draft'
 
-      toast.success('Project archived')
+      // Differentiate between permanently deleting a draft vs archiving an active project
+      const endpoint = isDraft 
+        ? `/api/projects/draft/${deleteModalProject.id}` 
+        : `/api/projects/${deleteModalProject.slug}`
+
+      const res = await fetch(endpoint, { method: 'DELETE' })
+      if (!res.ok) throw new Error(isDraft ? 'Failed to delete draft' : 'Failed to archive project')
+
+      toast.success(isDraft ? 'Draft deleted permanently' : 'Project archived')
+      
       setMyProjects(prev => prev.filter(p => p.id !== deleteModalProject.id))
       setDrafts(prev => prev.filter(p => p.id !== deleteModalProject.id))
       setDeleteModalProject(null)
       setDeleteConfirmInput('')
+      
+      // Update draft limit counter if a draft was deleted
+      if (isDraft && draftLimitInfo) {
+        setDraftLimitInfo(prev => prev ? { ...prev, count: Math.max(0, prev.count - 1) } : null)
+      }
     } catch (e: any) {
-      toast.error(e.message || 'Could not archive project')
+      toast.error(e.message || 'Action failed')
     } finally {
       setDeleting(false)
     }
@@ -453,7 +471,11 @@ function ProjectsDashboardContent() {
                   </div>
                   <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 -mx-4 md:-mx-0 px-4 md:px-0">
                     {drafts.map(d => (
-                      <ProjectDraftCard key={d.id} project={d} />
+                      <ProjectDraftCard 
+                        key={d.id} 
+                        project={d} 
+                        onDeleteRequest={setDeleteModalProject} 
+                      />
                     ))}
                   </div>
                 </section>
@@ -665,14 +687,21 @@ function ProjectsDashboardContent() {
 
       </div>
 
-      {/* Delete modal */}
+      {/* Dynamic Delete / Archive Modal */}
       {deleteModalProject && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setDeleteModalProject(null)}>
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDeleteModalProject(null)}>
           <div className="bg-[#121215] border border-white/[0.1] rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)] p-6 space-y-5" onClick={e => e.stopPropagation()}>
-            <h3 className="text-[18px] font-bold text-white">Archive project?</h3>
+            <h3 className="text-[18px] font-bold text-white">
+              {deleteModalProject.status === 'draft' ? 'Delete Draft?' : 'Archive project?'}
+            </h3>
+            
             <p className="text-[13.5px] text-zinc-400 leading-relaxed">
-              This will archive <strong className="text-white">{deleteModalProject.name}</strong>. Archived projects are hidden from Explore but remain accessible in your Archive tab. You can restore them later.
+              {deleteModalProject.status === 'draft' 
+                ? <>This will permanently delete the draft <strong className="text-white">{deleteModalProject.name}</strong>. This action cannot be undone.</>
+                : <>This will archive <strong className="text-white">{deleteModalProject.name}</strong>. Archived projects are hidden from Explore but remain accessible in your Archive tab. You can restore them later.</>
+              }
             </p>
+            
             <div>
               <label className="block text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-bold mb-2">
                 Type "{deleteModalProject.name}" to confirm
@@ -685,12 +714,13 @@ function ProjectsDashboardContent() {
                 className="w-full h-11 px-4 bg-[#09090b] border border-white/[0.1] rounded-xl text-[13.5px] font-medium text-white focus:outline-none focus:border-white/[0.2] transition-colors"
               />
             </div>
+            
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => { setDeleteModalProject(null); setDeleteConfirmInput('') }} disabled={deleting} className="px-5 h-10 text-[13.5px] font-bold text-zinc-400 hover:text-white transition-colors">
                 Cancel
               </button>
-              <button onClick={handleConfirmDelete} disabled={deleting || deleteConfirmInput.trim() !== deleteModalProject.name.trim()} className="px-5 h-10 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-[13.5px] disabled:opacity-50 transition-colors flex items-center gap-2">
-                {deleting ? <><CircleNotch size={14} className="animate-spin" /> Archiving</> : 'Archive project'}
+              <button onClick={handleConfirmDelete} disabled={deleting || deleteConfirmInput.trim() !== deleteModalProject.name.trim()} className="px-5 h-10 bg-red-500/10 border border-red-500/20 hover:bg-red-500 hover:text-white text-red-400 font-bold rounded-xl text-[13.5px] disabled:opacity-50 transition-colors flex items-center gap-2">
+                {deleting ? <><CircleNotch size={14} className="animate-spin" /> Processing</> : (deleteModalProject.status === 'draft' ? 'Delete Draft' : 'Archive Project')}
               </button>
             </div>
           </div>
@@ -886,10 +916,10 @@ function ProjectHorizontalCard({ project, onDeleteRequest }: { project: Project;
   )
 }
 
-function ProjectDraftCard({ project }: { project: Project }) {
+function ProjectDraftCard({ project, onDeleteRequest }: { project: Project; onDeleteRequest: (v: Project) => void }) {
   const router = useRouter()
   return (
-    <div onClick={() => router.push(`/projects/create?continue=${project.slug}`)} className="w-[260px] flex-shrink-0 bg-[#121215] border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/20 transition-all cursor-pointer group shadow-sm">
+    <div onClick={() => router.push(`/projects/create?continue=${project.slug}`)} className="w-[260px] flex-shrink-0 bg-[#121215] border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/20 transition-all cursor-pointer group shadow-sm relative">
       <div className="relative h-[110px] overflow-hidden bg-zinc-900/60 border-b border-white/[0.04]">
         {project.cover_image_url ? (
           <img src={project.cover_image_url} alt="" className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" />
@@ -899,6 +929,16 @@ function ProjectDraftCard({ project }: { project: Project }) {
         <span className="absolute top-3 left-3 text-[9px] font-extrabold text-black bg-white px-2 py-1 rounded-md uppercase tracking-widest shadow-sm">
           Draft
         </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDeleteRequest(project)
+          }}
+          className="absolute top-3 right-3 w-7 h-7 rounded-lg bg-black/60 hover:bg-red-500/20 border border-white/[0.05] hover:border-red-500/30 text-zinc-400 hover:text-red-400 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+          title="Delete Draft"
+        >
+          <TrashIcon className="w-3.5 h-3.5" />
+        </button>
       </div>
       <div className="p-5">
         <h4 className="text-[14.5px] font-bold text-white truncate mb-1">{project.name}</h4>

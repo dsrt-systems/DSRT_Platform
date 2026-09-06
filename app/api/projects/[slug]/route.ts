@@ -79,6 +79,13 @@ export async function PUT(
       return NextResponse.json({ error: 'No editable fields provided' }, { status: 400 })
     }
 
+    // FIXED: Strictly sync visibility and is_public states
+    if (patch.visibility) {
+      patch.is_public = patch.visibility === 'public'
+    } else if (patch.is_public !== undefined) {
+      patch.visibility = patch.is_public ? 'public' : 'private'
+    }
+
     patch.updated_at = new Date().toISOString()
     patch.last_activity_at = new Date().toISOString()
 
@@ -148,7 +155,7 @@ export async function DELETE(
 
     const { error } = await supabase
       .from('projects')
-      .update({ status: 'archived', is_public: false })
+      .update({ status: 'archived', is_public: false, visibility: 'private' })
       .eq('id', project.id)
 
     if (error) throw error
