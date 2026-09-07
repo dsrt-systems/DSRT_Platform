@@ -3,10 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * Server-side HTML sanitization.
- * Strips Word/Google Docs junk, scripts, event handlers.
- */
 function sanitizeHTML(html: string): string {
   if (!html) return ''
   return html
@@ -34,9 +30,6 @@ function sanitizeHTML(html: string): string {
     .trim()
 }
 
-/**
- * Extract plain text from HTML for search indexing.
- */
 function extractPlainText(html: string): string {
   if (!html) return ''
   return html
@@ -51,9 +44,13 @@ function extractPlainText(html: string): string {
     .trim()
 }
 
+/** Coerce null/undefined/non-array into a real array */
+function asArray<T = any>(value: unknown): T[] {
+  return Array.isArray(value) ? value : []
+}
+
 /**
  * POST /api/home/posts
- * Creates a new post with publisher identity (person, venture, project, community).
  */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -71,15 +68,12 @@ export async function POST(req: NextRequest) {
     content_text,
     content_html,
     content_blocks,
-    media_urls = [],
-    image_urls = [],
     video_url,
     file_urls,
     link_url,
     link_title,
     link_description,
     link_image,
-    tags = [],
     visibility = 'global',
     event_date,
     event_end_date,
@@ -98,21 +92,25 @@ export async function POST(req: NextRequest) {
     draft_id,
   } = body
 
-  // Sanitize incoming HTML
+  // FIX: null-safe arrays (defaults don't apply when client sends null)
+  const media_urls = asArray<string>(body.media_urls)
+  const image_urls = asArray<string>(body.image_urls)
+  const tags = asArray<string>(body.tags)
+  const blocks = asArray(content_blocks)
+  const files = file_urls == null ? null : file_urls
+
   const rawHTML = content || content_text || ''
   const cleanHTML = sanitizeHTML(rawHTML)
   const plainText = extractPlainText(cleanHTML)
 
-  // Validation
   const hasText = plainText.trim().length > 0
-  const hasMedia = (media_urls?.length || 0) > 0 || (image_urls?.length || 0) > 0 || !!video_url
+  const hasMedia = media_urls.length > 0 || image_urls.length > 0 || !!video_url
   if (!hasText && !hasMedia && !is_draft) {
     return NextResponse.json({ error: 'Post must have text or media' }, { status: 400 })
   }
 
   const effectivePublisherId = publisher_id || user.id
 
-  // Permission check
   const { data: canPublish, error: permErr } = await supabase.rpc('fn_can_publish_as', {
     p_user_id: user.id,
     p_publisher_type: publisher_type,
@@ -133,14 +131,14 @@ export async function POST(req: NextRequest) {
       publisher_id: effectivePublisherId,
       type,
       title: title?.trim() || null,
-      content: cleanHTML || '',                  // ✅ Sanitized HTML — NEVER null
-      content_text: plainText || '',              // ✅ Plain text for search
+      content: cleanHTML || '',
+      content_text: plainText || '',
       content_html: cleanHTML || null,
-      content_blocks: content_blocks || [],
+      content_blocks: blocks,
       media_urls: media_urls.length ? media_urls : null,
       image_urls: image_urls.length ? image_urls : null,
       video_url: video_url || null,
-      file_urls: file_urls || null,
+      file_urls: files,
       link_url: link_url || null,
       link_title: link_title || null,
       link_description: link_description || null,

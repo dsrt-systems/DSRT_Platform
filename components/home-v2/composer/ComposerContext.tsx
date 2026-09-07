@@ -79,7 +79,7 @@ export function ComposerProvider({ children }: { children: ReactNode }) {
   const addTag = useCallback((t: string) => {
     const clean = t.trim().replace(/^#/, '').toLowerCase()
     if (!clean || clean.length > 100) return
-    setTags(prev => prev.includes(clean) ? prev : [...prev, clean])
+    setTags(prev => (prev.includes(clean) ? prev : [...prev, clean]))
   }, [])
 
   const removeTag = useCallback((t: string) => setTags(prev => prev.filter(x => x !== t)), [])
@@ -112,29 +112,76 @@ export function ComposerProvider({ children }: { children: ReactNode }) {
       title: title || null,
       content,
       content_text: content,
-      content_blocks: contentBlocks,
-      image_urls: images.length ? images : null,
-      media_urls: images.length ? images : null,
+      content_blocks: contentBlocks || [],
+      // Always send arrays — never null
+      image_urls: images,
+      media_urls: images,
       video_url: videos[0]?.url || null,
-      file_urls: files.length ? files.map(f => ({ url: f.url, filename: f.filename, size: f.size, mime_type: f.mime_type })) : null,
-      tags,
+      file_urls: files.length
+        ? files.map(f => ({
+            url: f.url,
+            filename: f.filename,
+            size: f.size,
+            mime_type: f.mime_type,
+          }))
+        : [],
+      tags: tags || [],
       visibility,
       comments_permission: commentsPermission,
       scheduled_at: scheduledAt,
       is_sensitive: isSensitive,
       content_warning: contentWarning || null,
     }
-  }, [publisher, postType, title, content, contentBlocks, media, tags, visibility, commentsPermission, scheduledAt, isSensitive, contentWarning])
+  }, [
+    publisher,
+    postType,
+    title,
+    content,
+    contentBlocks,
+    media,
+    tags,
+    visibility,
+    commentsPermission,
+    scheduledAt,
+    isSensitive,
+    contentWarning,
+  ])
 
   return (
-    <Ctx.Provider value={{
-      draftId, publisher, postType, title, content, contentBlocks, media, tags,
-      visibility, commentsPermission, scheduledAt, isSensitive, contentWarning,
-      setDraftId, setPublisher, setPostType, setTitle, setContent, setContentBlocks,
-      addMedia, removeMedia, addTag, removeTag,
-      setVisibility, setCommentsPermission, setScheduledAt,
-      setIsSensitive, setContentWarning, reset, serialize,
-    }}>
+    <Ctx.Provider
+      value={{
+        draftId,
+        publisher,
+        postType,
+        title,
+        content,
+        contentBlocks,
+        media,
+        tags,
+        visibility,
+        commentsPermission,
+        scheduledAt,
+        isSensitive,
+        contentWarning,
+        setDraftId,
+        setPublisher,
+        setPostType,
+        setTitle,
+        setContent,
+        setContentBlocks,
+        addMedia,
+        removeMedia,
+        addTag,
+        removeTag,
+        setVisibility,
+        setCommentsPermission,
+        setScheduledAt,
+        setIsSensitive,
+        setContentWarning,
+        reset,
+        serialize,
+      }}
+    >
       {children}
     </Ctx.Provider>
   )
