@@ -1,4 +1,5 @@
 'use client'
+
 import { cn } from '@/lib/utils'
 import { ReactNode } from 'react'
 
@@ -21,7 +22,14 @@ const widthMap = {
 }
 
 const paddingMap = {
-  none: '',
+  /**
+   * SAFETY-NET FOR padding="none":
+   * On mobile (under `sm`: 640px), we enforce `px-3` so content never bleeds
+   * flush against device glass or rounded screen corners.
+   * On `sm` and above, padding returns to `px-0 py-0` so desktop full-width
+   * designs remain completely unconstrained.
+   */
+  none: 'px-3 sm:px-0',
   compact: 'px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6',
   default: 'px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8 lg:px-8',
   loose: 'px-3 py-6 sm:px-4 sm:py-8 md:px-8 md:py-10 lg:px-10 lg:py-12',
@@ -29,7 +37,8 @@ const paddingMap = {
 
 /**
  * DSRT Page — mobile-first responsive page container.
- * Replaces raw <div className="max-w-6xl mx-auto..."> patterns.
+ * Enforces safe viewport insets across all presets and protects against
+ * edge-clipping on notched or curved mobile screens.
  */
 export function DsrtPage({
   children,
@@ -44,7 +53,10 @@ export function DsrtPage({
         'mx-auto w-full',
         widthMap[width],
         paddingMap[padding],
-        safeBottom && 'pb-[env(safe-area-inset-bottom)]',
+        // iOS Notch / Safe-Area Inset Support
+        'pl-[max(0.75rem,env(safe-area-inset-left))]',
+        'pr-[max(0.75rem,env(safe-area-inset-right))]',
+        safeBottom && 'pb-[max(1rem,env(safe-area-inset-bottom))]',
         className
       )}
     >

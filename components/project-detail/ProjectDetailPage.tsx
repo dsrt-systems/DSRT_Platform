@@ -780,7 +780,7 @@ function TabBar({
   onChange: (id: ProjectTabId) => void
 }) {
   return (
-    <div className="sticky top-[116px] md:top-[64px] z-20 bg-[#05070D]/95 backdrop-blur-md -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-white/[0.08]">
+    <div className="sticky top-[var(--dsrt-nav-h)] z-20 bg-[#05070D]/95 backdrop-blur-md -mx-4 px-4 sm:mx-0 sm:px-0 border-b border-white/[0.08]">
       <div
         role="tablist"
         aria-label="Project sections"
