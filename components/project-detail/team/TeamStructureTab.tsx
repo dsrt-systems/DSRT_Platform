@@ -1,10 +1,31 @@
 ﻿'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { Users, Briefcase, Sparkle, Plus, Clock, MapPin, ArrowRight } from '@phosphor-icons/react'
-import { TeamGraph } from './TeamGraph'
-import { RoleCreateModal } from '../applicants/RoleCreateModal'
-import { RoleDetailModal } from '../applicants/RoleDetailModal'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
+import {
+  Users, UserList, EnvelopeSimple, ShieldCheck,
+  Kanban, Graph, Pulse, Gear, Briefcase, Plus, LockKey,
+} from '@phosphor-icons/react'
+import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
+import { DsrtPanel, DsrtButton } from '@/components/dsrt'
+
+// Real components from prior phases
+import { TeamOverview } from './TeamOverview'
+import { TeamPeople } from './TeamPeople'
+import { InvitationsManager } from './console/InvitationsManager'
+import { RolesManager } from './console/RolesManager'
+import { TeamWorkPlans } from './console/TeamWorkPlans'
+import { TeamActivity } from './console/TeamActivity'
+import { TeamSettings } from './console/TeamSettings'
+import { TeamGraph } from './graph/TeamGraph'
+import { TeamAddMemberComposer } from './composer/TeamAddMemberComposer'
+import { AccessReviewDashboard } from './console/AccessReviewDashboard'
+import { useTeamCommands } from './hooks/useTeamCommands'
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES & CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════
 
 interface Props {
   slug: string
@@ -13,233 +34,327 @@ interface Props {
   currentUserId: string | null
 }
 
-const EMPLOYMENT_LABELS: Record<string, string> = {
-  'full-time': 'Full-time', 'part-time': 'Part-time', contract: 'Contract',
-  internship: 'Internship', volunteer: 'Volunteer',
+type TeamSubTabId =
+  | 'overview'
+  | 'people'
+  | 'invitations'
+  | 'roles'
+  | 'work-plans'
+  | 'graph'
+  | 'activity'
+  | 'settings'
+
+interface TeamSubTabDef {
+  id: TeamSubTabId
+  label: string
+  icon: any
+  requiresOwner: boolean
 }
-const LOCATION_LABELS: Record<string, string> = { remote: 'Remote', hybrid: 'Hybrid', onsite: 'On-site' }
+
+const TEAM_TABS: TeamSubTabDef[] = [
+  { id: 'overview',    label: 'Overview',       icon: Briefcase,      requiresOwner: false },
+  { id: 'people',      label: 'People',         icon: UserList,       requiresOwner: false },
+  { id: 'graph',       label: 'Team Graph',     icon: Graph,          requiresOwner: false },
+  { id: 'work-plans',  label: 'Work Plans',     icon: Kanban,         requiresOwner: false },
+  { id: 'invitations', label: 'Invitations',    icon: EnvelopeSimple, requiresOwner: true  },
+  { id: 'roles',       label: 'Roles & Access', icon: ShieldCheck,    requiresOwner: true  },
+  { id: 'activity',    label: 'Activity',       icon: Pulse,          requiresOwner: true  },
+  { id: 'settings',    label: 'Settings',       icon: Gear,           requiresOwner: true  },
+]
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
 
 export function TeamStructureTab({ slug, projectId, isOwner, currentUserId }: Props) {
-  const [view, setView] = useState<'graph'|'members'|'roles'>('graph')
-  const [roles, setRoles] = useState<any[]>([])
-  const [rolesLoading, setRolesLoading] = useState(true)
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editRole, setEditRole] = useState<any>(null)
-  const [detailRole, setDetailRole] = useState<any>(null)
+  const searchParams = useSearchParams()
 
-  const fetchRoles = useCallback(async () => {
-    setRolesLoading(true)
+  // ─── Register Cmd+K team shortcuts ──────────────────────────────────
+  useTeamCommands(slug, projectId, isOwner)
+
+  // ─── Sub-Tab Routing ─────────────────────────────────────────────────
+  const activeSubTab = ((): TeamSubTabId => {
+    const sub = searchParams?.get('sub') as TeamSubTabId | null
+    if (sub && TEAM_TABS.find(t => t.id === sub)) return sub
+    return 'overview'
+  })()
+
+  // ─── Summary Data ────────────────────────────────────────────────────
+  const [summary, setSummary] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  // ─── Add Member Composer ─────────────────────────────────────────────
+  const [composerOpen, setComposerOpen] = useState(false)
+
+  // ─── Refresh Key (bumps after successful invite to refresh lists) ────
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // ─── Fetch Summary ───────────────────────────────────────────────────
+  const fetchSummary = useCallback(async () => {
     try {
-      const res = await fetch('/api/projects/' + slug + '/roles')
-      const json = await res.json()
-      setRoles(json.roles || [])
-    } finally { setRolesLoading(false) }
-  }, [slug])
+      const supabase = createClient()
+      const { data, error } = await supabase.rpc('get_project_team_summary', {
+        p_project_id: projectId,
+      })
+      if (!error && data) {
+        setSummary(data)
+      }
+    } catch (e) {
+      console.error('[TeamShell] Summary fetch failed:', e)
+    } finally {
+      setLoading(false)
+    }
+  }, [projectId])
 
-  useEffect(() => { fetchRoles() }, [fetchRoles])
+  useEffect(() => {
+    fetchSummary()
+  }, [fetchSummary, refreshKey])
 
-  const openRoles = roles.filter((r: any) => r.status === 'open')
+  // ─── Navigation ──────────────────────────────────────────────────────
+  const handleTabChange = (next: TeamSubTabId) => {
+    const params = new URLSearchParams(searchParams?.toString() || '')
+    params.set('tab', 'team')
+    params.set('sub', next)
+    window.history.replaceState(null, '', `?${params.toString()}`)
+  }
 
-  const openCreate = () => { setEditRole(null); setCreateOpen(true) }
-  const openEdit = (role: any) => { setDetailRole(null); setEditRole(role); setCreateOpen(true) }
+  // ─── Composer Callbacks ──────────────────────────────────────────────
+  const openComposer = useCallback(() => setComposerOpen(true), [])
+  const closeComposer = useCallback(() => setComposerOpen(false), [])
+  const handleComposerSuccess = useCallback(() => {
+    setComposerOpen(false)
+    setRefreshKey(k => k + 1)
+    fetchSummary()
+  }, [fetchSummary])
+
+  // ─── Visibility ──────────────────────────────────────────────────────
+  const activeTabDef = TEAM_TABS.find(t => t.id === activeSubTab)
+  const isForbidden = activeTabDef?.requiresOwner && !isOwner
+
+  const visibleTabs = useMemo(() => {
+    return TEAM_TABS.filter(t => !t.requiresOwner || isOwner)
+  }, [isOwner])
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+
+      {/* ─── HEADER ───────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h2 className="text-[20px] font-bold text-white">Team Structure</h2>
-          <p className="text-[13px] text-white/55 mt-0.5">How the team is organized and what roles are open</p>
+          <h2 className="text-[22px] font-extrabold text-white tracking-tight leading-tight">
+            TEAM
+          </h2>
+          <p className="text-[13.5px] text-white/50 mt-1 font-medium">
+            Your people, responsibilities and execution structure.
+          </p>
         </div>
-        <div className="flex items-center gap-0.5 bg-white/[0.04] border border-white/[0.08] rounded-lg p-0.5">
-          {[
-            { id: 'graph', label: 'Graph', icon: Sparkle },
-            { id: 'members', label: 'Members', icon: Users },
-            { id: 'roles', label: 'Open Roles', icon: Briefcase },
-          ].map(v => {
-            const Icon = v.icon
-            const active = view === v.id
-            return (
-              <button
-                key={v.id}
-                onClick={() => setView(v.id as any)}
-                className={
-                  'flex items-center gap-1.5 px-3 h-8 text-[12px] font-semibold rounded-md transition-colors ' +
-                  (active ? 'bg-white/[0.08] text-white' : 'text-white/50 hover:text-white/85')
-                }
-              >
-                <Icon size={12} weight={active ? 'fill' : 'regular'} />
-                {v.label}
-              </button>
-            )
-          })}
-        </div>
+
+        {isOwner && (
+          <div className="flex items-center gap-2">
+            <DsrtButton
+              variant="outline"
+              size="sm"
+              onClick={() => handleTabChange('graph')}
+            >
+              <Graph size={14} weight="fill" /> Team Graph
+            </DsrtButton>
+            <DsrtButton
+              variant="primary"
+              size="sm"
+              className="bg-white text-black hover:bg-white/90"
+              onClick={openComposer}
+            >
+              <Plus size={14} weight="bold" /> Add member
+            </DsrtButton>
+          </div>
+        )}
       </div>
 
-      {view === 'graph' && (
-        <>
-          <TeamGraph slug={slug} isOwner={isOwner} />
+      {/* ─── METRICS BAR ──────────────────────────────────────────────── */}
+      <DsrtPanel padding="none" variant="default" className="overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/[0.06]">
+          <MetricCell
+            label="Members"
+            value={summary?.total_members}
+            loading={loading}
+          />
+          <MetricCell
+            label="Pending"
+            value={summary?.pending_invitations}
+            loading={loading}
+          />
+          <MetricCell
+            label="Roles"
+            value={summary?.total_roles}
+            loading={loading}
+          />
+          <MetricCell
+            label="Active Assignments"
+            value={summary?.active_objectives}
+            loading={loading}
+          />
+        </div>
+      </DsrtPanel>
 
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-[17px] font-bold text-white flex items-center gap-2">
-                  Open Roles <span className="text-white/40 font-normal text-[14px]">({openRoles.length})</span>
-                </h3>
-                <p className="text-[12px] text-white/50 mt-0.5">Join us and build the future.</p>
-              </div>
-              {isOwner && (
-                <button
-                  onClick={openCreate}
-                  className="flex items-center gap-1.5 text-[12px] font-semibold bg-white text-black hover:bg-white/90 px-3 h-8 rounded-md"
-                >
-                  <Plus size={11} weight="bold" /> Post role
-                </button>
+      {/* ─── SUB-NAVIGATION ───────────────────────────────────────────── */}
+      <div className="flex gap-1 border-b border-white/[0.06] overflow-x-auto scrollbar-hide">
+        {visibleTabs.map(t => {
+          const active = activeSubTab === t.id
+          const Icon = t.icon
+          return (
+            <button
+              key={t.id}
+              onClick={() => handleTabChange(t.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-3.5 text-[13.5px] font-semibold whitespace-nowrap border-b-[3px] -mb-px transition-colors outline-none',
+                active
+                  ? 'text-[#38bdf8] border-[#38bdf8]'
+                  : 'text-white/45 border-transparent hover:text-white/75'
               )}
-            </div>
+            >
+              <Icon size={16} weight={active ? 'fill' : 'regular'} />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
 
-            {rolesLoading ? (
-              <div className="text-[13px] text-white/40 py-6 text-center">Loading...</div>
-            ) : openRoles.length === 0 ? (
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-10 text-center">
-                <Briefcase size={28} className="mx-auto mb-2 text-white/25" />
-                <p className="text-[14px] text-white/50">No open roles right now</p>
+      {/* ─── CONTENT ROUTER ───────────────────────────────────────────── */}
+      <div className="min-h-[400px]">
+        {isForbidden ? (
+          <ForbiddenPanel />
+        ) : (
+          <>
+            {activeSubTab === 'overview' && (
+              <TeamOverview
+                key={`overview-${refreshKey}`}
+                projectId={projectId}
+                slug={slug}
+                summary={summary}
+              />
+            )}
+
+            {activeSubTab === 'people' && (
+              <TeamPeople
+                key={`people-${refreshKey}`}
+                projectId={projectId}
+                slug={slug}
+                isOwner={isOwner}
+                currentUserId={currentUserId}
+                onAddMember={openComposer}
+              />
+            )}
+
+            {activeSubTab === 'invitations' && (
+              <InvitationsManager
+                key={`invitations-${refreshKey}`}
+                projectId={projectId}
+                slug={slug}
+                onOpenComposer={openComposer}
+              />
+            )}
+
+            {activeSubTab === 'roles' && (
+              <div className="space-y-8">
+                <RolesManager
+                  key={`roles-${refreshKey}`}
+                  projectId={projectId}
+                  slug={slug}
+                />
                 {isOwner && (
-                  <button
-                    onClick={openCreate}
-                    className="text-[13px] font-medium text-white/85 hover:text-white underline underline-offset-2 mt-2"
-                  >
-                    + Post an open role
-                  </button>
+                  <AccessReviewDashboard
+                    key={`review-${refreshKey}`}
+                    projectId={projectId}
+                    slug={slug}
+                  />
                 )}
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {openRoles.slice(0, 6).map((role: any) => (
-                  <RoleCard key={role.id} role={role} slug={slug} onClick={() => setDetailRole(role)} />
-                ))}
-              </div>
             )}
-          </div>
-        </>
-      )}
 
-      {view === 'roles' && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[17px] font-bold text-white">All Open Roles</h3>
-            {isOwner && (
-              <button
-                onClick={openCreate}
-                className="flex items-center gap-1.5 text-[13px] font-semibold bg-white text-black hover:bg-white/90 px-3.5 h-8 rounded-md"
-              >
-                <Plus size={12} weight="bold" /> Post new role
-              </button>
+            {activeSubTab === 'work-plans' && (
+              <TeamWorkPlans
+                key={`work-plans-${refreshKey}`}
+                projectId={projectId}
+                slug={slug}
+                isOwner={isOwner}
+                currentUserId={currentUserId}
+              />
             )}
-          </div>
-          {rolesLoading ? (
-            <div className="text-[13px] text-white/40 py-6 text-center">Loading...</div>
-          ) : openRoles.length === 0 ? (
-            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-12 text-center">
-              <Briefcase size={30} className="mx-auto mb-2 text-white/25" />
-              <p className="text-[14px] text-white/45">No open roles yet</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {openRoles.map((role: any) => (
-                <RoleCard key={role.id} role={role} slug={slug} onClick={() => setDetailRole(role)} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
-      {view === 'members' && (
-        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-10 text-center">
-          <Users size={30} className="mx-auto mb-2 text-white/25" />
-          <p className="text-[14px] text-white/45">Members list view — use graph view or team sidebar for now</p>
-        </div>
-      )}
+            {activeSubTab === 'graph' && (
+              <TeamGraph
+                key={`graph-${refreshKey}`}
+                projectId={projectId}
+                slug={slug}
+                isOwner={isOwner}
+              />
+            )}
 
-      {createOpen && (
-        <RoleCreateModal
+            {activeSubTab === 'activity' && (
+              <TeamActivity
+                key={`activity-${refreshKey}`}
+                projectId={projectId}
+              />
+            )}
+
+            {activeSubTab === 'settings' && isOwner && (
+              <TeamSettings
+                key={`settings-${refreshKey}`}
+                projectId={projectId}
+                slug={slug}
+                isOwner={isOwner}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ─── ADD MEMBER COMPOSER (Portal) ─────────────────────────────── */}
+      {composerOpen && (
+        <TeamAddMemberComposer
           slug={slug}
-          role={editRole}
-          onClose={() => { setCreateOpen(false); setEditRole(null) }}
-          onSaved={fetchRoles}
-        />
-      )}
-
-      {detailRole && (
-        <RoleDetailModal
-          slug={slug}
-          role={detailRole}
-          isOwner={isOwner}
-          currentUserId={currentUserId}
-          onClose={() => setDetailRole(null)}
-          onEdit={openEdit}
-          onDeleted={fetchRoles}
-          onApplied={fetchRoles}
+          projectId={projectId}
+          onClose={closeComposer}
+          onSuccess={handleComposerSuccess}
         />
       )}
     </div>
   )
 }
 
-function RoleCard({ role, slug, onClick }: { role: any; slug: string; onClick: () => void }) {
-  const skills = role.key_skills || role.skills_needed || []
+// ═══════════════════════════════════════════════════════════════════════════
+// SUB-COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function MetricCell({
+  label,
+  value,
+  loading,
+}: {
+  label: string
+  value?: number
+  loading: boolean
+}) {
   return (
-    <button
-      onClick={onClick}
-      className="bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.05] rounded-xl p-4 transition-colors flex flex-col text-left"
-    >
-      <div className="flex items-start gap-3 mb-2.5">
-        <div className="w-10 h-10 rounded-lg bg-orange-500/12 border border-orange-500/25 flex items-center justify-center flex-shrink-0">
-          <Briefcase size={16} weight="fill" className="text-orange-300" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-[15px] font-bold text-white leading-tight">{role.title}</h4>
-          <p className="text-[11px] font-semibold text-orange-300 uppercase tracking-wider mt-0.5">Open Role</p>
-        </div>
-      </div>
+    <div className="flex items-center gap-3 px-6 py-4 bg-[#0a0a0f] hover:bg-white/[0.02] transition-colors">
+      <span className="text-[15px] font-bold text-white tabular-nums w-6">
+        {loading ? '-' : (value || 0)}
+      </span>
+      <span className="text-[12.5px] font-semibold text-white/50">
+        {label}
+      </span>
+    </div>
+  )
+}
 
-      <div className="flex flex-wrap gap-1 mb-2.5">
-        {role.location_type && (
-          <span className="text-[10px] font-semibold text-white/70 bg-white/[0.05] border border-white/[0.08] px-2 py-0.5 rounded flex items-center gap-1">
-            <MapPin size={9} /> {LOCATION_LABELS[role.location_type] || role.location_type}
-          </span>
-        )}
-        {role.employment_type && (
-          <span className="text-[10px] font-semibold text-white/70 bg-white/[0.05] border border-white/[0.08] px-2 py-0.5 rounded flex items-center gap-1">
-            <Clock size={9} /> {EMPLOYMENT_LABELS[role.employment_type] || role.employment_type}
-          </span>
-        )}
-      </div>
-
-      {role.description && (
-        <p className="text-[12px] text-white/65 leading-snug line-clamp-2 mb-3">{role.description}</p>
-      )}
-
-      {skills.length > 0 && (
-        <div className="mb-3">
-          <p className="text-[10px] font-semibold text-white/45 uppercase tracking-wider mb-1">Key Skills</p>
-          <div className="flex flex-wrap gap-1">
-            {skills.slice(0, 4).map((s: string) => (
-              <span key={s} className="text-[10px] font-semibold text-white/75 bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.5 rounded">
-                {s}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-auto flex items-center justify-between pt-3 border-t border-white/[0.05]">
-        <span className="text-[11px] text-white/50">
-          {role.applicants || 0} applicant{role.applicants !== 1 ? 's' : ''}
-        </span>
-        <span className="text-[11px] font-semibold text-white/85 flex items-center gap-1">
-          View Details <ArrowRight size={10} />
-        </span>
-      </div>
-    </button>
+function ForbiddenPanel() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center border border-white/[0.04] bg-white/[0.01] rounded-3xl">
+      <LockKey size={40} weight="duotone" className="text-white/20 mb-4" />
+      <p className="text-[15px] font-bold text-white mb-1">Access Restricted</p>
+      <p className="text-[13px] text-white/50">
+        Only the project owner can view team settings and invitations.
+      </p>
+    </div>
   )
 }
