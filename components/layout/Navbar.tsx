@@ -23,8 +23,8 @@ export function Navbar({ user, onMenuClick, handleLogout }: NavbarProps) {
   const isMailRoute = pathname?.startsWith('/inbox')
 
   return (
-    <header className="fixed top-0 inset-x-0 z-[60] bg-[#05070D]/95 backdrop-blur-md border-b border-white/[0.06] flex flex-col shadow-sm">
-      <div className="h-[64px] flex items-center justify-between px-3 lg:px-6">
+    <header className="fixed top-0 inset-x-0 z-[60] h-[64px] bg-[#05070D]/95 backdrop-blur-md border-b border-white/[0.06] flex items-center px-3 lg:px-6 shadow-sm">
+      <div className="w-full flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             onClick={onMenuClick}
@@ -34,22 +34,22 @@ export function Navbar({ user, onMenuClick, handleLogout }: NavbarProps) {
             <List size={20} weight="bold" />
           </button>
 
-          <Link href="/home" className="flex items-center gap-2 sm:gap-3 group pt-1">
-            <DsrtConnectLogo size={28} className="transition-transform duration-200 group-hover:scale-105 shrink-0" />
-            <div className="flex flex-col">
-              <span className="font-bold text-[16px] tracking-tight text-white leading-none">
+          <Link href="/home" className="flex items-center gap-2 sm:gap-2.5 group">
+            <DsrtConnectLogo size={26} className="transition-transform duration-200 group-hover:scale-105 shrink-0" />
+            <div className="flex flex-col justify-center">
+              <span className="font-bold text-[15px] tracking-tight text-white leading-none">
                 DSRT Connect
               </span>
-              <span className="font-cursive text-[15px] sm:text-[18px] text-white/90 leading-none mt-0.5 whitespace-nowrap hidden xs:block sm:block tracking-wide">
+              <span className="font-cursive text-[14px] sm:text-[16px] text-white/90 leading-none mt-1 whitespace-nowrap hidden xs:block sm:block tracking-wide">
                 Banaya Connections jo kaam aaya !!
               </span>
             </div>
           </Link>
         </div>
 
-        {/* Global search — hidden entirely inside DSRT Mail */}
+        {/* Global search */}
         {!isMailRoute && (
-          <div className="hidden md:flex flex-1 max-w-xl mx-auto px-4">
+          <div className="flex-1 max-w-xl mx-auto px-2 sm:px-4">
             <GlobalSearch />
           </div>
         )}
@@ -88,13 +88,6 @@ export function Navbar({ user, onMenuClick, handleLogout }: NavbarProps) {
           </DropdownMenu>
         </div>
       </div>
-
-      {/* Mobile global search row — also hidden on Mail */}
-      {!isMailRoute && (
-        <div className="md:hidden px-3 pb-3 w-full">
-          <GlobalSearch />
-        </div>
-      )}
     </header>
   )
 }

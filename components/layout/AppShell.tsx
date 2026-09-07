@@ -1,4 +1,3 @@
-// filepath: components/layout/AppShell.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -10,6 +9,8 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { CocoProvider } from '@/lib/coco/sdk'
 import { CocoPageAutoWire } from '@/components/coco/CocoPageAutoWire'
+
+const NAV_HEIGHT = 64
 
 export function AppShell({ user, children }: { user: any; children: React.ReactNode }) {
   const router = useRouter()
@@ -39,18 +40,18 @@ export function AppShell({ user, children }: { user: any; children: React.ReactN
 
   return (
     <CocoProvider>
-      {/* Auto-wire every DSRT page to COCO. Zero page changes needed. */}
       <CocoPageAutoWire />
+
+      <style jsx global>{`
+        :root {
+          --dsrt-nav-h: ${NAV_HEIGHT}px;
+        }
+      `}</style>
 
       <div className="flex flex-col min-h-screen bg-[#05070D]">
         <Navbar user={user} onMenuClick={handleMenuToggle} handleLogout={handleLogout} />
 
-        <div
-          className={cn(
-            'flex flex-1',
-            isMailRoute ? 'pt-[64px]' : 'pt-[112px] md:pt-[64px]'
-          )}
-        >
+        <div className="flex flex-1 pt-[64px]">
           <Sidebar
             user={user}
             badges={badges}
@@ -61,7 +62,12 @@ export function AppShell({ user, children }: { user: any; children: React.ReactN
           />
 
           <main className="flex-1 flex flex-col min-w-0 bg-[#05070D] relative">
-            <div className={cn('flex-1 w-full min-w-0', isMailRoute ? 'pb-0' : 'pb-12')}>
+            <div
+              className={cn(
+                'flex-1 w-full min-w-0 overflow-x-clip',
+                isMailRoute ? 'pb-0' : 'pb-12'
+              )}
+            >
               {children}
             </div>
           </main>
