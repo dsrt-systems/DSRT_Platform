@@ -49,16 +49,19 @@ interface Props {
   currentUser: any
 }
 
+// ═══════════════════════════════════════════════════════════
+// SOLID FILLED BADGES — Classic professional look
+// ═══════════════════════════════════════════════════════════
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  update:      { label: 'Update',      color: 'text-[#93c5fd] bg-[#1e3a5f]/40 border-[#2c5282]/40' },
-  milestone:   { label: 'Milestone',   color: 'text-amber-300 bg-amber-500/10 border-amber-500/20' },
-  idea:        { label: 'Idea',        color: 'text-purple-300 bg-purple-500/10 border-purple-500/20' },
-  looking_for: { label: 'Looking For', color: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' },
-  build_log:   { label: 'Build Log',   color: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20' },
-  launch:      { label: 'Launch',      color: 'text-orange-300 bg-orange-500/10 border-orange-500/20' },
-  discussion:  { label: 'Discussion',  color: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/20' },
-  question:    { label: 'Question',    color: 'text-pink-300 bg-pink-500/10 border-pink-500/20' },
-  problem:     { label: 'Problem',     color: 'text-red-300 bg-red-500/10 border-red-500/20' },
+  update:      { label: 'Update',      color: 'text-white bg-blue-600 border-blue-500' },
+  milestone:   { label: 'Milestone',   color: 'text-white bg-amber-600 border-amber-500' },
+  idea:        { label: 'Idea',        color: 'text-white bg-purple-600 border-purple-500' },
+  looking_for: { label: 'Looking For', color: 'text-white bg-emerald-600 border-emerald-500' },
+  build_log:   { label: 'Build Log',   color: 'text-white bg-cyan-600 border-cyan-500' },
+  launch:      { label: 'Launch',      color: 'text-white bg-orange-600 border-orange-500' },
+  discussion:  { label: 'Discussion',  color: 'text-white bg-indigo-600 border-indigo-500' },
+  question:    { label: 'Question',    color: 'text-white bg-pink-600 border-pink-500' },
+  problem:     { label: 'Problem',     color: 'text-white bg-red-600 border-red-500' },
 }
 
 const REACTION_ICON: Record<string, any> = {
@@ -217,7 +220,7 @@ export function HomePostCard({ post, currentUser }: Props) {
               <div className="flex items-center gap-1.5 min-w-0">
                 <Link
                   href={publisherHref}
-                  className="text-[14px] sm:text-[15px] font-bold text-white hover:underline truncate tracking-tight min-w-0"
+                  className="text-[14px] sm:text-[15px] font-bold text-white hover:underline truncate tracking-tight min-w-0 font-sans"
                 >
                   {publisher.name}
                 </Link>
@@ -230,7 +233,7 @@ export function HomePostCard({ post, currentUser }: Props) {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 text-[12px] text-white/40 mt-0.5 min-w-0">
+              <div className="flex items-center gap-1.5 text-[12px] text-white/50 mt-0.5 min-w-0 font-sans">
                 <span className="truncate">@{publisher.handle}</span>
                 <span className="shrink-0">·</span>
                 <span className="shrink-0">{timeAgo}</span>
@@ -265,12 +268,13 @@ export function HomePostCard({ post, currentUser }: Props) {
           </div>
         </div>
 
+        {/* Solid Filled Badges + Title */}
         {(typeMeta || post.title) && (
           <div className="mb-3 flex flex-col gap-2 min-w-0">
             {typeMeta && (
               <span
                 className={cn(
-                  'inline-flex w-fit items-center h-[22px] px-2 rounded-md text-[10px] font-bold uppercase tracking-wider border',
+                  'inline-flex w-fit items-center h-[24px] px-2.5 rounded-md text-[10.5px] font-bold uppercase tracking-wider border shadow-sm',
                   typeMeta.color
                 )}
               >
@@ -278,29 +282,38 @@ export function HomePostCard({ post, currentUser }: Props) {
               </span>
             )}
             {post.title && (
-              <h2 className="text-[16px] sm:text-[17px] font-semibold text-white tracking-tight leading-snug break-words [word-break:break-word]">
+              <h2 className="text-[17px] sm:text-[19px] font-bold text-white tracking-tight leading-snug break-words [word-break:break-word] font-sans">
                 {post.title}
               </h2>
             )}
           </div>
         )}
 
+        {/* Clean, classic body text — sans-serif, easy to read */}
         {post.content && (
           <div className="relative mb-4 min-w-0 max-w-full overflow-hidden">
             <div
               ref={contentWrapperRef}
               className={cn(
-                'min-w-0 max-w-full overflow-hidden',
-                'text-[14px] sm:text-[15px] text-white/80 leading-relaxed',
+                'min-w-0 max-w-full overflow-hidden font-sans',
+                'text-[14.5px] sm:text-[15px] text-white/85 leading-[1.65]',
                 'break-words [word-break:break-word]',
-                'prose prose-invert prose-sm max-w-none',
-                '[&_*]:max-w-full [&_*]:break-words',
                 '[&_p]:mb-3 [&_p]:last:mb-0',
-                '[&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:whitespace-pre-wrap',
-                '[&_code]:break-words [&_code]:whitespace-pre-wrap',
-                '[&_a]:break-all',
-                '[&_img]:max-w-full [&_img]:h-auto',
-                '[&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full',
+                '[&_h1]:text-[20px] [&_h1]:font-bold [&_h1]:text-white [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:tracking-tight',
+                '[&_h2]:text-[18px] [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:tracking-tight',
+                '[&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-white [&_h3]:mt-3 [&_h3]:mb-1.5',
+                '[&_strong]:font-semibold [&_strong]:text-white',
+                '[&_em]:italic',
+                '[&_a]:text-blue-400 [&_a]:underline [&_a]:break-all hover:[&_a]:text-blue-300',
+                '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-3 [&_ul]:space-y-1',
+                '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-3 [&_ol]:space-y-1',
+                '[&_blockquote]:border-l-2 [&_blockquote]:border-white/20 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-white/70 [&_blockquote]:my-3',
+                '[&_code]:bg-white/[0.06] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono [&_code]:text-white/90 [&_code]:break-words',
+                '[&_pre]:bg-black/40 [&_pre]:border [&_pre]:border-white/[0.08] [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:text-[13px]',
+                '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
+                '[&_hr]:border-white/[0.08] [&_hr]:my-4',
+                '[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3',
+                '[&_*]:max-w-full [&_*]:break-words',
                 !isExpanded && isOverflowing ? 'max-h-[280px] overflow-hidden' : ''
               )}
               dangerouslySetInnerHTML={{ __html: sanitizePostHTML(post.content) }}
@@ -332,7 +345,7 @@ export function HomePostCard({ post, currentUser }: Props) {
               <Link
                 key={tag}
                 href={`/search?q=${encodeURIComponent('#' + tag)}`}
-                className="text-[12px] font-medium text-[#93c5fd] hover:text-white hover:underline break-all max-w-full"
+                className="text-[12.5px] font-medium text-blue-400 hover:text-blue-300 hover:underline break-all max-w-full font-sans"
               >
                 #{tag}
               </Link>
