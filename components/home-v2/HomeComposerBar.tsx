@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Image as ImageIcon, VideoCamera, ChartBar, Code, ArticleNyTimes } from '@phosphor-icons/react'
 import { HomeComposerModal } from './composer/HomeComposerModal'
-import { DsrtAvatar, DsrtButton } from '@/components/dsrt'
+import { DsrtAvatar } from '@/components/dsrt'
 
 interface Props {
   currentUser: any
@@ -34,20 +34,21 @@ export function HomeComposerBar({ currentUser }: Props) {
           transition-all duration-150
         "
       >
-        {/* Input row */}
-        <div className="px-4 pt-4 pb-3 flex items-center gap-3">
+        {/* Input row - responsive padding */}
+        <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2.5 sm:pb-3 flex items-center gap-2 sm:gap-3">
           <DsrtAvatar
             src={currentUser?.avatar_url}
             name={currentUser?.full_name || currentUser?.username}
             size="md"
+            className="shrink-0"
           />
           <div
             className="
-              flex-1 h-11 flex items-center px-4 rounded-full
+              flex-1 h-10 sm:h-11 flex items-center px-3 sm:px-4 rounded-full
               bg-black/25 border border-white/15
-              text-[14px] text-white/80 group-hover:text-white
+              text-[13px] sm:text-[14px] text-white/80 group-hover:text-white
               group-hover:bg-black/30 transition-all font-medium
-              shadow-[inset_0_2px_4px_rgba(0,0,0,0.25)]
+              shadow-[inset_0_2px_4px_rgba(0,0,0,0.25)] min-w-0 truncate
             "
           >
             What's happening in DSRT?
@@ -55,7 +56,7 @@ export function HomeComposerBar({ currentUser }: Props) {
         </div>
 
         {/* Actions row */}
-        <div className="px-3 pb-3.5 pt-1 flex items-center justify-between gap-2">
+        <div className="px-2 sm:px-3 pb-3 sm:pb-3.5 pt-1 flex items-center justify-between gap-2">
           <div className="flex items-center gap-0.5 flex-wrap overflow-x-auto scrollbar-hide">
             <QuickAction Icon={ImageIcon} label="Image" onClick={() => handleOpen('update')} />
             <QuickAction Icon={VideoCamera} label="Video" onClick={() => handleOpen('update')} />
@@ -68,8 +69,8 @@ export function HomeComposerBar({ currentUser }: Props) {
             type="button"
             onClick={(e) => { e.stopPropagation(); handleOpen('update') }}
             className="
-              h-8 px-4 rounded-full text-[12.5px] font-bold text-teal-900
-              bg-white border border-white/80
+              h-8 px-3.5 sm:px-4 rounded-full text-[12.5px] font-bold text-teal-900
+              bg-white border border-white/80 shrink-0
               shadow-[0_3px_0_0_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,1)]
               hover:bg-teal-50
               active:shadow-[0_1px_0_0_rgba(0,0,0,0.15)]
@@ -100,7 +101,7 @@ function QuickAction({ Icon, label, onClick }: { Icon: any; label: string; onCli
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick() }}
       className="
-        inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg
+        inline-flex items-center gap-1 sm:gap-1.5 h-8 px-2 sm:px-2.5 rounded-lg
         text-white/80 hover:text-white hover:bg-white/15
         text-[12px] font-medium transition-all select-none
       "
