@@ -17,24 +17,51 @@ import { PostMoreMenu } from './PostMoreMenu'
 import { usePostDwellTracker } from '@/hooks/useTracking'
 import { DsrtPanel, DsrtAvatar } from '@/components/dsrt'
 
+/**
+ * Force every post into clean plain HTML with the same classic font.
+ * Strips Word/Docs junk, inline fonts, and weird wrappers from paste.
+ */
 function sanitizePostHTML(html: string): string {
   if (!html) return ''
+
+  // Plain text → simple paragraphs
   if (!/<[a-z][\s\S]*>/i.test(html)) {
     return html
       .split('\n')
-      .map(line => (line.trim() ? `<p>${escapeHTML(line)}</p>` : '<br/>'))
+      .map((line) => (line.trim() ? `<p>${escapeHTML(line)}</p>` : ''))
       .join('')
   }
+
   let clean = html
     .replace(/<\?xml[^>]*>/gi, '')
+    .replace(/<\/?o:[^>]*>/gi, '')
+    .replace(/<\/?w:[^>]*>/gi, '')
+    .replace(/<\/?meta[^>]*>/gi, '')
+    .replace(/<\/?link[^>]*>/gi, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
+    // Kill pasted font / style / class / id attributes that change look
     .replace(/\s+style="[^"]*"/gi, '')
+    .replace(/\s+style='[^']*'/gi, '')
     .replace(/\s+class="[^"]*"/gi, '')
-    .replace(/<span[^>]*>/gi, '<span>')
+    .replace(/\s+class='[^']*'/gi, '')
+    .replace(/\s+id="[^"]*"/gi, '')
+    .replace(/\s+face="[^"]*"/gi, '')
+    .replace(/\s+size="[^"]*"/gi, '')
+    .replace(/\s+color="[^"]*"/gi, '')
+    .replace(/\s+data-[a-z-]+="[^"]*"/gi, '')
+    .replace(/\s+lang="[^"]*"/gi, '')
+    .replace(/\s+dir="[^"]*"/gi, '')
+    .replace(/\s+on\w+="[^"]*"/gi, '')
+    // Flatten font/span wrappers so font stays uniform
+    .replace(/<\/?font[^>]*>/gi, '')
+    .replace(/<span[^>]*>/gi, '')
+    .replace(/<\/span>/gi, '')
     .replace(/\s{2,}/g, ' ')
-  return clean.trim()
+    .trim()
+
+  return clean
 }
 
 function escapeHTML(str: string): string {
@@ -49,9 +76,6 @@ interface Props {
   currentUser: any
 }
 
-// ═══════════════════════════════════════════════════════════
-// SOLID FILLED BADGES — Classic professional look
-// ═══════════════════════════════════════════════════════════
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   update:      { label: 'Update',      color: 'text-white bg-blue-600 border-blue-500' },
   milestone:   { label: 'Milestone',   color: 'text-white bg-amber-600 border-amber-500' },
@@ -72,7 +96,8 @@ const REACTION_COLOR: Record<string, string> = {
   like: 'text-blue-400', love: 'text-pink-400', insightful: 'text-amber-400', celebrate: 'text-purple-400', support: 'text-emerald-400', curious: 'text-cyan-400',
 }
 
-const MAX_CONTENT_HEIGHT = 280
+// Collapsed view shows ~4 lines, then expands fully on click
+const COLLAPSED_LINES = 4
 
 export function HomePostCard({ post, currentUser }: Props) {
   const postRef = usePostDwellTracker(post.id, post.tags || [])
@@ -83,9 +108,12 @@ export function HomePostCard({ post, currentUser }: Props) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   useLayoutEffect(() => {
-    if (contentWrapperRef.current && contentWrapperRef.current.scrollHeight > MAX_CONTENT_HEIGHT) {
-      setIsOverflowing(true)
-    }
+    const el = contentWrapperRef.current
+    if (!el) return
+    // Measure full height vs collapsed line-clamp height
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 24
+    const collapsedHeight = lineHeight * COLLAPSED_LINES
+    setIsOverflowing(el.scrollHeight > collapsedHeight + 4)
   }, [post.content])
 
   const [reactionType, setReactionType] = useState<string | null>(post.is_reacted ? 'like' : null)
@@ -206,6 +234,7 @@ export function HomePostCard({ post, currentUser }: Props) {
         padding="md"
         className="group w-full max-w-full overflow-hidden"
       >
+        {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4 min-w-0">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link href={publisherHref} className="shrink-0">
@@ -268,13 +297,13 @@ export function HomePostCard({ post, currentUser }: Props) {
           </div>
         </div>
 
-        {/* Solid Filled Badges + Title */}
+        {/* Solid badge + title */}
         {(typeMeta || post.title) && (
           <div className="mb-3 flex flex-col gap-2 min-w-0">
             {typeMeta && (
               <span
                 className={cn(
-                  'inline-flex w-fit items-center h-[24px] px-2.5 rounded-md text-[10.5px] font-bold uppercase tracking-wider border shadow-sm',
+                  'inline-flex w-fit items-center h-[24px] px-2.5 rounded-md text-[10.5px] font-bold uppercase tracking-wider border shadow-sm font-sans',
                   typeMeta.color
                 )}
               >
@@ -282,58 +311,68 @@ export function HomePostCard({ post, currentUser }: Props) {
               </span>
             )}
             {post.title && (
-              <h2 className="text-[17px] sm:text-[19px] font-bold text-white tracking-tight leading-snug break-words [word-break:break-word] font-sans">
+              <h2 className="text-[17px] sm:text-[18px] font-bold text-white tracking-tight leading-snug break-words font-sans">
                 {post.title}
               </h2>
             )}
           </div>
         )}
 
-        {/* Clean, classic body text — sans-serif, easy to read */}
+        {/*
+          BODY:
+          - Always classic sans font
+          - Collapsed = line-clamp (NO scrollbar)
+          - Click anywhere on text = expand / collapse
+        */}
         {post.content && (
-          <div className="relative mb-4 min-w-0 max-w-full overflow-hidden">
+          <div className="mb-3 min-w-0 max-w-full overflow-hidden">
             <div
               ref={contentWrapperRef}
+              role={isOverflowing ? 'button' : undefined}
+              tabIndex={isOverflowing ? 0 : undefined}
+              onClick={() => {
+                if (isOverflowing) setIsExpanded((v) => !v)
+              }}
+              onKeyDown={(e) => {
+                if (isOverflowing && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault()
+                  setIsExpanded((v) => !v)
+                }
+              }}
               className={cn(
-                'min-w-0 max-w-full overflow-hidden font-sans',
-                'text-[14.5px] sm:text-[15px] text-white/85 leading-[1.65]',
+                'min-w-0 max-w-full overflow-hidden',
+                // ONE classic standard font for all posts
+                'font-sans text-[15px] leading-[1.6] text-white/85',
                 'break-words [word-break:break-word]',
-                '[&_p]:mb-3 [&_p]:last:mb-0',
-                '[&_h1]:text-[20px] [&_h1]:font-bold [&_h1]:text-white [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:tracking-tight',
-                '[&_h2]:text-[18px] [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:tracking-tight',
-                '[&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-white [&_h3]:mt-3 [&_h3]:mb-1.5',
-                '[&_strong]:font-semibold [&_strong]:text-white',
-                '[&_em]:italic',
-                '[&_a]:text-blue-400 [&_a]:underline [&_a]:break-all hover:[&_a]:text-blue-300',
-                '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-3 [&_ul]:space-y-1',
-                '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-3 [&_ol]:space-y-1',
-                '[&_blockquote]:border-l-2 [&_blockquote]:border-white/20 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-white/70 [&_blockquote]:my-3',
-                '[&_code]:bg-white/[0.06] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono [&_code]:text-white/90 [&_code]:break-words',
-                '[&_pre]:bg-black/40 [&_pre]:border [&_pre]:border-white/[0.08] [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre]:text-[13px]',
-                '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
-                '[&_hr]:border-white/[0.08] [&_hr]:my-4',
-                '[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3',
+                // Force children to same font too (pasted content)
+                '[&_*]:!font-sans [&_*]:!text-[15px] [&_*]:!leading-[1.6]',
                 '[&_*]:max-w-full [&_*]:break-words',
-                !isExpanded && isOverflowing ? 'max-h-[280px] overflow-hidden' : ''
+                '[&_p]:mb-2.5 [&_p]:last:mb-0',
+                '[&_h1]:!text-[17px] [&_h1]:!font-bold [&_h1]:!text-white [&_h1]:mb-2',
+                '[&_h2]:!text-[16px] [&_h2]:!font-bold [&_h2]:!text-white [&_h2]:mb-2',
+                '[&_h3]:!text-[15px] [&_h3]:!font-semibold [&_h3]:!text-white [&_h3]:mb-1.5',
+                '[&_strong]:font-semibold [&_strong]:text-white',
+                '[&_a]:text-blue-400 [&_a]:underline [&_a]:break-all',
+                '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2',
+                '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2',
+                '[&_blockquote]:border-l-2 [&_blockquote]:border-white/20 [&_blockquote]:pl-3 [&_blockquote]:text-white/70 [&_blockquote]:my-2',
+                '[&_code]:!font-sans [&_code]:bg-white/[0.06] [&_code]:px-1 [&_code]:rounded',
+                '[&_pre]:!font-sans [&_pre]:bg-transparent [&_pre]:p-0 [&_pre]:m-0 [&_pre]:whitespace-pre-wrap [&_pre]:overflow-visible',
+                '[&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2',
+                // Collapse with line-clamp — never scroll
+                !isExpanded && isOverflowing ? 'line-clamp-4 cursor-pointer' : '',
+                isExpanded && isOverflowing ? 'cursor-pointer' : ''
               )}
               dangerouslySetInnerHTML={{ __html: sanitizePostHTML(post.content) }}
             />
-            {!isExpanded && isOverflowing && (
-              <div className="absolute bottom-0 left-0 right-0 h-[80px] bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/80 to-transparent flex items-end justify-start">
-                <button
-                  onClick={() => setIsExpanded(true)}
-                  className="text-[13px] font-semibold text-blue-400 hover:text-blue-300 pb-1"
-                >
-                  Read more
-                </button>
-              </div>
-            )}
-            {isExpanded && isOverflowing && (
+
+            {isOverflowing && (
               <button
-                onClick={() => setIsExpanded(false)}
-                className="text-[12px] font-medium text-white/50 hover:text-white/80 mt-2"
+                type="button"
+                onClick={() => setIsExpanded((v) => !v)}
+                className="mt-1.5 text-[13px] font-semibold text-blue-400 hover:text-blue-300 font-sans"
               >
-                Show less
+                {isExpanded ? 'Show less' : 'Read more'}
               </button>
             )}
           </div>
@@ -365,6 +404,7 @@ export function HomePostCard({ post, currentUser }: Props) {
           <LinkPreview post={post} />
         )}
 
+        {/* Actions */}
         <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center gap-1 sm:gap-2 min-w-0">
           <div
             className="relative"
@@ -545,14 +585,14 @@ function LinkPreview({ post }: { post: any }) {
         </div>
       )}
       <div className="p-4 min-w-0">
-        <div className="text-[10px] font-mono uppercase tracking-wider text-white/40 mb-1 truncate">
+        <div className="text-[10px] uppercase tracking-wider text-white/40 mb-1 truncate font-sans">
           {hostname}
         </div>
-        <div className="text-[14px] font-medium text-white line-clamp-2 mb-1 leading-tight break-words [word-break:break-word]">
+        <div className="text-[14px] font-medium text-white line-clamp-2 mb-1 leading-tight break-words font-sans">
           {post.link_title}
         </div>
         {post.link_description && (
-          <p className="text-[12px] text-white/50 line-clamp-2 leading-relaxed break-words [word-break:break-word]">
+          <p className="text-[12px] text-white/50 line-clamp-2 leading-relaxed break-words font-sans">
             {post.link_description}
           </p>
         )}
