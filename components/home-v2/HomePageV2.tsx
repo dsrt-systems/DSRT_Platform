@@ -43,9 +43,20 @@ export function HomePageV2({ currentUser }: Props) {
       >
         <div className="space-y-4">
           <HomeComposerBar currentUser={currentUser} />
-          <div className="sticky top-[116px] z-20 bg-[#05070D]/95 backdrop-blur-md pt-2 pb-3 -mx-4 px-4 sm:mx-0 sm:px-0">
+
+          {/* Solid sticky tabs — sits flush under the fixed navbar */}
+          <div
+            className="
+              sticky top-[var(--dsrt-nav-h)] z-30
+              bg-[#05070D]
+              border-b border-white/[0.06]
+              pt-2 pb-3
+              -mx-4 px-4 sm:mx-0 sm:px-0
+            "
+          >
             <HomeTabs active={activeTab} onChange={handleTabChange} />
           </div>
+
           <HomeFeed tab={activeTab} currentUser={currentUser} />
         </div>
       </DsrtLayoutWithRail>

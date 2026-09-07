@@ -159,7 +159,7 @@ export function HomeFeed({ tab, currentUser }: Props) {
     <div className="w-full">
       <div className="relative min-h-0" aria-live="polite">
         {newPostsCount > 0 && (
-          <div className="sticky top-[160px] z-20 flex justify-center pointer-events-none mb-4">
+          <div className="sticky top-[calc(var(--dsrt-nav-h)+52px)] z-20 flex justify-center pointer-events-none mb-4">
             <button
               onClick={loadNewPosts}
               className="pointer-events-auto inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-white text-black text-[12px] font-bold shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:bg-zinc-200 transition-all"
