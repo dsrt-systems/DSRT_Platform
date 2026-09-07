@@ -28,19 +28,34 @@ export function HomeComposerModal({ open, onClose, currentUser, initialType = 'u
   )
 }
 
-function ComposerInner({ onClose, currentUser, initialType }: { onClose: () => void; currentUser?: any, initialType: string }) {
+function ComposerInner({ onClose, currentUser, initialType }: { onClose: () => void; currentUser?: any; initialType: string }) {
   const router = useRouter()
   const composer = useComposer()
   const { status: autosaveStatus } = useComposerAutosave(true)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
-  
+
+  // ✅ Auto-assign current user as publisher on mount
+  useEffect(() => {
+    if (currentUser && !composer.publisher) {
+      composer.setPublisher({
+        type: 'person',
+        id: currentUser.id,
+        name: currentUser.full_name || currentUser.username || 'User',
+        handle: currentUser.username || 'user',
+        avatar_url: currentUser.avatar_url || null,
+        tagline: currentUser.tagline || null,
+        is_verified: currentUser.is_verified || false,
+      })
+    }
+  }, [currentUser, composer])
+
   // Set initial post type based on what Quick Action button was clicked
   useEffect(() => {
     if (initialType && composer.postType === 'update') {
       composer.setPostType(initialType)
     }
-  }, [initialType])
+  }, [initialType, composer])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -73,10 +88,6 @@ function ComposerInner({ onClose, currentUser, initialType }: { onClose: () => v
   }
 
   const handlePublish = async () => {
-    if (!composer.publisher) {
-      setPublishError('Please select who to post as')
-      return
-    }
     const hasContent = composer.content.trim() || composer.media.length > 0
     if (!hasContent) {
       setPublishError('Add some content or media first')
@@ -89,6 +100,8 @@ function ComposerInner({ onClose, currentUser, initialType }: { onClose: () => v
     try {
       const payload = {
         ...composer.serialize(),
+        publisher_type: composer.publisher?.type || 'person',
+        publisher_id: composer.publisher?.id || currentUser?.id,
         is_draft: false,
         draft_id: composer.draftId,
       }
@@ -99,22 +112,23 @@ function ComposerInner({ onClose, currentUser, initialType }: { onClose: () => v
         body: JSON.stringify(payload),
       })
 
+      const data = await res.json().catch(() => ({}))
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || 'Failed to publish')
+        throw new Error(data.error || 'Failed to publish post')
       }
 
       composer.reset()
       onClose()
       router.refresh()
     } catch (e: any) {
-      setPublishError(e?.message || 'Something went wrong')
+      setPublishError(e?.message || 'Something went wrong while publishing')
     } finally {
       setPublishing(false)
     }
   }
 
-  const canPublish = !!composer.publisher && (composer.content.trim().length > 0 || composer.media.length > 0)
+  const canPublish = (composer.content.trim().length > 0 || composer.media.length > 0)
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={handleClose}>
@@ -133,7 +147,7 @@ function ComposerInner({ onClose, currentUser, initialType }: { onClose: () => v
           <MediaAttachments />
 
           {publishError && (
-            <div className="p-3 rounded-md border border-red-500/30 bg-red-500/5 text-[12.5px] text-red-400">
+            <div className="p-3 rounded-md border border-red-500/30 bg-red-500/5 text-[12.5px] text-red-400 font-medium">
               {publishError}
             </div>
           )}

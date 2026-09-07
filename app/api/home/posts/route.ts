@@ -7,25 +7,13 @@ function sanitizeHTML(html: string): string {
   if (!html) return ''
   return html
     .replace(/<\?xml[^>]*>/gi, '')
-    .replace(/<\/?o:[^>]*>/gi, '')
-    .replace(/<\/?w:[^>]*>/gi, '')
-    .replace(/<\/?meta[^>]*>/gi, '')
-    .replace(/<\/?link[^>]*>/gi, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/\s+style="[^"]*"/gi, '')
-    .replace(/\s+style='[^']*'/gi, '')
     .replace(/\s+class="[^"]*"/gi, '')
     .replace(/\s+id="[^"]*"/gi, '')
-    .replace(/\s+data-[a-z-]+="[^"]*"/gi, '')
-    .replace(/\s+lang="[^"]*"/gi, '')
-    .replace(/\s+xml:lang="[^"]*"/gi, '')
-    .replace(/\s+dir="[^"]*"/gi, '')
     .replace(/<span[^>]*>/gi, '<span>')
-    .replace(/<\/?font[^>]*>/gi, '')
-    .replace(/\s+on\w+="[^"]*"/gi, '')
-    .replace(/\s+on\w+='[^']*'/gi, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
@@ -38,20 +26,14 @@ function extractPlainText(html: string): string {
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
 
-/** Coerce null/undefined/non-array into a real array */
 function asArray<T = any>(value: unknown): T[] {
   return Array.isArray(value) ? value : []
 }
 
-/**
- * POST /api/home/posts
- */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -66,7 +48,6 @@ export async function POST(req: NextRequest) {
     title,
     content,
     content_text,
-    content_html,
     content_blocks,
     video_url,
     file_urls,
@@ -92,12 +73,10 @@ export async function POST(req: NextRequest) {
     draft_id,
   } = body
 
-  // FIX: null-safe arrays (defaults don't apply when client sends null)
   const media_urls = asArray<string>(body.media_urls)
   const image_urls = asArray<string>(body.image_urls)
   const tags = asArray<string>(body.tags)
   const blocks = asArray(content_blocks)
-  const files = file_urls == null ? null : file_urls
 
   const rawHTML = content || content_text || ''
   const cleanHTML = sanitizeHTML(rawHTML)
@@ -111,17 +90,20 @@ export async function POST(req: NextRequest) {
 
   const effectivePublisherId = publisher_id || user.id
 
-  const { data: canPublish, error: permErr } = await supabase.rpc('fn_can_publish_as', {
-    p_user_id: user.id,
-    p_publisher_type: publisher_type,
-    p_publisher_id: effectivePublisherId,
-  })
+  // ✅ Personal posts are always allowed for the owner. Other identities check permissions via RPC.
+  if (publisher_type !== 'person' || effectivePublisherId !== user.id) {
+    const { data: canPublish, error: permErr } = await supabase.rpc('fn_can_publish_as', {
+      p_user_id: user.id,
+      p_publisher_type: publisher_type,
+      p_publisher_id: effectivePublisherId,
+    })
 
-  if (permErr) console.error('Permission check error:', permErr)
-  if (!canPublish) {
-    return NextResponse.json({
-      error: 'You do not have permission to publish as this identity',
-    }, { status: 403 })
+    if (permErr) console.error('Permission check error:', permErr)
+    if (!canPublish) {
+      return NextResponse.json({
+        error: 'You do not have permission to publish as this identity',
+      }, { status: 403 })
+    }
   }
 
   try {
@@ -138,7 +120,7 @@ export async function POST(req: NextRequest) {
       media_urls: media_urls.length ? media_urls : null,
       image_urls: image_urls.length ? image_urls : null,
       video_url: video_url || null,
-      file_urls: files,
+      file_urls: file_urls || null,
       link_url: link_url || null,
       link_title: link_title || null,
       link_description: link_description || null,
@@ -203,6 +185,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ post }, { status: 201 })
   } catch (e: any) {
     console.error('Create post error:', e)
-    return NextResponse.json({ error: e?.message }, { status: 500 })
+    return NextResponse.json({ error: e?.message || 'Failed to create post' }, { status: 500 })
   }
 }
